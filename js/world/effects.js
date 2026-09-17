@@ -166,10 +166,8 @@ export class Effects {
     return this.dropMatCache[ck];
   }
 
-  spawnDrop(id, x, y, z, vel = null, kind = null) {
+  spawnDrop(id, x, y, z, vel = null, kind = null, dur = null) {
     const k = kind || (id >= 100 ? 'item' : 'block');
-    // Aletler yere düşmez (MC'de elde kırılır), güvenlik
-    if (k === 'item' && ITEMS[id]?.tool) return;
     if (this.drops.length > 60) { const d = this.drops.shift(); this.scene.remove(d.m); this.dbg('drop-atıldı(eski)'); }
     const flat = k === 'item'; // MC: eşyalar yerde yatan düz sprite, bloklar mini küp
     const m = flat ? this.dropItemMesh(id) : new THREE.Mesh(this.dropGeo, this.dropMats(id, k));
@@ -178,7 +176,7 @@ export class Effects {
     else m.rotation.y = Math.random() * Math.PI;
     this.scene.add(m);
     this.drops.push({
-      m, id, kind: k, flat, age: 0,
+      m, id, kind: k, dur: dur, flat, age: 0,
       vel: vel ? vel.clone() : new THREE.Vector3((Math.random() - 0.5) * 3, 4.5, (Math.random() - 0.5) * 3),
     });
     this.stat.spawned++;
@@ -241,7 +239,7 @@ export class Effects {
         toPlayer.normalize().multiplyScalar((4 - dist) * 3 * dt);
         d.m.position.add(toPlayer);
         if (dist < 1.1) {
-          if (onPickup(d.id, d.kind || (d.id >= 100 ? 'item' : 'block'))) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.picked++; this.dbg(`toplandı #${d.id}`); }
+          if (onPickup(d.id, d.kind, d.dur)) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.picked++; this.dbg(`toplandı #${d.id}`); }
           continue;
         }
       } else {

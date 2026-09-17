@@ -692,9 +692,19 @@ document.addEventListener('keydown', (e) => {
     const sel = inventory?.selectedSlot();
     if (sel) {
       const sk = sel.kind || (sel.id >= 100 ? 'item' : 'block');
-      // alet atılmaz (kırılana kadar elde; droplar alet taşımaz, kaybolurdu)
-      if (sk === 'item' && ITEMS[sel.id]?.tool) { toast('Alet Q ile atılmaz!'); }
-      else if (GAMEMODE === 'creative' || inventory.consumeSelected()) {
+      const isTool = sk === 'item' && ITEMS[sel.id]?.tool;
+      if (isTool && GAMEMODE === 'creative') {
+        effects?.spawnDrop(sel.id, Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z), new THREE.Vector3(0, 4, 0), sk, sel.dur);
+        renderHotbar();
+      } else if (isTool) {
+        inventory.hotbar[inventory.sel] = null;
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        const eye = player.pos.clone(); eye.y += EYE;
+        effects?.spawnDrop(sel.id, Math.floor(eye.x + dir.x), Math.floor(eye.y), Math.floor(eye.z + dir.z), new THREE.Vector3(dir.x * 6, 2.5, dir.z * 6), sk, sel.dur);
+        inventory.renderHot();
+        inventory.onChange();
+      } else if (GAMEMODE === 'creative' || inventory.consumeSelected()) {
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
         const eye = player.pos.clone(); eye.y += EYE;
@@ -1054,9 +1064,9 @@ function animate() {
   // efektler: partikül + düşen eşya (iki modda da yerden toplanır, MC gibi)
   effects?.update(dt, new THREE.Vector3(player.pos.x, player.pos.y + 1, player.pos.z),
     !player.dead,
-    (id, kind) => {
+    (id, kind, dur) => {
       const k = kind || (id >= 100 ? 'item' : 'block');
-      const ok = inventory ? inventory.addItem(id, 1, k) : false;
+      const ok = inventory ? inventory.addItem(id, 1, k, (typeof dur === 'number') ? dur : null) : false;
       if (ok) { renderHotbar(); try { furnaceUI?.renderAll(); } catch {} }
       return ok;
     });

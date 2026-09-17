@@ -192,7 +192,7 @@ export class InventoryUI {
   }
 
   // Kırılan/üretilen bloğu/eşyayı ekle. Sığmazsa false.
-  addItem(id, count = 1, kind = null) {
+  addItem(id, count = 1, kind = null, dur = null) {
     const k = kind || kindOf(id);
     if (k === 'block') {
       if (!BLOCKS[id] || id === 16 || id === 10) return false;
@@ -206,7 +206,7 @@ export class InventoryUI {
       const all = [this.hotbar, this.main];
       for (const arr of all) {
         for (let i = 0; i < arr.length && need > 0; i++) {
-          if (!arr[i]) { arr[i] = { kind: k, id, count: 1, dur: ITEMS[id].maxDur }; need--; }
+          if (!arr[i]) { const md = ITEMS[id].maxDur; const dd = (typeof dur === 'number') ? Math.max(1, Math.min(md, Math.floor(dur))) : md; arr[i] = { kind: k, id, count: 1, dur: dd }; need--; }
         }
       }
       this.renderHot(); this.renderMain();
