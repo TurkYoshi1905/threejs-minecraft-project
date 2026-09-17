@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minecraft Three.js Projesi⛏️</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Crosshair -->
+  <div id="crosshair">+</div>
+
+  <!-- Üst bilgi -->
+  <div id="info">
+    <div><b>Three.js Minecraft</b> | <span id="fps">60</span> FPS | XYZ: <span id="coords">0, 0, 0</span></div>
+    <div id="seedInfo">Seed yükleniyor...</div>
+    <div id="help-hint">WASD yürü • Sol basılı-kır • Sağ koy • 1-0 seç • E envanter • T sohbet</div>
+  </div>
+
+  <!-- Açılış splash: her girişte tam ekran logo, sonra menüye geçiş -->
+  <div id="bootSplash"><img src="assets/logo.png" alt="Minecraft Klonu" onerror="this.parentElement.classList.add('gone')" /></div>
+
+  <!-- Başlangıç menüsü / Dünya seçimi (Minecraft tarzı) -->
+  <div id="menu">
+    <div class="mc-logo">
+      <h1>⛏️ MİNECRAFT KLONU</h1>
+      <div id="splash">%100 JavaScript!</div>
+    </div>
+    <p class="mc-sub">Three.js + Faithful Texture • Sonsuz Chunk • <span id="menuSeed"></span></p>
+
+    <!-- Ana ekran -->
+    <div id="menuMain" class="mc-screen">
+      <button id="btnSingle" class="mc-btn big">🗺️ Tek Oyunculu</button>
+      <button id="btnHelpMenu" class="mc-btn big">❓ Nasıl Oynanır</button>
+      <div class="mc-footer">Three.js Minecraft v2.1 • MC 1.21 uyumlu (Y -64..319) • <span id="buildTag">…</span> • <span id="worldCount"></span></div>
+    </div>
+
+    <!-- Tek oyunculu ekran -->
+    <div id="menuSingle" class="mc-screen hidden">
+      <button id="playBtn" class="mc-btn green big">▶ Seçili Dünyada OYNA</button>
+      <div id="worldPanel">
+        <h3>⛏️ Dünyalar</h3>
+        <div id="worldList"><div class="world-empty">Yükleniyor...</div></div>
+        <div id="createBox">
+          <div class="fld full"><label for="worldName">Dünya adı</label><input id="worldName" maxlength="24" placeholder="örn: Benim Dünyam" /></div>
+          <div class="fld"><label for="worldSeed">Seed (boş = rastgele)</label><input id="worldSeed" maxlength="64" placeholder="örn: 12345" /></div>
+          <div class="fld"><label for="worldMode">Oyun modu</label><select id="worldMode">
+            <option value="creative">Yaratıcı</option>
+            <option value="survival">Hayatta Kalma</option>
+          </select></div>
+          <div class="fld"><label>&nbsp;</label><button id="randomSeedBtn" type="button" title="Rastgele seed">🎲</button></div>
+          <button id="createBtn" type="button">+ Yeni Dünya Oluştur</button>
+        </div>
+      </div>
+      <button id="btnBackMain" class="mc-btn">← Geri</button>
+    </div>
+
+    <!-- Yardım ekranı -->
+    <div id="menuHelp" class="mc-screen hidden">
+      <div class="controls-info">
+        <p><b>W A S D</b> - Hareket | <b>Mouse</b> - Etrafına bak</p>
+        <p><b>Space</b> - Zıpla/Yüz/Uç | <b>çift-Space</b> - Uçma aç/kapat (yaratıcı)</p>
+        <p><b>Sol Tık (basılı tut)</b> - Blok kır (alet hızlandırır) | <b>Sağ Tık (basılı tut)</b> - Blok koy</p>
+        <p><b>1-0 / Tekerlek</b> - Blok seç | <b>E</b> - Envanter | <b>T</b> - Sohbet/Komut | <b>Q</b> - Eşya at</p>
+        <p><b>/gamemode /give /setblock /tp /time /seed</b> - sohbete yaz (örn: /give elmas kazma)</p>
+        <p>Y: -64..319 • Dünya sınırı ±250.000 (kırmızı bariyer) • Fırın: sağ tıkla aç</p>
+      </div>
+      <button id="btnBackMain2" class="mc-btn">← Geri</button>
+    </div>
+    <small>Not: VS Code'da <b>Live Server</b> ile aç. Dünya IndexedDB'ye kaydedilir.</small>
+  </div>
+
+  <!-- Yardım paneli (E ile açılır) -->
+  <div id="helpPanel" class="hidden">
+    <h2>Nasıl Oynanır?</h2>
+    <ul>
+      <li>🖱️ Başlamak için ekrana tıkla (pointer lock).</li>
+      <li>🧱 Sol tık: blok kır, Sağ tık: seçili bloğu koy.</li>
+      <li>🔢 1-0 tuşları veya mouse tekerleği ile blok seç.</li>
+      <li>🌍 Chunklar ilerledikçe üretilir, değişenler IndexedDB'ye kaydedilir.</li>
+      <li>🧱 Y sınırları: -64 (bedrock) ile 319 arası. Sınır ±250k'da kırmızı duvar.</li>
+      <li>💾 Texture'lar: Faithful Default-Java 1.21.1 (atlas)</li>
+    </ul>
+    <button id="closeHelp">Kapat (E)</button>
+  </div>
+
+  <!-- Border uyarısı -->
+  <div id="borderWarn" class="hidden">⚠ DÜNYA SINIRI ⚠</div>
+
+  <!-- Su altı perdesi -->
+  <div id="waterOverlay" class="hidden"></div>
+
+  <!-- Yükleme ekranı -->
+  <div id="loading" class="hidden"><div class="load-box"><div class="load-title">⛏️ Dünya üretiliyor...</div><div id="loadingText">Başlatılıyor</div></div></div>
+
+  <!-- WebGL hatası (context oluşturulamazsa) -->
+  <div id="webglError" class="hidden">
+    <div class="load-box">
+      <div class="load-title">⚠️ WebGL açılamadı</div>
+      <p>Tarayıcı grafik bağlamını engelledi (çok fazla sekme/yenileme sonrası olur).</p>
+      <ol>
+        <li>Diğer sekmeleri kapat, özellikle bu oyunun açık olduğu diğer sekmeleri.</li>
+        <li>Tarayıcıyı tamamen kapatıp yeniden aç.</li>
+        <li>Olmadıysa <b>chrome://gpu</b> adresinde WebGL durumuna bak.</li>
+      </ol>
+      <button class="mc-btn green" onclick="location.reload()">🔄 Tekrar Dene</button>
+    </div>
+  </div>
+
+  <!-- Hotbar + can -->
+  <div id="hotbar"></div>
+  <div id="hearts" title="Can"></div>
+  <div id="modeBadge"></div>
+  <div id="selected-name"></div>
+  <div id="breakBar" class="hidden"><div id="breakFill"></div></div>
+
+  <!-- Envanter (E) -->
+  <div id="invPanel" class="hidden">
+    <div class="inv-box">
+      <div class="inv-title">Envanter <span id="invMode"></span><button id="invClose">✕ Kapat (E)</button></div>
+      <div id="invTabs" class="hidden">
+        <button data-tab="all" class="active">🧱 Tümü</button>
+        <button data-tab="dogal">🌿 Doğal</button>
+        <button data-tab="yapi">🏠 Yapı</button>
+        <button data-tab="degerli">💎 Değerli</button>
+        <button data-tab="alet">⛏️ Aletler</button>
+        <input id="invSearch" placeholder="🔍 Ara... (örn: taş)" />
+      </div>
+      <div id="invCursorInfo">Sol: al/bırak • Sağ: yarısını al / 1 tane koy • Çift-tık: topla • Shift+tık: hızlı taşı</div>
+      <div id="invGrid"></div>
+      <div id="craft2Wrap">
+        <div class="inv-sub">Üretim (2x2)</div>
+        <div class="craft-row">
+          <div id="craft2Grid"></div>
+          <div class="craft-arrow">➜</div>
+          <div id="craft2Out"></div>
+        </div>
+      </div>
+      <div class="inv-sub">Çanta (27)</div>
+      <div id="invMain"></div>
+      <div class="inv-sub">Hotbar (1-0)</div>
+      <div id="invHot"></div>
+    </div>
+  </div>
+
+  <!-- Çalışma Masası (3x3) -->
+  <div id="tablePanel" class="hidden">
+    <div class="inv-box">
+      <div class="inv-title">🔨 Çalışma Masası <button id="tableClose">✕ Kapat (E)</button></div>
+      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın</div>
+      <div class="craft-row big">
+        <div id="craft3Grid"></div>
+        <div class="craft-arrow">➜</div>
+        <div id="craft3Out"></div>
+      </div>
+      <div class="inv-sub">Çanta (27)</div>
+      <div id="tableMain"></div>
+      <div class="inv-sub">Hotbar (1-0)</div>
+      <div id="tableHot"></div>
+    </div>
+  </div>
+
+  <!-- Fırın -->
+  <div id="furnacePanel" class="hidden">
+    <div class="inv-box">
+      <div class="inv-title">🔥 Fırın <button id="furnaceClose">✕ Kapat (E)</button></div>
+      <div id="furnHint">Üste eritilecek (cevher/kum/kütük) • Alta yakıt (kömür/odun/tahta/çubuk) • Sağ tık: 1 tane koy</div>
+      <div class="furn-row">
+        <div class="furn-col">
+          <div class="inv-sub">Eritilecek</div>
+          <div id="furnIn"></div>
+          <div class="inv-sub">Yakıt</div>
+          <div id="furnFuel"></div>
+        </div>
+        <div class="furn-mid">
+          <div id="furnBurn"><div id="furnBurnFill"></div></div>
+          <div class="craft-arrow">➜</div>
+          <div id="furnProgWrap"><div id="furnProgFill"></div></div>
+        </div>
+        <div class="furn-col">
+          <div class="inv-sub">Sonuç</div>
+          <div id="furnOut"></div>
+        </div>
+      </div>
+      <div class="inv-sub">Çanta (27)</div>
+      <div id="furnMain"></div>
+      <div class="inv-sub">Hotbar (1-0)</div>
+      <div id="furnHot"></div>
+    </div>
+  </div>
+
+  <!-- Duraklatma menüsü (oyun içi Esc) -->
+  <div id="pauseMenu" class="hidden">
+    <h2>⏸️ Duraklatıldı</h2>
+    <div class="mc-screen">
+      <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
+      <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
+      <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
+    </div>
+    <small>İpucu: E envanter • T sohbet • H yardım</small>
+  </div>
+
+  <!-- Ölüm ekranı -->
+  <div id="deathScreen" class="hidden">
+    <h1>💀 Öldün!</h1>
+    <p id="deathMsg">Yüksekten düştün</p>
+    <button id="respawnBtn" class="mc-btn green big">Yeniden Doğ</button>
+  </div>
+
+  <!-- Sohbet + komut (T) -->
+  <div id="chatLog"></div>
+  <div id="chatBox" class="hidden">
+    <input id="chatInput" maxlength="256" placeholder="Mesaj yaz veya /komut..." autocomplete="off" />
+  </div>
+
+  <!-- v= query: tarayıcı modül önbelleğini patlatır (eski atlas/mesher kalmasın) -->
+  <script type="module" src="js/main.js?v=6"></script>
+  <script type="module" src="js/ui/menu.js?v=6"></script>
+</body>
+</html>

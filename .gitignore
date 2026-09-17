@@ -1,0 +1,5 @@
+Thumbs.db
+Desktop.ini
+.vscode/*
+!.vscode/extensions.json
+*.log
