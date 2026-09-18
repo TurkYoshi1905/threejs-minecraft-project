@@ -31,7 +31,8 @@ export const RECIPES = [
   { out: { id: 127, count: 1 }, p: [[102], [102], [100]] },     // demir kılıç
   { out: { id: 128, count: 1 }, p: [[103], [103], [100]] },     // altın kılıç
   { out: { id: 129, count: 1 }, p: [[104], [104], [100]] },     // elmas kılıç
-  { out: { id: 22, count: 1 }, p: [[4, 4, 4], [4, 0, 4], [4, 4, 4]] },        // 8 kırma taş -> fırın
+  { out: { id: 22, count: 1 }, p: [[4, 4, 4], [4, 0, 4], [4, 4, 4]] },
+  { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 tahta -> 3 kapı (MC)        // 8 kırma taş -> fırın
 ];
 
 function normalize(grid, size) {

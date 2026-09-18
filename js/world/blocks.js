@@ -27,6 +27,10 @@ export const BLOCKS = {
   22: { ad: 'Fırın', top: 'furnace_top', side: 'furnace_side', front: 'furnace_front', bottom: 'furnace_top', furnace: true },
   23: { ad: 'Altın Cevheri', all: 'gold_ore' },
   24: { ad: 'Yanık Fırın', top: 'furnace_top', side: 'furnace_side', front: 'furnace_front_on', bottom: 'furnace_top', furnace: true, lit: true },
+  25: { ad: 'Meşe Kapı', all: 'oak_door_bottom', door: true, saydam: true },
+  26: { ad: 'Kapı Üstü', all: 'oak_door_top', door: true, gizli: true, saydam: true },
+  27: { ad: 'Sandık', top: 'chest_top', side: 'chest_side', bottom: 'oak_planks',
+        front: 'chest_front', frontL: 'chest_front_l', frontR: 'chest_front_r', chest: true },
 };
 
 export const HOTBAR_DEFAULT = [1, 2, 3, 4, 7, 5, 6, 8, 9, 14];
@@ -38,12 +42,12 @@ export function isOpaque(id) {
   return !b.saydam;
 }
 
-// Kırma süreleri (saniye, el ile) - Survival için
-// NOT: alet çarpanları js/world/items.js HARVEST tablosunda. Buradaki değer = el süresi.
+// Kırma süreleri: EL ile saniye = MC sertlik x 1.5 (Wiki tablosu).
+// Dogrusal alet: /hiz. Ornek: tas+demir kazma 2.25/6 = 0.375sn (MC ile ayni).
 export const BREAK_TIME = {
-  1: 0.6, 2: 0.6, 3: 1.8, 4: 1.8, 5: 1.2, 6: 0.25, 7: 1.2,
-  8: 0.6, 9: 0.4, 10: Infinity, 11: 2.2, 12: 2.2, 13: 2.2,
-  14: 1.8, 15: 0.7, 17: 2.2, 18: 0.6, 19: 0.4, 20: 1.2, 21: 0.05, 22: 2.0, 23: 2.2, 24: 2.0,
+  1: 0.9, 2: 0.75, 3: 2.25, 4: 3.0, 5: 3.0, 6: 0.3, 7: 3.0,
+  8: 0.75, 9: 0.45, 10: Infinity, 11: 4.5, 12: 4.5, 13: 4.5,
+  14: 3.0, 15: 0.9, 17: 4.5, 18: 0.9, 19: 0.3, 20: 3.75, 21: 0.05, 22: 5.25, 23: 4.5, 24: 5.25, 25: 4.5, 26: 4.5, 27: 3.75,
 };
 
 

@@ -16,13 +16,13 @@ function nameOf(kind, id) {
 }
 
 const GRID_ALL = [
-  ...Object.keys(BLOCKS).map(Number).filter((id) => id !== 16 && id !== 24),
+  ...Object.keys(BLOCKS).map(Number).filter((id) => id !== 16 && id !== 24 && id !== 26),
   ...Object.keys(ITEMS).map(Number),
 ].sort((a, b) => a - b);
 const CATS = {
   all: GRID_ALL,
   dogal: [1, 2, 3, 8, 15, 5, 6, 18, 19, 17],
-  yapi: [4, 7, 14, 20, 22, 21, 9, 5, 1],
+  yapi: [4, 7, 14, 20, 22, 25, 21, 9, 5, 1],
   degerli: [11, 12, 23, 13, 10, 14, 104, 105, 106, 102, 103, 101],
   alet: [110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 100, 101, 105, 106, 102, 103, 104],
 };
@@ -233,9 +233,9 @@ export class InventoryUI {
     return left === 0;
   }
 
-  consumeSelected() {
-    // Yaratıcıda eksilmez (MC). Hayatta kalmada 1 eksilt (blok+eşya, alet hariç).
-    if (this.mode === 'creative') return true;
+  consumeSelected(force = false) {
+    // Yaratıcıda eksilmez (MC) — force (Q) hariç. Hayatta kalmada 1 eksilt.
+    if (this.mode === 'creative' && !force) return true;
     const s = this.hotbar[this.sel];
     if (!s) return false;
     const k = s.kind || kindOf(s.id);
@@ -508,9 +508,19 @@ export class InventoryUI {
   clickSlot(area, index, e) {
     const right = e.button === 2;
     const shift = e.shiftKey;
-    // MC gibi: palete tıklamak/bırakmak eldekini SİLER (çöp kutusu)
+    // Palet: elde tasinirken tiklama eldekini DEGISTIRIR (sol=tam stack, sag=tekli). Cop kutusu = surukle-birak.
     if (area === 'grid') {
-      if (this.cursor) { this.cursor = null; this.hideGhost(); this.renderMain(); this.renderHot(); this.onChange(); return; }
+      if (this.cursor) {
+        const list = this.filteredGrid();
+        const gid = list[index];
+        if (gid == null) return;
+        const gk = kindOf(gid);
+        if (ITEMS[gid]?.tool) this.cursor = { kind: gk, id: gid, count: 1, dur: ITEMS[gid].maxDur };
+        else if (right) this.cursor = { kind: gk, id: gid, count: 1 };
+        else this.cursor = { kind: gk, id: gid, count: maxOf(gk, gid) };
+        this.refreshGhost();
+        return;
+      }
       this.clickGrid(index, e);
       return;
     }

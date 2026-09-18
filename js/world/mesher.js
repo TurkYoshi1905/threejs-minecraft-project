@@ -24,6 +24,7 @@ const TINTS = {
   water_still: [0.24, 0.45, 0.95],
 };
 
+function chestCode(st) { if (!st) return 0; return (((st.dbl | 0) % 3) * 4) + ((st.face | 0) & 3); }
 function tintFor(tex) {
   return TINTS[tex] || null;
 }
@@ -40,7 +41,7 @@ function isOpaqueFast(id) {
   return id < 64 ? OPAQUE_LUT[id] === 1 : true;
 }
 
-export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y, WORLD_HEIGHT) {
+export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y, WORLD_HEIGHT, getTorch, getFurnace, getDoor, getChest) {
   const op = { pos: [], nor: [], uv: [], col: [], idx: [] };
   const tr = { pos: [], nor: [], uv: [], col: [], idx: [] };
   const em = { pos: [], nor: [], uv: [], col: [], idx: [] }; // ışık yayanlar (meşale)
@@ -52,11 +53,17 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
   };
 
   // MC meşale: ince direk, altta ortalı, X cross 2 quad. Tam küp değil.
-  function addTorch(bucket, wx, y, wz, rect) {
+  function addTorch(bucket, wx, y, wz, rect, facing = 0) {
     // direk: x 7/16..9/16, z 7/16..9/16, y 0..10/16
-    const x0 = wx + 7 / 16, x1 = wx + 9 / 16;
-    const z0 = wz + 7 / 16, z1 = wz + 9 / 16;
+    // duvar mesalesi (facing 1..4): duvara yaslanir + uca dogru egilir (MC)
+    const TD = { 1: [0, 0, 1], 2: [0, 0, -1], 3: [1, 0, 0], 4: [-1, 0, 0] };
+    const sd = TD[facing] || [0, 0, 0];
+    const ox = sd[0] * 3 / 16, oz = sd[2] * 3 / 16; // yaslanma
+    const lx = sd[0] / 16, lz = sd[2] / 16; // egilme (uc duvara yakin)
+    const x0 = wx + 7 / 16 + ox, x1 = wx + 9 / 16 + ox;
+    const z0 = wz + 7 / 16 + oz, z1 = wz + 9 / 16 + oz;
     const y0 = y, y1 = y + 10 / 16;
+    const lean = (t) => [lx * t, 0, lz * t]; // kose yuksekligine gore ek kayma (uc duvara yakin)
     const quads = [
       // plane 1: x sabit orta, z boyunca (ön/arka yüzler)
       { p: [[(x0+x1)/2, y0, z0], [(x0+x1)/2, y0, z1], [(x0+x1)/2, y1, z1], [(x0+x1)/2, y1, z0]], n: [1, 0.3, 0] },
@@ -70,11 +77,61 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
       const len = Math.hypot(q.n[0], q.n[1], q.n[2]);
       const n = [q.n[0]/len, q.n[1]/len, q.n[2]/len];
       q.p.forEach((v, i) => {
-        bucket.pos.push(v[0], v[1], v[2]);
+        const t = (v[1] - y0) / Math.max(1e-6, y1 - y0);
+        const dl = lean(t);
+        bucket.pos.push(v[0] + dl[0], v[1], v[2] + dl[2]);
         bucket.nor.push(...n);
         const [fu, fv] = FACE_UV[i];
         bucket.uv.push(rect.u0 + (rect.u1 - rect.u0) * fu, rect.v0 + (rect.v1 - rect.v0) * fv);
         bucket.col.push(1, 1, 1);
+      });
+      bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
+    }
+  }
+
+  // MC kapı: ince panel (3/16). Kapalı = hücre ortasında, normal oyuncuya bakar.
+  // Açık = menteşeden 90° salınmış. Alt yarı alt doku, üst yarı üst doku.
+  const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
+  function addDoor(bucket, wx, y, wz, rect, face, open) {
+    const n = DOOR_N[face & 3] || DOOR_N[0];
+    const t = [-n[2], 0, n[0]]; // panel teğeti
+    const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
+    const quads = [];
+    if (!open) {
+      const cx = wx + 0.5, cz = wz + 0.5, hh = 0.094;
+      const c = [
+        [cx - t[0] * 0.5 - n[0] * hh, y, cz - t[2] * 0.5 - n[2] * hh],
+        [cx + t[0] * 0.5 - n[0] * hh, y, cz + t[2] * 0.5 - n[2] * hh],
+        [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
+        [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
+      ];
+      // on yuz (+n) ve arka yuz (-n) icin iki quad
+      quads.push({ p: [c[0], c[1], c[2], c[3]], n });
+      quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-n[0], 0, -n[2]] });
+    } else {
+      // menteşe: panel ucunda, panel -n yönüne salınır (içeri)
+      const hx = wx + 0.5 + t[0] * 0.5, hz = wz + 0.5 + t[2] * 0.5;
+      const dx = -n[0], dz = -n[2], hh = 0.094;
+      const c = [
+        [hx - t[0] * hh, y, hz - t[2] * hh],
+        [hx + t[0] * hh, y, hz + t[2] * hh],
+        [hx + dx + t[0] * hh, y + 1, hz + dz + t[2] * hh],
+        [hx + dx - t[0] * hh, y + 1, hz + dz - t[2] * hh],
+      ];
+      // hizada: alttaki iki kose menteşe ucunda birleşir (ince görünüm korunur)
+      quads.push({ p: [c[0], c[1], c[2], c[3]], n: [t[0], 0, t[2]] });
+      quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-t[0], 0, -t[2]] });
+    }
+    for (const q of quads) {
+      const base = bucket.pos.length / 3;
+      const len = Math.hypot(q.n[0], q.n[1], q.n[2]) || 1;
+      const nn = [q.n[0] / len, q.n[1] / len, q.n[2] / len];
+      q.p.forEach((v, i) => {
+        bucket.pos.push(v[0], v[1], v[2]);
+        bucket.nor.push(...nn);
+        const [fu, fv] = FACE_UV[i];
+        bucket.uv.push(rect.u0 + (rect.u1 - rect.u0) * fu, rect.v0 + (rect.v1 - rect.v0) * fv);
+        bucket.col.push(shade, shade, shade);
       });
       bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
     }
@@ -87,12 +144,21 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
         const id = blocks[yBase + lz * 16 + lx];
         if (!id) continue;
         const b = BLOCKS[id];
+        // Kapı yarıları: ince panel, alt/üst doku ayrı
+        if (id === 25 || id === 26) {
+          const by = id === 25 ? y : y - 1;
+          const st = getDoor ? getDoor(cx * 16 + lx, by, cz * 16 + lz) : null;
+          const tex = faceTextureName(id, 'pz');
+          const rect = uvMap[tex] || uvMap['stone'];
+          addDoor(op, cx * 16 + lx, y, cz * 16 + lz, rect, (st && st.face | 0) || 0, !!(st && st.open));
+          continue;
+        }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)
         if (id === 21) {
           const tex = 'torch';
           const rect = uvMap[tex] || uvMap['stone'];
           const wx = cx * 16 + lx, wz = cz * 16 + lz;
-          addTorch(em, wx, y, wz, rect);
+          addTorch(em, wx, y, wz, rect, getTorch ? getTorch(wx, y, wz) : 0);
           continue;
         }
         // su: üstü açıksa üst yüzü bir piksel aşağıda? v1'de tam blok, basit tutuyoruz
@@ -108,7 +174,10 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           // Aynı tip komşuda iç yüzü çizme: cam-cam, yaprak-yaprak VE su-su.
           // (Su üst yüzü, üstte hava varsa zaten çizilir; üstte su varsa atlanır.)
           if (nid === id && isSaydam) continue;
-          const tex = faceTextureName(id, f.dir);
+          const wx0 = cx * 16 + lx, wz0 = cz * 16 + lz;
+          const ff = (id === 22 || id === 24) && getFurnace ? (getFurnace(wx0, y, wz0) || 0) : 0;
+          const cc = id === 27 && getChest ? chestCode(getChest(wx0, y, wz0)) : 0;
+          const tex = faceTextureName(id, f.dir, ff, cc);
           const rect = uvMap[tex] || uvMap['stone'];
           const tint = tintFor(tex) || WHITE;
           const bucket = id === 21 ? em : (isTrans ? tr : op);

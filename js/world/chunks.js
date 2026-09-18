@@ -172,7 +172,11 @@ export class ChunkManager {
   remesh(c) {
     const { op, tr, em } = buildChunkGeometry(
       c.blocks, c.cx, c.cz, (x, y, z) => this.getBlock(x, y, z),
-      this.atlas.uvMap, MIN_Y, WORLD_HEIGHT
+      this.atlas.uvMap, MIN_Y, WORLD_HEIGHT,
+      this.torchFacing || null,
+      this.furnaceFacing || null,
+      this.doorState || null,
+      this.chestState || null
     );
     if (c.meshOp) { this.scene.remove(c.meshOp); c.meshOp.geometry.dispose(); c.meshOp = null; }
     if (c.meshTr) { this.scene.remove(c.meshTr); c.meshTr.geometry.dispose(); c.meshTr = null; }

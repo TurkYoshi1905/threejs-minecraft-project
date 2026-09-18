@@ -45,7 +45,7 @@ export class FurnaceManager {
     this.map.clear();
     if (!obj) return;
     for (const [k, v] of Object.entries(obj)) {
-      if (v && typeof v === 'object') this.map.set(k, { input: v.input || null, fuel: v.fuel || null, output: v.output || null, prog: +v.prog || 0, burn: +v.burn || 0, burnTotal: +v.burnTotal || 0 });
+      if (v && typeof v === 'object') this.map.set(k, { input: v.input || null, fuel: v.fuel || null, output: v.output || null, prog: +v.prog || 0, burn: +v.burn || 0, burnTotal: +v.burnTotal || 0, face: (v.face | 0) || 0 });
     }
   }
   // 0.2sn tick:-worlddeki tüm fırınlar (sayı az olduğu için hepsi)

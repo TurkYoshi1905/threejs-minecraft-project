@@ -17,6 +17,8 @@ function collectTextureNames() {
     if (b.side) names.add(b.side);
     if (b.bottom) names.add(b.bottom);
     if (b.front) names.add(b.front);
+    if (b.frontL) names.add(b.frontL);
+    if (b.frontR) names.add(b.frontR);
   }
   names.add('furnace_front_on'); // yanık fırın ağzı
   return [...names];
@@ -160,13 +162,26 @@ export async function buildAtlas() {
   return { texture, uvMap, canvas };
 }
 
-export function faceTextureName(id, dir) {
+export function faceTextureName(id, dir, facing = 0, code = 0) {
   const b = BLOCKS[id];
   if (!b) return 'stone';
   if (b.all) return b.all;
   if (dir === 'py') return b.top;
   if (dir === 'ny') return b.bottom;
   // Fırın: ön yüz (+z) farklı, diğer yanlar side
-  if (b.furnace) return dir === 'pz' ? b.front : (dir === 'px' || dir === 'nx' || dir === 'nz' ? b.side : b.side);
+  // Firin on yuzu oyuncuya bakar (face: 0:+z 1:-z 2:+x 3:-x, MC)
+    // Sandik: kod = dbl*4+face (0 tek, 1 sol/min, 2 sag/max). On yuze varyant, uste kapak.
+  if (b.chest) {
+    const face = code % 4, dbl = Math.floor(code / 4) % 3;
+    const FDIR = ['pz', 'nz', 'px', 'nx'];
+    if (dir === 'py') return b.top;
+    if (dir === 'ny') return b.bottom;
+    if (dir === (FDIR[face] || 'pz')) return dbl === 1 ? (b.frontL || b.front) : dbl === 2 ? (b.frontR || b.front) : b.front;
+    return b.side;
+  }
+  if (b.furnace) {
+    const FDIR = ['pz', 'nz', 'px', 'nx'];
+    return dir === (FDIR[facing] || 'pz') ? (id === 24 ? 'furnace_front_on' : b.front) : b.side;
+  }
   return b.side;
 }

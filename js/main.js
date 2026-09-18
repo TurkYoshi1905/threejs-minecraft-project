@@ -13,6 +13,9 @@ import { ChatUI, resolveBlock } from './ui/chat.js';
 import { heartIcons } from './ui/hearts.js';
 import { CraftUI } from './ui/craft.js';
 import { FurnaceManager, FurnaceUI } from './ui/furnace.js';
+import { DoorManager } from './world/doors.js';
+import { ChestManager } from './world/chests.js';
+import { ChestUI } from './ui/chest.js';
 import { FallSim, WaterSim } from './world/sim.js';
 import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
@@ -104,27 +107,50 @@ let craftInv = null;   // envanter içi 2x2
 let craftTable = null; // masa 3x3
 let furnaceMgr = new FurnaceManager();
 let furnaceUI = null;
+/* chestUI asagida uiBuilt blogunda kurulur */
+const doorMgr = new DoorManager();
+const chestMgr = new ChestManager();
 const fallSim = new FallSim();
 const waterSim = new WaterSim();
 let waterTickAcc = 0;
 
 // Meşale ışık takibi: koyulan/kırılan meşaleler + sarı ışık havuzu
-const torchSet = new Set(); // "x,y,z"
+const torchMap = new Map(); // "x,y,z" -> facing (0 yerde, 1..4 duvarda)
+const TORCH_DIR = [[0, -1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]]; // mesaleden destega yon
 const torchLights = [];
 let torchScanT = 0;
 let furnTickAcc = 0;
 let furnDirty = false;
 const tkey = (x, y, z) => x + ',' + y + ',' + z;
-function trackTorch(x, y, z, id) {
-  if (id === 21) torchSet.add(tkey(x, y, z));
-  else torchSet.delete(tkey(x, y, z));
+function trackTorch(x, y, z, id, facing = 0) {
+  if (id === 21) torchMap.set(tkey(x, y, z), facing);
+  else torchMap.delete(tkey(x, y, z));
+}
+function torchFacingAt(x, y, z) { const f = torchMap.get(tkey(x, y, z)); return f == null ? 0 : f; }
+// Destegi kirilan mesaleleri dusur (yer + duvar, MC). Donus: dusurulen sayisi.
+function popUnsupportedTorches(bx, by, bz) {
+  let n = 0;
+  const offs = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  for (const [dx, dy, dz] of offs) {
+    const x = bx + dx, y = by + dy, z = bz + dz;
+    if (chunkManager.getBlock(x, y, z) !== 21) continue;
+    const f = torchFacingAt(x, y, z);
+    const d = TORCH_DIR[f] || TORCH_DIR[0];
+    if (x + d[0] === bx && y + d[1] === by && z + d[2] === bz) {
+      chunkManager.setBlock(x, y, z, 0);
+      trackTorch(x, y, z, 0);
+      if (GAMEMODE === 'survival') effects?.spawnDrop(21, x, y, z);
+      n++;
+    }
+  }
+  return n;
 }
 function updateTorchLights() {
   // oyuncuya en yakın max 5 meşaleye sarı ışık ata
   const px = player.pos.x, py = player.pos.y + 1, pz = player.pos.z;
   const near = [];
-  for (const k of torchSet) {
-    if (near.length > 400 && torchSet.size > 2000) break; // güvenlik
+  for (const k of torchMap.keys()) {
+    if (near.length > 400 && torchMap.size > 2000) break; // güvenlik
     const [x, y, z] = k.split(',').map(Number);
     const d2 = (x + 0.5 - px) ** 2 + (y + 0.5 - py) ** 2 + (z + 0.5 - pz) ** 2;
     if (d2 < 30 * 30) near.push([d2, x, y, z]);
@@ -169,6 +195,14 @@ function solidAt(x, y, z) {
   const id = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
   if (!id) return false;
   if (id === 16 || id === 21) return false; // su ve meşale katı değil (içinden geçilir)
+  if (id === 25 || id === 26) { // kapı: kapalı katı, açık geçirgen (MC)
+    const bx = Math.floor(x), bz = Math.floor(z);
+    const by = id === 25 ? Math.floor(y) : Math.floor(y) - 1;
+    try {
+      const st = doorMgr.map.get(bx + ',' + by + ',' + bz);
+      return !(st && st.open);
+    } catch { return true; }
+  }
   return true;
 }
 function inWater(px, py, pz) { return getBlock(Math.floor(px), Math.floor(py + 0.4), Math.floor(pz)) === 16; }
@@ -312,16 +346,8 @@ async function setGamemode(mode) {
   if (GAMEMODE === 'survival') { player.flying = false; if (player.health <= 0) player.health = 20; }
   updateHearts(); updateModeBadge();
   inventory?.setMode(GAMEMODE);
-  // Mod değişince envanter sıfırlanır (MC kararı: seçim = boş başlangıç)
-  if (prev !== GAMEMODE && inventory) {
-    inventory.hotbar = new Array(10).fill(null);
-    inventory.main = new Array(27).fill(null);
-    inventory.cursor = null;
-    selected = 0; inventory.sel = 0;
-    inventory.renderAll();
-  }
   renderHotbar();
-  if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? 'Hayatta Kalma: kalpler aktif, dikkatli ol!' : 'Yaratıcı: uçma (F), eksilmeyen blok');
+  if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? 'Hayatta Kalma: kalpler aktif, dikkatli ol!' : 'Yaratıcı: çift-Space ile uçma, envanter korunur');
   try {
     const w = await dbWorlds.get(WORLD_ID);
     if (w) { w.gamemode = GAMEMODE; w.lastPlayed = Date.now(); await dbWorlds.put(w); }
@@ -491,6 +517,9 @@ async function saveAll() {
       inv: inventory ? inventory.serialize() : null,
       health: player.health, time: Math.floor(timeOfDay),
       furnaces: furnaceMgr ? furnaceMgr.serialize() : null,
+      doors: doorMgr ? doorMgr.serialize() : null,
+      torches: (() => { try { const o = {}; for (const [k, f] of torchMap) o[k] = f; return o; } catch { return null; } })(),
+      chests: chestMgr ? chestMgr.serialize() : null,
     });
     const prev = await dbWorlds.get(WORLD_ID).catch(() => null);
     await dbWorlds.put({
@@ -503,9 +532,22 @@ async function saveAll() {
 // ============ OLAYLAR + UI DURUMU ============
 const menu = document.getElementById('menu');
 const pauseEl = document.getElementById('pauseMenu');
+// MC tek oyuncu: menuler acikken simulasyon donar (gun/firin/su/kum/drop).
+// Sohbet ve olum ekrani haric — onlar akmaya devam eder.
+function isPaused() {
+  if (!worldReady || locked || player.dead) return false;
+  if (typeof chat !== "undefined" && chat && chat.isOpen) return false;
+  if (inventory && inventory.isOpen) return true;
+  if (craftTable && craftTable.isOpen) return true;
+  if (furnaceUI && furnaceUI.isOpen) return true;
+  if (typeof chestUI !== "undefined" && chestUI && chestUI.isOpen) return true;
+  try { if (pauseEl && !pauseEl.classList.contains("hidden")) return true; } catch {}
+  return false;
+}
+let wasPaused = false;
 function deathHidden() { return document.getElementById('deathScreen').classList.contains('hidden'); }
 function anyOverlay() {
-  return (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || !deathHidden();
+  return (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen) || !deathHidden();
 }
 function dropOverflowAtPlayer(id, count, kind = null) {
   // çanta dolunca üretilenler yere düşer (blok+eşya)
@@ -530,6 +572,7 @@ function renderFurnaceInv() {
 function openTable() {
   if (!craftTable || player.dead) return;
   try { furnaceUI?.close(); } catch {}
+      try { chestUI?.close(); } catch {}
   document.exitPointerLock?.();
   craftTable.open();
   renderTableInv();
@@ -538,6 +581,48 @@ function openTable() {
 function closeTable(returnItems = true) {
   if (!craftTable || !craftTable.isOpen) return;
   craftTable.close(returnItems);
+  renderHotbar();
+  if (!player.dead) tryLock(); else refreshMenus();
+}
+function toggleDoor(x, y, z) {
+  const cur = chunkManager.getBlock(x, y, z);
+  const bx = x, by = cur === 26 ? y - 1 : y, bz = z;
+  if (chunkManager.getBlock(bx, by, bz) !== 25) return;
+  const st = doorMgr.get(bx, by, bz);
+  st.open = !st.open;
+  chunkManager.enqueueMesh(Math.floor(bx / 16), Math.floor(bz / 16));
+  renderHotbar();
+  saveAll();
+}
+function pairChest(x, y, z) {
+  // Komşu TEK sandıklardan ilk uygunla eşleş; yön komşununkine uyar (MC).
+  // Üçüncü sandık / yönsüz komşu eşleşmez.
+  const mine = chestMgr.get(x, y, z);
+  const ord = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [dx, dz] of ord) {
+    const nx = x + dx, nz = z + dz;
+    if (chunkManager.getBlock(nx, y, nz) !== 27) continue;
+    const nb = chestMgr.peek(nx, y, nz);
+    if (!nb || nb.paired) continue;
+    mine.face = (nb.face | 0) & 3;
+    const mk = chestMgr.key(x, y, z), nk = chestMgr.key(nx, y, nz);
+    mine.paired = nk;
+    nb.paired = mk;
+    chunkManager.enqueueMesh(Math.floor(nx / 16), Math.floor(nz / 16));
+    break;
+  }
+}
+function openChest(x, y, z) {
+  if (!chestUI || player.dead) return;
+  try { craftTable?.close(true); } catch {}
+  try { inventory?.close(); } catch {}
+  document.exitPointerLock?.();
+  chestUI.open(x, y, z);
+  refreshMenus();
+}
+function closeChest() {
+  if (!chestUI || !chestUI.isOpen) return;
+  chestUI.close();
   renderHotbar();
   if (!player.dead) tryLock(); else refreshMenus();
 }
@@ -651,6 +736,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && inventory && inventory.isOpen) { toggleInventory(); return; }
   if (e.code === 'Escape' && craftTable && craftTable.isOpen) { closeTable(true); return; }
   if (e.code === 'Escape' && furnaceUI && furnaceUI.isOpen) { closeFurnace(); return; }
+  if (e.code === 'Escape' && chestUI && chestUI.isOpen) { closeChest(); return; }
   keys[e.code] = true;
   // Kilit yoksa oyun tuşları çalışmaz (envanter/masa/fırın açıkken E/Esc hariç).
   // Böylece kilitsizken basılan tuşlar oyunun durumunu bozamaz.
@@ -671,6 +757,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') {
     if (craftTable && craftTable.isOpen) closeTable(true);
     else if (furnaceUI && furnaceUI.isOpen) closeFurnace();
+    else if (chestUI && chestUI.isOpen) closeChest();
     else if (locked || (inventory && inventory.isOpen)) toggleInventory();
   }
   if (e.code === 'KeyH') document.getElementById('helpPanel').classList.toggle('hidden');
@@ -688,28 +775,26 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyQ' && locked && !player.dead && chunkManager) {
     // MC gibi seçili slot'tan 1 tane yere at (blok+eşya, iki modda da).
-    // Yaratıcıda envanter eksilmez, hayatta kalmada 1 eksilir.
+    // Q her basışta 1 eksiltir (alet elden gider) — iki modda da, ev kuralı
     const sel = inventory?.selectedSlot();
     if (sel) {
       const sk = sel.kind || (sel.id >= 100 ? 'item' : 'block');
       const isTool = sk === 'item' && ITEMS[sel.id]?.tool;
-      if (isTool && GAMEMODE === 'creative') {
-        effects?.spawnDrop(sel.id, Math.floor(player.pos.x), Math.floor(player.pos.y), Math.floor(player.pos.z), new THREE.Vector3(0, 4, 0), sk, sel.dur);
-        renderHotbar();
-      } else if (isTool) {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const eye = player.pos.clone(); eye.y += EYE;
+      const dropAt = [Math.floor(eye.x + dir.x), Math.floor(eye.y), Math.floor(eye.z + dir.z)];
+      const dropVel = new THREE.Vector3(dir.x * 6, 2.5, dir.z * 6);
+      if (isTool) {
+        // Alet Q ile elden gider (iki modda da, ev kurali); dusen kopya ayni dayaniklilikta
+        const dd = sel.dur;
         inventory.hotbar[inventory.sel] = null;
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        const eye = player.pos.clone(); eye.y += EYE;
-        effects?.spawnDrop(sel.id, Math.floor(eye.x + dir.x), Math.floor(eye.y), Math.floor(eye.z + dir.z), new THREE.Vector3(dir.x * 6, 2.5, dir.z * 6), sk, sel.dur);
+        effects?.spawnDrop(sel.id, dropAt[0], dropAt[1], dropAt[2], dropVel, sk, dd);
         inventory.renderHot();
         inventory.onChange();
-      } else if (GAMEMODE === 'creative' || inventory.consumeSelected()) {
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        const eye = player.pos.clone(); eye.y += EYE;
-        effects?.spawnDrop(sel.id, Math.floor(eye.x + dir.x), Math.floor(eye.y), Math.floor(eye.z + dir.z),
-          new THREE.Vector3(dir.x * 6, 2.5, dir.z * 6), sk);
+      } else if (inventory.consumeSelected(true)) {
+        // Stack her basista 1 eksilir (yaraticida da, ev kurali)
+        effects?.spawnDrop(sel.id, dropAt[0], dropAt[1], dropAt[2], dropVel, sk);
         renderHotbar();
       }
     }
@@ -740,15 +825,20 @@ let mouseR = false;
 let placeCd = 0;
 let creativeBreakCd = 0;
 const PLACE_INTERVAL = 0.2; // MC hissi: sn'de ~5 blok
-const CREATIVE_BREAK_INTERVAL = 0.05; // yaratıcıda neredeyse anında (MC)
+const CREATIVE_BREAK_INTERVAL = 0.25; // ilk vurus aninda, tekrar yavas (spam korumasi) // yaratıcıda neredeyse anında (MC)
 let breakTarget = null; // "x,y,z"
 let breakProg = 0;
+let breakCd = 0; // MC 6-tick blok-arasi bekleme
 let lastSpaceT = 0; // çift-Space uçma takibi (MC)
 const DOUBLE_SPACE_MS = 300;
 function hideBreakBar() {
   breakTarget = null; breakProg = 0;
   document.getElementById('breakBar')?.classList.add('hidden');
   try { effects?.hideCrack(); } catch {}
+}
+function faceFromYaw() {
+  const lx = -Math.sin(player.yaw), lz = -Math.cos(player.yaw);
+  return Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 3 : 2) : (lz > 0 ? 1 : 0);
 }
 function heldToolId() { return inventory ? inventory.selectedToolId() : 0; }
 // Blok fiziği kancası: her setBlock (koyma/kırma/komut/su/fizik) burayı besler.
@@ -805,7 +895,8 @@ function breakInstant(hit) {
   const bid = chunkManager.getBlock(hit.x, hit.y, hit.z);
   const realId = bid || hit.id;
   chunkManager.setBlock(hit.x, hit.y, hit.z, 0);
-  trackTorch(hit.x, hit.y, hit.z, 0); // kırılan meşale ışık listesinden düşer
+  trackTorch(hit.x, hit.y, hit.z, 0);
+  try { popUnsupportedTorches(hit.x, hit.y, hit.z); } catch {} // desteksiz meşale düşer (MC) ışık listesinden düşer
   if (realId === 22 || realId === 24) {
     // Fırın kırılınca içi yere saçılır + sönmüş blok düşer (MC)
     try {
@@ -820,6 +911,36 @@ function breakInstant(hit) {
     furnaceMgr.remove(hit.x, hit.y, hit.z);
     try { if (furnaceUI?.pos && furnaceUI.pos.x === hit.x && furnaceUI.pos.y === hit.y && furnaceUI.pos.z === hit.z) furnaceUI.close(); } catch {}
   }
+  if (realId === 25 || realId === 26) {
+    // Kapı: iki yarı birlikte gider, 1 kapı düşer (MC)
+    const baseY = realId === 25 ? hit.y : hit.y - 1;
+    const otherY = realId === 25 ? hit.y + 1 : hit.y;
+    const otherWant = realId === 25 ? 26 : 25;
+    try { if (chunkManager.getBlock(hit.x, otherY, hit.z) === otherWant) chunkManager.setBlock(hit.x, otherY, hit.z, 0); } catch {}
+    try { doorMgr.remove(hit.x, baseY, hit.z); } catch {}
+    try { popUnsupportedTorches(hit.x, otherY, hit.z); } catch {}
+  }
+  if (realId === 27 && GAMEMODE === 'survival') {
+    // Sandık: bu yarının 27 slotu saçılır + sandık bloğu düşer (MC yarı-başına entity)
+    try {
+      const cst = chestMgr.peek(hit.x, hit.y, hit.z);
+      if (cst) {
+        for (const slot of cst.slots) {
+          if (!slot) continue;
+          const sk = slot.kind || (slot.id >= 100 ? 'item' : 'block');
+          const n = (sk === 'item' && ITEMS[slot.id]?.tool) ? 1 : slot.count;
+          for (let i = 0; i < n; i++) effects?.spawnDrop(slot.id, hit.x, hit.y, hit.z, null, sk, slot.dur);
+        }
+        if (cst.paired) {
+          const [px, py, pz] = cst.paired.split(',').map(Number);
+          const ps = chestMgr.peek(px, py, pz);
+          if (ps) ps.paired = null; // kalan yarı tek sandığa döner
+        }
+      }
+    } catch {}
+    chestMgr.remove(hit.x, hit.y, hit.z);
+    try { if (chestUI?.pos && ((chestUI.pos.x === hit.x && chestUI.pos.y === hit.y && chestUI.pos.z === hit.z) || (chestUI.halves().length > 1 && chestUI.halves()[1].key === hit.x + ',' + hit.y + ',' + hit.z))) chestUI.close(); } catch {}
+  }
   effects?.burst(hit.x, hit.y, hit.z, realId);
   if (GAMEMODE === 'survival' && realId !== 16 && BLOCKS[realId] && !BLOCKS[realId].secilemez) {
     const tool = heldToolId();
@@ -833,6 +954,7 @@ function breakInstant(hit) {
       else if (realId === 23) effects?.spawnDrop(106, hit.x, hit.y, hit.z, null, 'item'); // ham altın
       else if (realId === 13) effects?.spawnDrop(104, hit.x, hit.y, hit.z, null, 'item'); // elmas
       else if (realId === 24) effects?.spawnDrop(22, hit.x, hit.y, hit.z); // yanık fırın -> sönmüş fırın
+      else if (realId === 25 || realId === 26) effects?.spawnDrop(25, hit.x, hit.y, hit.z); // kapı
       else effects?.spawnDrop(realId, hit.x, hit.y, hit.z); // yerden toplanır
     }
     // Alet yıpranması (sadece doğru/yanlış fark etmez, her kırışta 1)
@@ -855,6 +977,8 @@ function tryPlaceFromCross() {
   if (!hit) return 'none';
   if (hit.id === 20) { openTable(); return 'table'; } // çalışma masası: yerleştirme değil panel
   if (hit.id === 22 || hit.id === 24) { openFurnace(hit.x, hit.y, hit.z); return 'furnace'; } // fırın paneli
+  if (hit.id === 25 || hit.id === 26) { toggleDoor(hit.x, hit.y, hit.z); return 'door'; } // kapı aç/kapa
+  if (hit.id === 27) { openChest(hit.x, hit.y, hit.z); return 'chest'; } // sandık paneli
   const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
   if (py < MIN_Y || py > MAX_Y) { toast('Yükseklik sınırı!'); return 'none'; }
   const cur = chunkManager.getBlock(px, py, pz);
@@ -867,15 +991,51 @@ function tryPlaceFromCross() {
     toast('Hotbar boş! (E ile blok al)');
     return 'none';
   }
-  // Meşale desteği: altında katı blok olmalı (MC)
+  // Kapı (25): hedef + üst hücreye alt/üst yarı; ikisi de boş olmalı (MC)
+  if (id === 25) {
+    if (py + 1 > MAX_Y) { toast('Yükseklik sınırı!'); return 'none'; }
+    const cur2 = chunkManager.getBlock(px, py + 1, pz);
+    if (cur2 !== 0 && cur2 !== 16 && cur2 !== 21) return 'none';
+    if (playerInside(px, py, pz) || playerInside(px, py + 1, pz)) return 'none';
+    if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast('Blok yok!'); return 'none'; }
+    chunkManager.setBlock(px, py, pz, 25);
+    chunkManager.setBlock(px, py + 1, pz, 26);
+    trackTorch(px, py, pz, 25);
+    trackTorch(px, py + 1, pz, 26);
+    try { doorMgr.get(px, py, pz).face = faceFromYaw(); } catch {}
+    renderHotbar();
+    return 'placed';
+  }
+  if (id === 26) { toast('Kapıyı alt yarıdan koy!'); return 'none'; }
+  // Meşale: üst yüze tıklama = yerde (altı katı olmalı), yan yüze = duvarda (tıklanan blok destek).
+  // Tavan altı geçersiz (MC).
+  let torchFace = 0;
   if (id === 21) {
-    const below = chunkManager.getBlock(px, py - 1, pz);
-    const bb = BLOCKS[below];
-    if (!below || !bb || bb.saydam) { toast('Meşale alta katı blok ister!'); return 'none'; }
+    if (hit.ny === 1) {
+      const below = chunkManager.getBlock(px, py - 1, pz);
+      const bb = BLOCKS[below];
+      if (!below || !bb || bb.saydam) { toast('Meşale alta katı blok ister!'); return 'none'; }
+      torchFace = 0;
+    } else if (hit.ny === 0) {
+      const sx = -hit.nx, sy = -hit.ny, sz = -hit.nz; // destek yönü (tiklanan blok)
+      torchFace = sx === 1 ? 3 : sx === -1 ? 4 : sz === 1 ? 1 : 2;
+    } else { toast('Meşale alta ya da duvara konur!'); return 'none'; }
   }
   if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast('Blok yok!'); return 'none'; }
   chunkManager.setBlock(px, py, pz, id);
-  trackTorch(px, py, pz, id);
+  trackTorch(px, py, pz, id, torchFace);
+  if (id === 27) {
+    try { chestMgr.get(px, py, pz).face = faceFromYaw(); } catch {}
+    try { pairChest(px, py, pz); } catch {}
+  }
+  if (id === 22) {
+    // Firin on yuzu oyuncuya bakar (MC): bakis yonunun tersi
+    try {
+      const lx = -Math.sin(player.yaw), lz = -Math.cos(player.yaw);
+      const face = Math.abs(lx) > Math.abs(lz) ? (lx > 0 ? 3 : 2) : (lz > 0 ? 1 : 0);
+      furnaceMgr.get(px, py, pz).face = face;
+    } catch {}
+  }
   renderHotbar();
   return 'placed';
 }
@@ -905,7 +1065,7 @@ document.addEventListener('mousedown', (e) => {
   } else if (e.button === 2) {
     // MC: sağ basılı tutunca sürekli koy — ilk bloğu hemen koy, gerisi döngüde
     const r = tryPlaceFromCross();
-    if (r === 'table' || r === 'furnace') { mouseR = false; return; }
+    if (r === 'table' || r === 'furnace' || r === 'door' || r === 'chest') { mouseR = false; return; }
     mouseR = true; placeCd = PLACE_INTERVAL;
   }
 });
@@ -933,7 +1093,11 @@ function animate() {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  if (locked) movePlayer(dt);
+  const paused = isPaused();
+  if (paused && !wasPaused) { try { saveAll(); } catch {} } // duraklatmada otomatik kayit (MC)
+  wasPaused = paused;
+  const simDt = paused ? 0 : dt;
+  if (locked) movePlayer(simDt);
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);
     // Adaptif bütçe: önceki kare yavaşsa (<30fps) bu kare üretim/mesh atlanır.
@@ -944,7 +1108,7 @@ function animate() {
   camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   // ---- gün döngüsü (/time): zaman akar, güneş/ay/yıldız senkron ----
-  timeOfDay = (timeOfDay + (dt * 24000) / DAY_LENGTH_S) % 24000;
+  timeOfDay = (timeOfDay + (simDt * 24000) / DAY_LENGTH_S) % 24000;
   {
     const ang = ((timeOfDay - 6000) / 24000) * Math.PI * 2; // öğle=0
     const elev = Math.cos(ang); // 1 öğle, -1 gece
@@ -979,7 +1143,7 @@ function animate() {
     }
   }
   clouds.children.forEach(c => {
-    c.position.x += dt * 0.7;
+    c.position.x += simDt * 0.7;
     if (c.position.x > player.pos.x + 90) c.position.x = player.pos.x - 90;
     if (c.position.x < player.pos.x - 90) c.position.x = player.pos.x + 90;
     if (c.position.z > player.pos.z + 90) c.position.z = player.pos.z - 90;
@@ -988,7 +1152,7 @@ function animate() {
   });
 
   if (border) {
-    const b = border.update(dt, player.pos.x, player.pos.z);
+    const b = border.update(simDt, player.pos.x, player.pos.z);
     document.body.classList.toggle('at-border', b.dist < 16);
     const bw = document.getElementById('borderWarn');
     if (bw) bw.classList.toggle('hidden', b.dist >= 16);
@@ -1018,7 +1182,7 @@ function animate() {
       placeCd -= dt;
       if (placeCd <= 0) {
         const r = tryPlaceFromCross();
-        if (r === 'table' || r === 'furnace') mouseR = false;
+        if (r === 'table' || r === 'furnace' || r === 'door' || r === 'chest') mouseR = false;
         else placeCd = PLACE_INTERVAL;
         // survival'da blok bittiyse spam yapma: bir süre bekle
         if (r === 'none' && GAMEMODE === 'survival' && !selectedId()) placeCd = 0.5;
@@ -1039,15 +1203,17 @@ function animate() {
       if (!hit) { hideBreakBar(); }
       else {
         const key = hit.x + ',' + hit.y + ',' + hit.z;
-        if (breakTarget !== key) { breakTarget = key; breakProg = 0; }
+        if (breakTarget !== key) { breakTarget = key; breakProg = 0; breakCd = 0.3; }
         const baseNeed = BREAK_TIME[hit.id] ?? 1;
         if (!isFinite(baseNeed)) { toast('Anakaya kırılmaz!'); mouseL = false; hideBreakBar(); }
         else {
-          // Alet çarpanı: doğru kazma hızlı, el/yanlış alet 5x yavaş
+          // Alet çarpanı (MC): doğru alet hızlı, yanlış alet 3.33x, yumuşak el hızı
           const tool = heldToolId();
           const info = breakInfo(hit.id, tool);
           const need = baseNeed * (info.timeMult || 1);
-          breakProg += dt / need;
+          let gate = true;
+          if (breakCd > 0) { breakCd -= dt; if (need > 0.05) gate = false; }
+          if (gate) breakProg += dt / need;
           bar?.classList.remove('hidden');
           if (fill) fill.style.width = Math.min(100, breakProg * 100) + '%';
           effects?.crack(hit.x, hit.y, hit.z, breakProg);
@@ -1062,7 +1228,7 @@ function animate() {
 
   coordsEl.textContent = `${player.pos.x.toFixed(1)}, ${player.pos.y.toFixed(1)}, ${player.pos.z.toFixed(1)}`;
   // efektler: partikül + düşen eşya (iki modda da yerden toplanır, MC gibi)
-  effects?.update(dt, new THREE.Vector3(player.pos.x, player.pos.y + 1, player.pos.z),
+  effects?.update(simDt, new THREE.Vector3(player.pos.x, player.pos.y + 1, player.pos.z),
     !player.dead,
     (id, kind, dur) => {
       const k = kind || (id >= 100 ? 'item' : 'block');
@@ -1071,7 +1237,7 @@ function animate() {
       return ok;
     });
   // Fırın tick (0.2sn birikimli): eritme + yakıt
-  furnTickAcc += dt;
+  furnTickAcc += simDt;
   if (furnTickAcc > 0.2 && chunkManager && furnaceMgr) {
     const acc = furnTickAcc; furnTickAcc = 0;
     try {
@@ -1097,10 +1263,10 @@ function animate() {
   }
   // Kum/çakıl yerçekimi: MC fiziğiyle düşen-varlık (16 blok/sn², limit 39.2)
   if (chunkManager && fallSim.size) {
-    try { fallSim.update(dt, simHooks()); } catch {}
+    if (!paused) { try { fallSim.update(dt, simHooks()); } catch {} }
   }
   // Su dolgusu: 0.25sn tick, bütçeli (MC-lite)
-  waterTickAcc += dt;
+  waterTickAcc += simDt;
   if (waterTickAcc > 0.25 && chunkManager && waterSim.size) {
     waterTickAcc = 0;
     try { waterSim.step(40, simHooks()); } catch {}
@@ -1185,7 +1351,7 @@ function scanTorches() {
         if (blocks[i] !== 21) continue;
         const y = MIN_Y + Math.floor(i / 256);
         const lz = Math.floor((i % 256) / 16), lx = i % 16;
-        torchSet.add(tkey(cx * 16 + lx, y, cz * 16 + lz));
+        if (!torchMap.has(tkey(cx * 16 + lx, y, cz * 16 + lz))) torchMap.set(tkey(cx * 16 + lx, y, cz * 16 + lz), 0);
       }
     }
   } catch {}
@@ -1219,12 +1385,13 @@ async function enterWorld(id) {
       try { craftTable?.close(true); } catch {}
       try { craftInv?.close(true); } catch {}
       try { furnaceUI?.close(); } catch {}
+      try { chestUI?.close(); } catch {}
       try { inventory?.close(); } catch {}
       await saveAll();
     }
     disposeWorld();
     try { effects?.clearAll?.(); } catch {}
-    torchSet.clear();
+    torchMap.clear();
     for (const L of torchLights) L.intensity = 0;
     mouseL = false; mouseR = false; placeCd = 0; hideBreakBar(); try { effects?.hideCrack(); } catch {}
     player.dead = false;
@@ -1302,6 +1469,10 @@ async function enterWorld(id) {
       opaque: matOpaque, transparent: matTransparent, emissive: matEmissive,
     });
     chunkManager.onEdit = handleBlockEdit;
+    chunkManager.torchFacing = (x, y, z) => torchFacingAt(x, y, z);
+    chunkManager.doorState = (x, y, z) => { try { return doorMgr.map.get(x + ',' + y + ',' + z) || null; } catch { return null; } };
+    chunkManager.chestState = (x, y, z) => { try { return chestMgr.info(x, y, z); } catch { return null; } };
+    chunkManager.furnaceFacing = (x, y, z) => { try { const st = furnaceMgr.map.get(x + ',' + y + ',' + z); return (st && st.face | 0) || 0; } catch { return 0; } };
     fallSim.clear(); waterSim.clear(); waterTickAcc = 0;
 
     if (!uiBuilt) {
@@ -1309,7 +1480,7 @@ async function enterWorld(id) {
       say('Envanter kuruluyor...');
       inventory = new InventoryUI({
         getIcon: (id, kind) => iconFor(id, kind),
-        onChange: () => { renderHotbar(); if (craftTable?.isOpen) renderTableInv(); if (furnaceUI?.isOpen) renderFurnaceInv(); saveAll(); },
+        onChange: () => { renderHotbar(); if (craftTable?.isOpen) renderTableInv(); if (furnaceUI?.isOpen) renderFurnaceInv(); if (typeof chestUI !== 'undefined' && chestUI?.isOpen) { try { chestUI.renderInv(); } catch {} } saveAll(); },
         onClose: () => {
           try { craftInv?.close(true); } catch {}
           inventory.close();
@@ -1375,6 +1546,12 @@ async function enterWorld(id) {
         onClose: () => closeFurnace(),
       });
       try { document.getElementById('furnaceClose').onclick = () => closeFurnace(); } catch {}
+      chestUI = new ChestUI({
+        inventory, mgr: chestMgr, getIcon: (id, kind) => iconFor(id, kind),
+        onChange: () => { renderHotbar(); saveAll(); },
+        onClose: () => closeChest(),
+      });
+      try { document.getElementById('chestClose').onclick = () => closeChest(); } catch {}
     } else {
       inventory.setMode(GAMEMODE);
     }
@@ -1385,6 +1562,9 @@ async function enterWorld(id) {
       const saved = await dbPlayers.get(WORLD_ID);
       // Fırın verisini yükle (yoksa boş)
       try { furnaceMgr.clear(); if (saved?.furnaces) furnaceMgr.load(saved.furnaces); } catch {}
+      try { doorMgr.clear(); if (saved?.doors) doorMgr.load(saved.doors); } catch {}
+      try { torchMap.clear(); if (saved?.torches) { for (const [k, f] of Object.entries(saved.torches)) torchMap.set(k, (f | 0) % 5); } } catch {}
+      try { chestMgr.clear(); if (saved?.chests) chestMgr.load(saved.chests); } catch {}
       if (saved?.pos) {
         player.pos.set(saved.pos[0], saved.pos[1], saved.pos[2]);
         player.yaw = saved.yaw ?? player.yaw;
@@ -1401,6 +1581,9 @@ async function enterWorld(id) {
         inventory.main = new Array(27).fill(null);
         inventory.sel = 0; selected = 0;
         try { furnaceMgr.clear(); } catch {}
+        try { doorMgr.clear(); } catch {}
+        try { torchMap.clear(); } catch {}
+        try { chestMgr.clear(); } catch {}
       }
       selected = inventory.sel || 0;
     } catch {
@@ -1448,6 +1631,7 @@ async function exitToMenu(save = true) {
   if (worldReady && save) { try { await saveAll(); } catch {} }
   try { craftTable?.close(false); } catch {}
   try { furnaceUI?.close(); } catch {}
+      try { chestUI?.close(); } catch {}
   try { inventory?.close(); } catch {}
   hideBreakBar(); try { effects?.hideCrack(); } catch {}
   disposeWorld();

@@ -160,7 +160,7 @@
   <div id="tablePanel" class="hidden">
     <div class="inv-box">
       <div class="inv-title">🔨 Çalışma Masası <button id="tableClose">✕ Kapat (E)</button></div>
-      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın</div>
+      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 6 tahta (2x3)→3 kapı • 8 tahta halka→sandık • 8 kırma taş→fırın</div>
       <div class="craft-row big">
         <div id="craft3Grid"></div>
         <div class="craft-arrow">➜</div>
@@ -202,15 +202,27 @@
     </div>
   </div>
 
-  <!-- Duraklatma menüsü (oyun içi Esc) -->
-  <div id="pauseMenu" class="hidden">
+  <!-- Sandık (tek 27 / çift 54) -->
+  <div id="chestPanel" class="hidden">
+    <div class="inv-box">
+      <div class="inv-title"><span id="chestTitle">Sandık</span><button id="chestClose">✕ Kapat (E)</button></div>
+      <div id="chestHint">Sol: al/bırak • Sağ: yarısını al / 1 tane koy</div>
+      <div id="chestGrid"></div>
+      <div class="inv-sub">Çanta (27)</div>
+      <div id="chestMain"></div>
+      <div class="inv-sub">Hotbar (1-0)</div>
+      <div id="chestHot"></div>
+    </div>
+  </div>
+
+  <!-- Duraklatma menüsü (oyun içi Esc) -->  <div id="pauseMenu" class="hidden">
     <h2>⏸️ Duraklatıldı</h2>
     <div class="mc-screen">
       <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
       <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
       <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
     </div>
-    <small>İpucu: E envanter • T sohbet • H yardım</small>
+    <small>Dünya duraklatıldı • İpucu: E envanter • T sohbet • H yardım</small>
   </div>
 
   <!-- Ölüm ekranı -->

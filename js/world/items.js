@@ -26,11 +26,11 @@ export const ITEMS = {
   122: { ad: 'Demir Balta', tex: 'iron_axe', tool: 'axe', tier: 3, speed: 6, maxDur: 250, max: 1 },
   123: { ad: 'Altın Balta', tex: 'golden_axe', tool: 'axe', tier: 1, speed: 12, maxDur: 32, max: 1 },
   124: { ad: 'Elmas Balta', tex: 'diamond_axe', tool: 'axe', tier: 4, speed: 8, maxDur: 1561, max: 1 },
-  125: { ad: 'Tahta Kılıç', tex: 'wooden_sword', tool: 'sword', tier: 1, speed: 2, maxDur: 59, max: 1 },
-  126: { ad: 'Taş Kılıç', tex: 'stone_sword', tool: 'sword', tier: 2, speed: 4, maxDur: 131, max: 1 },
-  127: { ad: 'Demir Kılıç', tex: 'iron_sword', tool: 'sword', tier: 3, speed: 6, maxDur: 250, max: 1 },
-  128: { ad: 'Altın Kılıç', tex: 'golden_sword', tool: 'sword', tier: 1, speed: 12, maxDur: 32, max: 1 },
-  129: { ad: 'Elmas Kılıç', tex: 'diamond_sword', tool: 'sword', tier: 4, speed: 8, maxDur: 1561, max: 1 },
+  125: { ad: 'Tahta Kılıç', tex: 'wooden_sword', tool: 'sword', tier: 1, speed: 1.5, maxDur: 59, max: 1 },
+  126: { ad: 'Taş Kılıç', tex: 'stone_sword', tool: 'sword', tier: 2, speed: 1.5, maxDur: 131, max: 1 },
+  127: { ad: 'Demir Kılıç', tex: 'iron_sword', tool: 'sword', tier: 3, speed: 1.5, maxDur: 250, max: 1 },
+  128: { ad: 'Altın Kılıç', tex: 'golden_sword', tool: 'sword', tier: 1, speed: 1.5, maxDur: 32, max: 1 },
+  129: { ad: 'Elmas Kılıç', tex: 'diamond_sword', tool: 'sword', tier: 4, speed: 1.5, maxDur: 1561, max: 1 },
 };
 
 export function isTool(id) {
@@ -63,6 +63,8 @@ export const HARVEST = {
   24: { tool: 'pickaxe', minTier: 1 }, // yanık fırın (sönmüşle aynı)
   5:  { tool: 'axe', minTier: 1, soft: true },
   7:  { tool: 'axe', minTier: 1, soft: true },
+  25: { tool: 'axe', minTier: 1, soft: true }, // kapı alt
+  26: { tool: 'axe', minTier: 1, soft: true }, // kapı üst
 };
 
 // El ile kırınca 5x yavaş + drop yok (sert bloklarda). Doğru alet Tier yetmezse de drop yok.
@@ -77,8 +79,8 @@ export function breakInfo(blockId, heldItemId) {
   if (h.never) return { timeMult: 1, drops: false, never: true };
   if (correct) return { timeMult: 1 / held.speed, drops: true, tool: held };
   // yanlış alet / el: yumuşaklarda düşer, sertlerde düşürmez
-  if (h.soft) return { timeMult: 1.5, drops: true };
-  return { timeMult: 5, drops: false };
+  if (h.soft) return { timeMult: 1.0, drops: true }; // alet istemeyen blok: yanlis alet = el hizi (MC)
+  return { timeMult: 10 / 3, drops: false }; // alet isteyen blokta el/yantis: sertlik x 5sn (MC birebir)
 }
 
 // Yakıt süreleri (sn, MC: kömür 80, odun/kütük 15, tahta 15, çubuk 5)
