@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v6';
+const BUILD = 'v7';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -107,7 +107,7 @@ let craftInv = null;   // envanter içi 2x2
 let craftTable = null; // masa 3x3
 let furnaceMgr = new FurnaceManager();
 let furnaceUI = null;
-/* chestUI asagida uiBuilt blogunda kurulur */
+let chestUI = null; // sandik paneli (uiBuilt blogunda kurulur)
 const doorMgr = new DoorManager();
 const chestMgr = new ChestManager();
 const fallSim = new FallSim();
