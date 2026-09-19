@@ -416,6 +416,7 @@ const hotbarEl = document.getElementById('hotbar');
 const selNameEl = document.getElementById('selected-name');
 const iconCache = {};
 function iconFor(id, kind = null) {
+  if (id === 25) return 'textures/oak_door_item.png'; // kapı ikonu = eşya dokusu (MC)
   const k = kind || (id >= 100 ? 'item' : 'block');
   if (k === 'item') {
     const t = ITEMS[id]?.tex || 'stick';
@@ -701,15 +702,21 @@ canvas.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   lockDbg(locked ? 'kilit ALINDI' : 'kilit BIRAKILDI');
-  if (locked) { hasStarted = true; wantMain = false; }
+  if (locked) { hasStarted = true; wantMain = false; mouseGuard = true; }
   else { mouseL = false; mouseR = false; placeCd = 0; hideBreakBar(); effects?.hideCrack(); }
   refreshMenus();
 });
+let mouseGuard = true; // kilit sonrasi ilk olaydaki sicrama artigi yoksay
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
-  player.yaw -= e.movementX * 0.0025;
-  player.pitch -= e.movementY * 0.0025;
+  if (mouseGuard) { mouseGuard = false; return; }
+  // Tarayici kilit gecislerinde dev movementX firlatir (360 donme); kelepcele (MC hissi ayni)
+  const dx = Math.max(-60, Math.min(60, e.movementX || 0));
+  const dy = Math.max(-60, Math.min(60, e.movementY || 0));
+  player.yaw -= dx * 0.0025;
+  player.pitch -= dy * 0.0025;
   player.pitch = THREE.MathUtils.clamp(player.pitch, -1.55, 1.55);
+  camera.rotation.order = 'YXZ'; // emniyet: sira hicbir zaman bozulmasin
 });
 function typingTarget(e) {
   const t = e.target;
@@ -954,7 +961,7 @@ function breakInstant(hit) {
       else if (realId === 23) effects?.spawnDrop(106, hit.x, hit.y, hit.z, null, 'item'); // ham altın
       else if (realId === 13) effects?.spawnDrop(104, hit.x, hit.y, hit.z, null, 'item'); // elmas
       else if (realId === 24) effects?.spawnDrop(22, hit.x, hit.y, hit.z); // yanık fırın -> sönmüş fırın
-      else if (realId === 25 || realId === 26) effects?.spawnDrop(25, hit.x, hit.y, hit.z); // kapı
+      else if (realId === 25 || realId === 26) { effects?.spawnDrop(25, hit.x, hit.y, hit.z); effects?.spawnDrop(25, hit.x, hit.y, hit.z); } // kapı: 2 eşya (ev kuralı)
       else effects?.spawnDrop(realId, hit.x, hit.y, hit.z); // yerden toplanır
     }
     // Alet yıpranması (sadece doğru/yanlış fark etmez, her kırışta 1)
@@ -1002,7 +1009,21 @@ function tryPlaceFromCross() {
     chunkManager.setBlock(px, py + 1, pz, 26);
     trackTorch(px, py, pz, 25);
     trackTorch(px, py + 1, pz, 26);
-    try { doorMgr.get(px, py, pz).face = faceFromYaw(); } catch {}
+    try {
+      const dst = doorMgr.get(px, py, pz);
+      dst.face = faceFromYaw();
+      dst.hinge = 1;
+      // MC cift kapi: yandaki kapiyla ayni yone bak, mentese ters (tam duz durur)
+      const ord = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const [dx, dz] of ord) {
+        if (chunkManager.getBlock(px + dx, py, pz + dz) !== 25) continue;
+        const nb = doorMgr.peek(px + dx, py, pz + dz);
+        if (!nb) continue;
+        dst.face = (nb.face | 0) & 3;
+        dst.hinge = (nb.hinge < 0 ? -1 : 1) < 0 ? 1 : -1;
+        break;
+      }
+    } catch {}
     renderHotbar();
     return 'placed';
   }

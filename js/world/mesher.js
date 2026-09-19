@@ -92,7 +92,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
   // MC kapı: ince panel (3/16). Kapalı = hücre ortasında, normal oyuncuya bakar.
   // Açık = menteşeden 90° salınmış. Alt yarı alt doku, üst yarı üst doku.
   const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
-  function addDoor(bucket, wx, y, wz, rect, face, open) {
+  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1) {
     const n = DOOR_N[face & 3] || DOOR_N[0];
     const t = [-n[2], 0, n[0]]; // panel teğeti
     const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
@@ -109,18 +109,24 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
       quads.push({ p: [c[0], c[1], c[2], c[3]], n });
       quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-n[0], 0, -n[2]] });
     } else {
-      // menteşe: panel ucunda, panel -n yönüne salınır (içeri)
-      const hx = wx + 0.5 + t[0] * 0.5, hz = wz + 0.5 + t[2] * 0.5;
+      // Acik: mentese kenarindan -n yonune 1 blok salinir (eksen-hizali, burulma yok).
+      // Menteşe tarafı hinge (+t / -t). Komsu kapiyla ayni yone bakip ters mentese = MC cift kapi.
+      const hs = (hinge < 0 ? -1 : 1);
+      const hx = wx + 0.5 + t[0] * 0.5 * hs, hz = wz + 0.5 + t[2] * 0.5 * hs;
       const dx = -n[0], dz = -n[2], hh = 0.094;
+      const ax = hx + dx, az = hz + dz; // panel ucu (menteşeden 1 blok)
       const c = [
         [hx - t[0] * hh, y, hz - t[2] * hh],
         [hx + t[0] * hh, y, hz + t[2] * hh],
-        [hx + dx + t[0] * hh, y + 1, hz + dz + t[2] * hh],
-        [hx + dx - t[0] * hh, y + 1, hz + dz - t[2] * hh],
+        [ax + t[0] * hh, y + 1, az + t[2] * hh],
+        [ax - t[0] * hh, y + 1, az - t[2] * hh],
       ];
-      // hizada: alttaki iki kose menteşe ucunda birleşir (ince görünüm korunur)
-      quads.push({ p: [c[0], c[1], c[2], c[3]], n: [t[0], 0, t[2]] });
-      quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-t[0], 0, -t[2]] });
+      // Gercek panel normali: capraz carpim (isik dogru duser)
+      let pnx = t[2] * 1 - 0 * dz, pny = 0 * dx - t[0] * 1, pnz = t[0] * dz - t[2] * dx;
+      const pl = Math.hypot(pnx, pny, pnz) || 1;
+      pnx /= pl; pny /= pl; pnz /= pl;
+      quads.push({ p: [c[0], c[1], c[2], c[3]], n: [pnx, pny, pnz] });
+      quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-pnx, -pny, -pnz] });
     }
     for (const q of quads) {
       const base = bucket.pos.length / 3;
@@ -150,7 +156,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           const st = getDoor ? getDoor(cx * 16 + lx, by, cz * 16 + lz) : null;
           const tex = faceTextureName(id, 'pz');
           const rect = uvMap[tex] || uvMap['stone'];
-          addDoor(op, cx * 16 + lx, y, cz * 16 + lz, rect, (st && st.face | 0) || 0, !!(st && st.open));
+          addDoor(op, cx * 16 + lx, y, cz * 16 + lz, rect, (st && st.face | 0) || 0, !!(st && st.open), (st && st.hinge) || 1);
           continue;
         }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)

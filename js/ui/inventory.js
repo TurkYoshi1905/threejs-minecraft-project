@@ -333,7 +333,8 @@ export class InventoryUI {
 
   cursorCountText(c) {
     if (!c) return '';
-    return c.count > 1 ? String(c.count) : '';
+    if (c.count === Infinity) return '∞';
+    return String(Math.max(1, c.count)); // tekli de sayiyla goster (geri bildirim)
   }
 
   dragStart(area, index, e) {
@@ -437,9 +438,28 @@ export class InventoryUI {
       }
       return;
     }
-    const hov = dr.hover || this.dragHover(e);
+    let hov = dr.hover || this.dragHover(e);
     this.hideGhost();
+    if ((!hov || !hov.area) && e && typeof e.clientX === 'number') {
+      // Slot arasi bosluga birakildi: palet kapsayicisindaysa cop say (MC geri bildirimi)
+      try {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const grid = el && el.closest ? el.closest('#invGrid') : null;
+        if (grid) hov = { area: 'grid', index: -1 };
+      } catch {}
+    }
     if (!hov || !hov.area) return; // dışarı bırakıldı: iade
+    if (hov.area === 'grid' && hov.index < 0) {
+      // kapsayıcıya bırak = eldekini/ kaynaktakini sil
+      if (this.cursor) { this.cursor = null; this.hideGhost(); this.renderMain(); this.renderHot(); this.onChange(); }
+      else if (dr.area !== 'grid') {
+        const fromArr = dr.area === 'hot' ? this.hotbar : this.main;
+        fromArr[dr.index] = null;
+        this.renderMain(); this.renderHot();
+        this.onChange();
+      }
+      return;
+    }
     const toArea = hov.area, toIndex = hov.index;
     if (toArea === 'grid') {
       // ızgaraya bırak = sil (sadece envanter slotlarından gelen)
@@ -505,7 +525,9 @@ export class InventoryUI {
     this.onChange();
   }
 
+  invDbg(...a) { try { if (new URLSearchParams(location.search).get('debug') === 'inv') console.log('[inv]', ...a); } catch {} }
   clickSlot(area, index, e) {
+    this.invDbg('slot', area, index, 'btn=' + (e && e.button));
     const right = e.button === 2;
     const shift = e.shiftKey;
     // Palet: elde tasinirken tiklama eldekini DEGISTIRIR (sol=tam stack, sag=tekli). Cop kutusu = surukle-birak.
@@ -632,6 +654,7 @@ export class InventoryUI {
   }
 
   clickGrid(index, e = {}) {
+    this.invDbg('grid', index, 'btn=' + e.button, 'cursor=', this.cursor && (this.cursor.kind + ':' + this.cursor.id + 'x' + this.cursor.count));
     const list = this.filteredGrid();
     const id = list[index];
     if (id == null) return;
