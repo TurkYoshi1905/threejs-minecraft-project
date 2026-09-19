@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v8';
+const BUILD = 'v9';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -1003,6 +1003,9 @@ function tryPlaceFromCross() {
   // Kapı (25): hedef + üst hücreye alt/üst yarı; ikisi de boş olmalı (MC)
   if (id === 25) {
     if (py + 1 > MAX_Y) { toast('Yükseklik sınırı!'); return 'none'; }
+    const sup = chunkManager.getBlock(px, py - 1, pz);
+    const sb = BLOCKS[sup];
+    if (!sup || !sb || sb.saydam) { toast('Kapı altı katı blok ister!'); return 'none'; }
     const cur2 = chunkManager.getBlock(px, py + 1, pz);
     if (cur2 !== 0 && cur2 !== 16 && cur2 !== 21) return 'none';
     if (playerInside(px, py, pz) || playerInside(px, py + 1, pz)) return 'none';
