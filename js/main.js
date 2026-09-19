@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v9';
+const BUILD = 'v10';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
