@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v7';
+const BUILD = 'v8';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -919,13 +919,15 @@ function breakInstant(hit) {
     try { if (furnaceUI?.pos && furnaceUI.pos.x === hit.x && furnaceUI.pos.y === hit.y && furnaceUI.pos.z === hit.z) furnaceUI.close(); } catch {}
   }
   if (realId === 25 || realId === 26) {
-    // Kapı: iki yarı birlikte gider, 1 kapı düşer (MC)
+    // Kapı: HANGİ yarı kırılırsa kırılsın iki hücre de gider (iki modda da).
+    // Eski hata: üst yarı kırılınca alt yarıya hiç bakılmıyordu (otherY yanlış hücreydi).
     const baseY = realId === 25 ? hit.y : hit.y - 1;
-    const otherY = realId === 25 ? hit.y + 1 : hit.y;
-    const otherWant = realId === 25 ? 26 : 25;
-    try { if (chunkManager.getBlock(hit.x, otherY, hit.z) === otherWant) chunkManager.setBlock(hit.x, otherY, hit.z, 0); } catch {}
+    const topY = baseY + 1;
+    try { if (chunkManager.getBlock(hit.x, topY, hit.z) === 26) chunkManager.setBlock(hit.x, topY, hit.z, 0); } catch {}
+    try { if (chunkManager.getBlock(hit.x, baseY, hit.z) === 25) chunkManager.setBlock(hit.x, baseY, hit.z, 0); } catch {}
     try { doorMgr.remove(hit.x, baseY, hit.z); } catch {}
-    try { popUnsupportedTorches(hit.x, otherY, hit.z); } catch {}
+    try { popUnsupportedTorches(hit.x, baseY, hit.z); } catch {}
+    try { popUnsupportedTorches(hit.x, topY, hit.z); } catch {}
   }
   if (realId === 27 && GAMEMODE === 'survival') {
     // Sandık: bu yarının 27 slotu saçılır + sandık bloğu düşer (MC yarı-başına entity)
