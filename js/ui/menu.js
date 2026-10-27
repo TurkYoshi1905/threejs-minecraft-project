@@ -68,54 +68,50 @@ function showScreen(name) {
   }
 }
 
-// Settings panelini yoksa dinamik olarak oluşturur (index.html'ye bağımlı değil)
+// Settings panelini yoksa dinamik olarak oluşturur (premium modal)
 function ensureSettingsPanel() {
   let panel = document.getElementById('settingsPanel');
   if (panel) return panel;
 
   panel = document.createElement('div');
   panel.id = 'settingsPanel';
-  panel.className = 'hidden';
-  panel.style.cssText = `
-    position: fixed; inset: 0; z-index: 200;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.75);
-  `;
 
-  const box = document.createElement('div');
-  box.className = 'settings-box';
-  box.style.cssText = `
-    background: #c6c6c6; border: 3px solid #373737; border-radius: 4px;
-    padding: 20px; width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
-    color: #222; font-size: 14px;
-  `;
+  const inner = document.createElement('div');
+  inner.className = 'settings-box-inner';
 
-  const title = document.createElement('h2');
+  // Header
+  const header = document.createElement('div');
+  header.className = 'settings-header';
+  const icon = document.createElement('div');
+  icon.className = 'settings-icon';
+  icon.textContent = '⚙️';
+  const title = document.createElement('div');
+  title.className = 'settings-title';
   title.id = 'settingsTitle';
-  title.textContent = '⚙️ Ayarlar';
-  title.style.cssText = 'font-family: "Press Start 2P", monospace; font-size: 16px; margin: 0 0 16px; color: #222;';
+  title.innerHTML = 'Ayarlar<small>Three.js Minecraft v2.1</small>';
+  header.appendChild(icon);
+  header.appendChild(title);
+  inner.appendChild(header);
 
+  // Content
   const content = document.createElement('div');
   content.id = 'settingsContent';
-  content.style.cssText = 'display: flex; flex-direction: column; gap: 14px;';
+  inner.appendChild(content);
 
+  // Footer
   const footer = document.createElement('div');
   footer.className = 'settings-footer';
-  footer.style.cssText = 'margin-top: 20px; text-align: right;';
-
   const doneBtn = document.createElement('button');
   doneBtn.id = 'settingsDoneBtn';
-  doneBtn.className = 'mc-btn green big';
-  doneBtn.textContent = 'Kapat';
+  doneBtn.className = 'settings-btn-done';
+  doneBtn.textContent = 'Bitti';
   doneBtn.onclick = () => {
     panel.classList.add('hidden');
   };
-
   footer.appendChild(doneBtn);
-  box.appendChild(title);
-  box.appendChild(content);
-  box.appendChild(footer);
-  panel.appendChild(box);
+  inner.appendChild(footer);
+
+  panel.appendChild(inner);
   document.body.appendChild(panel);
 
   return panel;
@@ -131,10 +127,21 @@ function renderSettings() {
   const gs = window.gameSettings;
   box.innerHTML = '';
 
+  const settingIcons = {
+    renderDistance: '🔭',
+    graphics: '🖥️',
+    particles: '✨',
+    invertMouse: '🖱️',
+    mouseSensitivity: '⚡',
+    subtitles: '💬',
+    volume: '🔊',
+  };
+
   const rows = [
     {
       key: 'renderDistance',
       label: 'Görüş Mesafesi (Chunk)',
+      icon: '🔭',
       values: [2, 4, 6, 8, 10, 12],
       get: () => gs.renderDistance,
       set: (v) => { gs.renderDistance = +v; },
@@ -142,6 +149,7 @@ function renderSettings() {
     {
       key: 'graphics',
       label: 'Grafik Hızı',
+      icon: '🖥️',
       values: ['Hızlı', 'Güzel'],
       get: () => gs.graphics === 'güzel' ? 'Güzel' : 'Hızlı',
       set: (v) => { gs.graphics = v === 'Güzel' ? 'güzel' : 'hizli'; },
@@ -149,6 +157,7 @@ function renderSettings() {
     {
       key: 'particles',
       label: 'Partiküller',
+      icon: '✨',
       values: ['Tam', 'Azaltılmış', 'Kapalı'],
       get: () => gs.particles === 'azaltilmis' ? 'Azaltılmış' : (gs.particles === 'kapali' ? 'Kapalı' : 'Tam'),
       set: (v) => {
@@ -158,6 +167,7 @@ function renderSettings() {
     {
       key: 'invertMouse',
       label: 'Fare Ters Yön',
+      icon: '🖱️',
       values: ['Kapalı', 'Açık'],
       get: () => gs.invertMouse ? 'Açık' : 'Kapalı',
       set: (v) => { gs.invertMouse = v === 'Açık'; },
@@ -165,6 +175,7 @@ function renderSettings() {
     {
       key: 'mouseSensitivity',
       label: 'Fare Hassasiyeti',
+      icon: '⚡',
       values: ['%50', '%75', '%100', '%125', '%150'],
       get: () => Math.round(gs.mouseSensitivity) + '%',
       set: (v) => { gs.mouseSensitivity = +v.replace('%', ''); },
@@ -172,6 +183,7 @@ function renderSettings() {
     {
       key: 'subtitles',
       label: 'Altyazılar',
+      icon: '💬',
       values: ['Kapalı', 'Açık'],
       get: () => gs.subtitles ? 'Açık' : 'Kapalı',
       set: (v) => { gs.subtitles = v === 'Açık'; },
@@ -179,6 +191,7 @@ function renderSettings() {
     {
       key: 'volume',
       label: 'Ses Seviyesi',
+      icon: '🔊',
       values: ['%0', '%25', '%50', '%75', '%100'],
       get: () => Math.round(gs.volume) + '%',
       set: (v) => { gs.volume = +v.replace('%', ''); },
@@ -188,6 +201,11 @@ function renderSettings() {
   for (const row of rows) {
     const container = document.createElement('div');
     container.className = 'setting-row';
+
+    const icon = document.createElement('span');
+    icon.className = 'setting-icon-row';
+    icon.textContent = row.icon;
+    icon.style.cssText = 'font-size: 18px; min-width: 30px; text-align: center;';
 
     const label = document.createElement('span');
     label.className = 'setting-label';
@@ -206,6 +224,7 @@ function renderSettings() {
       row.set(next);
     };
 
+    container.appendChild(icon);
     container.appendChild(label);
     container.appendChild(value);
     box.appendChild(container);
@@ -330,7 +349,7 @@ boot();
 window.openPauseSettings = function() {
   renderSettings();
   const t = document.getElementById('settingsTitle');
-  if (t) t.textContent = '⚙️ Ayarlar';
+  if (t) t.textContent = 'Ayarlar';
   const doneBtn = document.getElementById('settingsDoneBtn');
   if (doneBtn) doneBtn.textContent = 'Kapat';
 };
