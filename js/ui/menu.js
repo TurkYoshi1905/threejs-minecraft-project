@@ -63,12 +63,17 @@ const SPLASHES = [
 function showScreen(name) {
   const screens = ['menuMain', 'menuSingle', 'menuHelp', 'menuSettings'];
   for (const s of screens) {
-    document.getElementById(s)?.classList.toggle('hidden', s !== name);
+    const el = document.getElementById(s);
+    if (el) el.classList.toggle('hidden', s !== name);
   }
 }
 
 function renderSettings() {
   const box = $('#settingsContent');
+  if (!box) {
+    console.warn('[menu] #settingsContent element bulunamadı');
+    return;
+  }
   const gs = window.gameSettings;
   box.innerHTML = '';
 
@@ -155,6 +160,10 @@ function renderSettings() {
 
 async function renderList() {
   const box = $('worldList');
+  if (!box) {
+    console.warn('[menu] #worldList element bulunamadı');
+    return;
+  }
   const worlds = await dbWorlds.list();
   const act = activeId();
   const wc = $('worldCount');
@@ -165,7 +174,10 @@ async function renderList() {
     if (ms) ms.textContent = cur ? `${cur.name || 'Dünya'} (Seed: ${cur.seed})` : '';
   } catch {}
   box.innerHTML = '';
-  if (!worlds.length) { box.innerHTML = '<div class="world-empty">Henüz dünya yok.</div>'; return; }
+  if (!worlds.length) {
+    box.innerHTML = '<div class="world-empty">Henüz dünya yok.</div>';
+    return;
+  }
   for (const w of worlds) {
     const row = document.createElement('div');
     row.className = 'world-row' + (w.id === act ? ' active' : '');
@@ -222,21 +234,28 @@ async function init() {
   // Ayarlar panelini (oyun içi overlay) kapatma
   const settingsDoneBtn = $('settingsDoneBtn');
   if (settingsDoneBtn) settingsDoneBtn.onclick = () => {
-    document.getElementById('settingsPanel')?.classList.add('hidden');
+    const p = document.getElementById('settingsPanel');
+    if (p) p.classList.add('hidden');
   };
 
   try { await openDB(); } catch { return; }
   try { await ensureDefault(); } catch {}
   try { await renderList(); } catch {}
   const randomSeedBtn = $('randomSeedBtn');
-  if (randomSeedBtn) randomSeedBtn.onclick = () => { $('worldSeed').value = randomSeed(); };
+  if (randomSeedBtn) randomSeedBtn.onclick = () => {
+    const ws = $('worldSeed');
+    if (ws) ws.value = randomSeed();
+  };
   const createBtn = $('createBtn');
   if (createBtn) createBtn.onclick = async () => {
-    const name = ($('worldName').value || 'Yeni Dünya').trim().slice(0, 24);
-    const seed = ($('worldSeed').value || randomSeed()).trim().slice(0, 64);
-    const gamemode = $('worldMode').value === 'survival' ? 'survival' : 'creative';
+    const wn = $('worldName');
+    const ws = $('worldSeed');
+    const wm = $('worldMode');
+    const name = (wn ? wn.value : '') || 'Yeni Dünya';
+    const seed = (ws ? ws.value : '') || randomSeed();
+    const gamemode = (wm ? wm.value : 'creative') === 'survival' ? 'survival' : 'creative';
     const id = 'w-' + Date.now().toString(36);
-    await dbWorlds.put({ id, name, seed, gamemode, createdAt: Date.now(), lastPlayed: Date.now() });
+    await dbWorlds.put({ id, name: name.trim().slice(0, 24), seed: seed.trim().slice(0, 64), gamemode, createdAt: Date.now(), lastPlayed: Date.now() });
     await setActive(id);
     if (typeof window.__enterWorld === 'function') window.__enterWorld(id);
     else location.reload();
@@ -254,13 +273,15 @@ boot();
 // ---- Duraklatma menüsü ayar butonu (main.js tarafından çağrılabilir) ----
 window.openPauseSettings = function() {
   renderSettings();
-  document.getElementById('settingsPanel')?.classList.remove('hidden');
-  const settingsTitle = document.getElementById('settingsTitle');
-  if (settingsTitle) settingsTitle.textContent = '⚙️ Ayarlar';
+  const p = document.getElementById('settingsPanel');
+  if (p) p.classList.remove('hidden');
+  const t = document.getElementById('settingsTitle');
+  if (t) t.textContent = '⚙️ Ayarlar';
   const doneBtn = document.getElementById('settingsDoneBtn');
   if (doneBtn) doneBtn.textContent = 'Kapat';
 };
 
 window.closePauseSettings = function() {
-  document.getElementById('settingsPanel')?.classList.add('hidden');
+  const p = document.getElementById('settingsPanel');
+  if (p) p.classList.add('hidden');
 };
