@@ -33,54 +33,102 @@
   <!-- Açılış splash: her girişte tam ekran logo, sonra menüye geçiş -->
   <div id="bootSplash"><img src="assets/logo.png" alt="Minecraft Klonu" onerror="this.parentElement.classList.add('gone')" /></div>
 
-  <!-- Başlangıç menüsü / Dünya seçimi (Minecraft tarzı) -->
+  <!-- ================= ANA MENÜ (Minecraft 1.21.1 Tarzı) ================= -->
   <div id="menu">
-    <div class="mc-logo">
-      <h1>⛏️ MİNECRAFT KLONU</h1>
-      <div id="splash">%100 JavaScript!</div>
+    <div id="menuBackground">
+      <canvas id="menuBgCanvas" width="1280" height="720"></canvas>
     </div>
-    <p class="mc-sub">Three.js + Faithful Texture • Sonsuz Chunk • <span id="menuSeed"></span></p>
+
+    <div class="mc-logo">
+      <h1>Minecraft Klonu</h1>
+      <div id="splash">Three.js + Faithful Texture</div>
+    </div>
+
+    <p class="mc-sub">
+      Sonsuz Chunk • <span id="menuSeed"></span>
+    </p>
 
     <!-- Ana ekran -->
     <div id="menuMain" class="mc-screen">
       <button id="btnSingle" class="mc-btn big">🗺️ Tek Oyunculu</button>
+      <button id="btnSettings" class="mc-btn big">⚙️ Ayarlar</button>
       <button id="btnHelpMenu" class="mc-btn big">❓ Nasıl Oynanır</button>
-      <div class="mc-footer">Three.js Minecraft v2.1 • MC 1.21 uyumlu (Y -64..319) • <span id="buildTag">…</span> • <span id="worldCount"></span></div>
+      <div class="mc-footer">Three.js Minecraft v2.1 • MC 1.21.1 Uyumlu (Y: -64..319) • <span id="worldCount"></span> Dünya</div>
     </div>
 
-    <!-- Tek oyunculu ekran -->
+    <!-- Tek oyunculu / Dünya seçimi -->
     <div id="menuSingle" class="mc-screen hidden">
-      <button id="playBtn" class="mc-btn green big">▶ Seçili Dünyada OYNA</button>
+      <button id="playBtn" class="mc-btn green big">▶ Seçili Dünyada Oyna</button>
       <div id="worldPanel">
-        <h3>⛏️ Dünyalar</h3>
+        <h3>🌍 Dünyalar</h3>
         <div id="worldList"><div class="world-empty">Yükleniyor...</div></div>
         <div id="createBox">
-          <div class="fld full"><label for="worldName">Dünya adı</label><input id="worldName" maxlength="24" placeholder="örn: Benim Dünyam" /></div>
+          <div class="fld full"><label for="worldName">Dünya Adı</label><input id="worldName" maxlength="24" placeholder="örn: Benim Dünyam" /></div>
           <div class="fld"><label for="worldSeed">Seed (boş = rastgele)</label><input id="worldSeed" maxlength="64" placeholder="örn: 12345" /></div>
-          <div class="fld"><label for="worldMode">Oyun modu</label><select id="worldMode">
+          <div class="fld"><label for="worldMode">Oyun Modu</label><select id="worldMode">
             <option value="creative">Yaratıcı</option>
             <option value="survival">Hayatta Kalma</option>
           </select></div>
-          <div class="fld"><label>&nbsp;</label><button id="randomSeedBtn" type="button" title="Rastgele seed">🎲</button></div>
+          <div class="fld"><label>&nbsp;</label><button id="randomSeedBtn" type="button" title="Rastgele Seed">🎲</button></div>
           <button id="createBtn" type="button">+ Yeni Dünya Oluştur</button>
         </div>
       </div>
       <button id="btnBackMain" class="mc-btn">← Geri</button>
     </div>
 
-    <!-- Yardım ekranı -->
+    <!-- Ayarlar Menüsü -->
+    <div id="menuSettings" class="mc-screen hidden">
+      <h3>⚙️ Ayarlar</h3>
+      <div id="settingsList"></div>
+      <button id="btnBackSettings" class="mc-btn">← Geri</button>
+    </div>
+
+    <!-- Yardım / Kontrol Ekranı -->
     <div id="menuHelp" class="mc-screen hidden">
       <div class="controls-info">
         <p><b>W A S D</b> - Hareket | <b>Mouse</b> - Etrafına bak</p>
-        <p><b>Space</b> - Zıpla/Yüz/Uç | <b>çift-Space</b> - Uçma aç/kapat (yaratıcı)</p>
-        <p><b>Sol Tık (basılı tut)</b> - Blok kır (alet hızlandırır) | <b>Sağ Tık (basılı tut)</b> - Blok koy</p>
-        <p><b>1-0 / Tekerlek</b> - Blok seç | <b>E</b> - Envanter | <b>T</b> - Sohbet/Komut | <b>Q</b> - Eşya at</p>
-        <p><b>/gamemode /give /setblock /tp /time /seed</b> - sohbete yaz (örn: /give elmas kazma)</p>
-        <p>Y: -64..319 • Dünya sınırı ±250.000 (kırmızı bariyer) • Fırın: sağ tıkla aç</p>
+        <p><b>Space</b> - Zıpla / Yüz / Uç | <b>Çift-Space</b> - Uçma (Yaratıcı)</p>
+        <p><b>Sol Shift</b> - Sürün (Kenardan düşme yok) | <b>Çift-W</b> - Koş</p>
+        <p><b>Sol Tık (basılı tut)</b> - Blok Kır | <b>Sağ Tık (basılı tut)</b> - Blok Koy</p>
+        <p><b>1-0 / Tekerlek</b> - Blok Seç | <b>E</b> - Envanter | <b>T</b> - Sohbet / Komut | <b>Q</b> - Eşya At</p>
+        <p><b>/gamemode /give /setblock /tp /time /seed</b> - Sohbete yaz</p>
+        <p>Y: -64..319 • Dünya Sınırı: ±250.000 • Fırın: Sağ tıkla aç</p>
       </div>
       <button id="btnBackMain2" class="mc-btn">← Geri</button>
     </div>
-    <small>Not: VS Code'da <b>Live Server</b> ile aç. Dünya IndexedDB'ye kaydedilir.</small>
+
+    <small id="menuNote">Not: VS Code'da <b>Live Server</b> ile açın. Dünya IndexedDB'ye kaydedilir.</small>
+  </div>
+
+  <!-- ================= DURAKLATMA MENÜSÜ (Esc) ================= -->
+  <div id="pauseMenu" class="hidden">
+    <div class="pause-box">
+      <h2>⏸️ Duraklatıldı</h2>
+      <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
+      <button id="pauseSettingsBtn" class="mc-btn big">⚙️ Ayarlar</button>
+      <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
+      <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
+    </div>
+    <small>İpucu: E envanter • T sohbet • H yardım</small>
+  </div>
+
+  <!-- ================= AYARLAR PANELİ (Oyun İçi / Menü) ================= -->
+  <div id="settingsPanel" class="hidden">
+    <div class="settings-box">
+      <h2 id="settingsTitle">⚙️ Ayarlar</h2>
+      <div id="settingsContent"></div>
+      <div class="settings-footer">
+        <button id="settingsDoneBtn" class="mc-btn green big">Bitti</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= OYUNCU ELİ (First-Person Hand) ================= -->
+  <div id="handContainer">
+    <div id="hand">
+      <div id="handArm"></div>
+      <div id="handItem"></div>
+    </div>
   </div>
 
   <!-- Yardım paneli (E ile açılır) -->
@@ -160,7 +208,7 @@
   <div id="tablePanel" class="hidden">
     <div class="inv-box">
       <div class="inv-title">🔨 Çalışma Masası <button id="tableClose">✕ Kapat (E)</button></div>
-      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 6 tahta (2x3)→3 kapı • 8 tahta halka→sandık • 8 kırma taş→fırın</div>
+      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın</div>
       <div class="craft-row big">
         <div id="craft3Grid"></div>
         <div class="craft-arrow">➜</div>
@@ -202,11 +250,10 @@
     </div>
   </div>
 
-  <!-- Sandık (tek 27 / çift 54) -->
+  <!-- Sandık Paneli -->
   <div id="chestPanel" class="hidden">
     <div class="inv-box">
-      <div class="inv-title"><span id="chestTitle">Sandık</span><button id="chestClose">✕ Kapat (E)</button></div>
-      <div id="chestHint">Sol: al/bırak • Sağ: yarısını al / 1 tane koy</div>
+      <div class="inv-title">📦 Sandık <span id="chestTitle">Tek Sandık</span><button id="chestClose">✕ Kapat (E)</button></div>
       <div id="chestGrid"></div>
       <div class="inv-sub">Çanta (27)</div>
       <div id="chestMain"></div>
@@ -215,14 +262,15 @@
     </div>
   </div>
 
-  <!-- Duraklatma menüsü (oyun içi Esc) -->  <div id="pauseMenu" class="hidden">
+  <!-- Duraklatma menüsü (oyun içi Esc) -->
+  <div id="pauseMenu" class="hidden">
     <h2>⏸️ Duraklatıldı</h2>
     <div class="mc-screen">
       <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
       <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
       <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
     </div>
-    <small>Dünya duraklatıldı • İpucu: E envanter • T sohbet • H yardım</small>
+    <small>İpucu: E envanter • T sohbet • H yardım</small>
   </div>
 
   <!-- Ölüm ekranı -->
@@ -238,8 +286,33 @@
     <input id="chatInput" maxlength="256" placeholder="Mesaj yaz veya /komut..." autocomplete="off" />
   </div>
 
-  <!-- v= query: tarayıcı modül önbelleğini patlatır (eski atlas/mesher kalmasın) -->
-  <script type="module" src="js/main.js?v=10"></script>
-  <script type="module" src="js/ui/menu.js?v=10"></script>
+  <!-- Menü arka planı: döngü halinden kayan blok doku -->
+  <script>
+    (function() {
+      const canvas = document.getElementById('menuBgCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.src = 'textures/dirt.png';
+      let offset = 0;
+      img.onload = function() {
+        function draw() {
+          offset = (offset + 0.25) % 64;
+          const w = canvas.width, h = canvas.height;
+          const pattern = ctx.createPattern(img, 'repeat');
+          ctx.fillStyle = pattern;
+          ctx.fillRect(0, 0, w, h);
+          // Hafif karartma overlay
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.fillRect(0, 0, w, h);
+          requestAnimationFrame(draw);
+        }
+        draw();
+      };
+    })();
+  </script>
+
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/ui/menu.js"></script>
 </body>
 </html>

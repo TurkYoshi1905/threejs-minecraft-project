@@ -169,7 +169,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           continue;
         }
         // su: üstü açıksa üst yüzü bir piksel aşağıda? v1'de tam blok, basit tutuyoruz
-        const isTrans = id === 9 || id === 16;
+        const isTrans = id === 9 || id === 16 || id === 6;
         const isSaydam = b?.saydam === true;
         for (const f of FACES) {
           const nx2 = lx + f.n[0], ny2 = y + f.n[1], nz2 = lz + f.n[2];

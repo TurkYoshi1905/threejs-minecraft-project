@@ -1,4 +1,12 @@
-import { CHUNK_SIZE, WORLD_HEIGHT, MIN_Y, MAX_Y, RENDER_DISTANCE, UNLOAD_DISTANCE, GEN_BUDGET_PER_FRAME, MESH_BUDGET_PER_FRAME } from '../core/config.js';
+import { CHUNK_SIZE, WORLD_HEIGHT, MIN_Y, MAX_Y, UNLOAD_DISTANCE, GEN_BUDGET_PER_FRAME, MESH_BUDGET_PER_FRAME } from '../core/config.js';
+// Render distance: ayarlar panelinden dinamik okunur (varsayılan config'deki değer)
+function getRenderDistance() {
+  try {
+    const gs = window && window.gameSettings;
+    if (gs && typeof gs.renderDistance === 'number') return gs.renderDistance;
+  } catch {}
+  return 5;
+}
 import { generateChunk } from './worldgen.js';
 import { buildChunkGeometry, bucketToMesh } from './mesher.js';
 import { dbChunks } from '../core/idb.js';
@@ -101,7 +109,8 @@ export class ChunkManager {
     this.lastCenter = [pcx, pcz];
     // spiral öncelik
     const want = [];
-    for (let r = 0; r <= RENDER_DISTANCE; r++) {
+    const rd = getRenderDistance();
+    for (let r = 0; r <= rd; r++) {
       for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
         want.push([pcx + dx, pcz + dz]);

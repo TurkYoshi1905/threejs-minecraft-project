@@ -95,7 +95,11 @@ const player = {
   yaw: Math.PI * 0.25, pitch: -0.1,
   onGround: false, flying: false,
   health: 20, dead: false, fallStart: 80,
+  sneaking: false,
+  sprinting: false,
 };
+let lastWTime = 0;
+const DOUBLE_TAP_MS = 300;
 let timeOfDay = 6000; // 0-23999, 6000 öğle
 const WATER_FOG = new THREE.Color(0x144a8f); // su altı fog rengi
 let headUnderwater = false;
@@ -113,6 +117,14 @@ const chestMgr = new ChestManager();
 const fallSim = new FallSim();
 const waterSim = new WaterSim();
 let waterTickAcc = 0;
+
+// Yaprak çürüme (leaf decay): odun kırıldığında yakındaki yapraklar işaretlenir,
+// oyuncu uzaklaştığında zamanla kendi kendine kırılır (MC mantığı).
+const decayingLeaves = new Map(); // "x,y,z" -> timestamp (ms)
+const LEAF_DECAY_RADIUS = 4;
+const LEAF_DECAY_DELAY_MS = 3000; // odun kırıldıktan sonra bekleme
+const LEAF_DECAY_CHANCE = 0.15; // her saniyede %15 şans
+let lastLeafDecayCheck = 0;
 
 // Meşale ışık takibi: koyulan/kırılan meşaleler + sarı ışık havuzu
 const torchMap = new Map(); // "x,y,z" -> facing (0 yerde, 1..4 duvarda)
@@ -218,7 +230,7 @@ function movePlayer(dt) {
   if (border) {
     if (border.clamp(player.pos)) { /* duvara vurdu */ }
   }
-  const speed = player.flying ? 12 : (keys['ShiftLeft'] || keys['ShiftRight'] ? 8 : 4.5);
+  const speed = player.flying ? 12 : (player.sprinting ? 5.612 : (player.sneaking ? 3.15 : 4.5));
   const f = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
   const s = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
   const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
@@ -543,6 +555,7 @@ function isPaused() {
   if (furnaceUI && furnaceUI.isOpen) return true;
   if (typeof chestUI !== "undefined" && chestUI && chestUI.isOpen) return true;
   try { if (pauseEl && !pauseEl.classList.contains("hidden")) return true; } catch {}
+  try { if (document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden')) return true; } catch {}
   return false;
 }
 let wasPaused = false;
@@ -687,11 +700,17 @@ document.getElementById('playBtn').onclick = async () => {
     enterWorld(id);
   } else tryLock();
 };
-document.getElementById('resumeBtn').onclick = () => { wantMain = false; tryLock(); };
+document.getElementById('resumeBtn').onclick = () => {
+  try { document.getElementById('settingsPanel')?.classList.add('hidden'); } catch {}
+  wantMain = false; tryLock();
+};
 document.getElementById('toMainBtn').onclick = () => { wantMain = true; refreshMenus(); };
 document.getElementById('respawnBtn2').onclick = () => {
   player.pos.copy(spawnPos()); player.vel.set(0, 0, 0);
   wantMain = false; tryLock();
+};
+document.getElementById('pauseSettingsBtn').onclick = () => {
+  if (typeof window.openPauseSettings === 'function') window.openPauseSettings();
 };
 // Canvas'a tıklayınca kilidi geri al (envanter/sohbet kapandıktan sonra takılmayı önler)
 canvas.addEventListener('click', () => {
@@ -702,6 +721,9 @@ canvas.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   lockDbg(locked ? 'kilit ALINDI' : 'kilit BIRAKILDI');
+  // Oyuncu elini göster/gizle
+  const handContainer = document.getElementById('handContainer');
+  if (handContainer) handContainer.classList.toggle('visible', locked && worldReady && !player.dead);
   if (locked) { hasStarted = true; wantMain = false; mouseGuard = true; }
   else { mouseL = false; mouseR = false; placeCd = 0; hideBreakBar(); effects?.hideCrack(); }
   refreshMenus();
@@ -745,6 +767,21 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && furnaceUI && furnaceUI.isOpen) { closeFurnace(); return; }
   if (e.code === 'Escape' && chestUI && chestUI.isOpen) { closeChest(); return; }
   keys[e.code] = true;
+
+  // Sürünme (Shift) — MC gibi yavaşlatır, kenardan düşmeme sağlar
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    player.sneaking = true;
+  }
+
+  // Çift-W koşma (MC sprint)
+  if (e.code === 'KeyW' && locked && !player.dead && !player.flying && !anyOverlay()) {
+    const now = performance.now();
+    if (now - lastWTime < DOUBLE_TAP_MS) {
+      player.sprinting = true;
+    }
+    lastWTime = now;
+  }
+
   // Kilit yoksa oyun tuşları çalışmaz (envanter/masa/fırın açıkken E/Esc hariç).
   // Böylece kilitsizken basılan tuşlar oyunun durumunu bozamaz.
   if (!locked && !(inventory && inventory.isOpen) && !(craftTable && craftTable.isOpen) && !(furnaceUI && furnaceUI.isOpen)) {
@@ -808,7 +845,16 @@ document.addEventListener('keydown', (e) => {
   }
     if (e.code === 'Space') e.preventDefault();
 });
-document.addEventListener('keyup', (e) => keys[e.code] = false);
+document.addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    player.sneaking = false;
+  }
+  // Koşma: W bırakılınca durur (MC gibi sürekli basılı tutma gerekmez ama ici basit tutuyoruz)
+  if (e.code === 'KeyW') {
+    player.sprinting = false;
+  }
+});
 document.addEventListener('wheel', (e) => {
   if (!locked || !inventory) return;
   const len = inventory.hotbar.length;
@@ -949,6 +995,21 @@ function breakInstant(hit) {
     } catch {}
     chestMgr.remove(hit.x, hit.y, hit.z);
     try { if (chestUI?.pos && ((chestUI.pos.x === hit.x && chestUI.pos.y === hit.y && chestUI.pos.z === hit.z) || (chestUI.halves().length > 1 && chestUI.halves()[1].key === hit.x + ',' + hit.y + ',' + hit.z))) chestUI.close(); } catch {}
+  }
+  // Odun kırıldığında yakındaki yaprakları çürüme listesine al (leaf decay)
+  if (realId === 5) {
+    const now = Date.now();
+    for (let dx = -LEAF_DECAY_RADIUS; dx <= LEAF_DECAY_RADIUS; dx++) {
+      for (let dy = -LEAF_DECAY_RADIUS; dy <= LEAF_DECAY_RADIUS; dy++) {
+        for (let dz = -LEAF_DECAY_RADIUS; dz <= LEAF_DECAY_RADIUS; dz++) {
+          const bx = hit.x + dx, by = hit.y + dy, bz = hit.z + dz;
+          const bid = chunkManager.getBlock(bx, by, bz);
+          if (bid === 6) { // yaprak
+            decayingLeaves.set(bx + ',' + by + ',' + bz, now + LEAF_DECAY_DELAY_MS);
+          }
+        }
+      }
+    }
   }
   effects?.burst(hit.x, hit.y, hit.z, realId);
   if (GAMEMODE === 'survival' && realId !== 16 && BLOCKS[realId] && !BLOCKS[realId].secilemez) {
@@ -1124,6 +1185,21 @@ function animate() {
   wasPaused = paused;
   const simDt = paused ? 0 : dt;
   if (locked) movePlayer(simDt);
+
+  // El yürüş animasyonu: hareket tuşlarından biri basılıysa hızlı sallanma
+  const hand = document.getElementById('hand');
+  const handContainer = document.getElementById('handContainer');
+  if (hand && handContainer && locked && worldReady && !player.dead) {
+    const moving = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'];
+    if (moving && !hand.classList.contains('walking')) {
+      hand.classList.add('walking');
+      hand.style.animation = 'handWalk 0.4s ease-in-out infinite';
+    } else if (!moving && hand.classList.contains('walking')) {
+      hand.classList.remove('walking');
+      hand.style.animation = 'handIdle 2.5s ease-in-out infinite';
+    }
+  }
+
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);
     // Adaptif bütçe: önceki kare yavaşsa (<30fps) bu kare üretim/mesh atlanır.
@@ -1329,6 +1405,31 @@ function animate() {
     }
     fpsAcc = 0; fpsN = 0; fpsT = 0;
     perfAcc.ms = 0; perfAcc.max = 0; perfAcc.n = 0;
+  }
+
+  // Yaprak çürüme: her saniyede bir işaretli yaprakları kontrol et
+  if (chunkManager && !paused) {
+    lastLeafDecayCheck += dt;
+    if (lastLeafDecayCheck >= 1.0) {
+      lastLeafDecayCheck = 0;
+      const now = Date.now();
+      const px = player.pos.x, py = player.pos.y, pz = player.pos.z;
+      for (const [k, decayTime] of decayingLeaves.entries()) {
+        if (now < decayTime) continue;
+        const [bx, by, bz] = k.split(',').map(Number);
+        const dist2 = (bx + 0.5 - px) ** 2 + (by + 0.5 - py) ** 2 + (bz + 0.5 - pz) ** 2;
+        // Oyuncu 6 blok içindeyse çürütme (MC mantığı)
+        if (dist2 < 36) continue;
+        if (Math.random() < LEAF_DECAY_CHANCE) {
+          const bid = chunkManager.getBlock(bx, by, bz);
+          if (bid === 6) {
+            chunkManager.setBlock(bx, by, bz, 0);
+            effects?.burst(bx, by, bz, 6, 4);
+          }
+        }
+        decayingLeaves.delete(k);
+      }
+    }
   }
 
   renderer.render(scene, camera);

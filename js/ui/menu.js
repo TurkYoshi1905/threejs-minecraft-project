@@ -4,6 +4,18 @@ import { DEFAULT_SEED } from '../core/config.js';
 const $ = (id) => document.getElementById(id);
 let activeCache = 'default';
 const activeId = () => activeCache;
+
+// Oyun-wide ayar state'i (main.js ve diğer modüller tarafından okunabilir)
+window.gameSettings = window.gameSettings || {
+  renderDistance: 5,
+  graphics: 'hizli', // 'hizli' | 'güzel'
+  particles: 'tam', // 'tam' | 'azaltilmis' | 'kapali'
+  invertMouse: false,
+  mouseSensitivity: 100,
+  subtitles: true,
+  volume: 100,
+};
+
 async function loadActive() {
   try {
     const m = await dbMeta.get('active-world', null);
@@ -42,11 +54,103 @@ async function ensureDefault() {
   }
 }
 
-const SPLASHES = ['%100 JavaScript!', 'Sonsuz chunk!', 'Creeper yok!', 'Seed\'ini yaz!', 'KankaCraft!', '1.21 uyumlu!', 'Elmas -59\'da!', 'Kırmızı bariyere dikkat!', 'T ile sohbet!'];
+const SPLASHES = [
+  '%100 JavaScript!', 'Sonsuz chunk!', 'Creeper yok!', "Seed'in yaz!", 'KankaCraft!',
+  '1.21 uyumlu!', 'Elmas -59\'da!', 'Kırmızı bariyere dikkat!', 'T ile sohbet!',
+  'Sürün ve koş!', 'Yaprak çürümeli!', 'Mesafe ayarla!',
+];
 
 function showScreen(name) {
-  for (const s of ['menuMain', 'menuSingle', 'menuHelp'])
+  const screens = ['menuMain', 'menuSingle', 'menuHelp', 'menuSettings'];
+  for (const s of screens) {
     document.getElementById(s)?.classList.toggle('hidden', s !== name);
+  }
+}
+
+function renderSettings() {
+  const box = $('#settingsContent');
+  const gs = window.gameSettings;
+  box.innerHTML = '';
+
+  const rows = [
+    {
+      key: 'renderDistance',
+      label: 'Görüş Mesafesi (Chunk)',
+      values: [2, 4, 6, 8, 10, 12],
+      get: () => gs.renderDistance,
+      set: (v) => { gs.renderDistance = +v; },
+    },
+    {
+      key: 'graphics',
+      label: 'Grafik Hızı',
+      values: ['Hızlı', 'Güzel'],
+      get: () => gs.graphics === 'güzel' ? 'Güzel' : 'Hızlı',
+      set: (v) => { gs.graphics = v === 'Güzel' ? 'güzel' : 'hizli'; },
+    },
+    {
+      key: 'particles',
+      label: 'Partiküller',
+      values: ['Tam', 'Azaltılmış', 'Kapalı'],
+      get: () => gs.particles === 'azaltilmis' ? 'Azaltılmış' : (gs.particles === 'kapali' ? 'Kapalı' : 'Tam'),
+      set: (v) => {
+        gs.particles = v === 'Tam' ? 'tam' : (v === 'Azaltılmış' ? 'azaltilmis' : 'kapali');
+      },
+    },
+    {
+      key: 'invertMouse',
+      label: 'Fare Ters Yön',
+      values: ['Kapalı', 'Açık'],
+      get: () => gs.invertMouse ? 'Açık' : 'Kapalı',
+      set: (v) => { gs.invertMouse = v === 'Açık'; },
+    },
+    {
+      key: 'mouseSensitivity',
+      label: 'Fare Hassasiyeti',
+      values: ['%50', '%75', '%100', '%125', '%150'],
+      get: () => Math.round(gs.mouseSensitivity) + '%',
+      set: (v) => { gs.mouseSensitivity = +v.replace('%', ''); },
+    },
+    {
+      key: 'subtitles',
+      label: 'Altyazılar',
+      values: ['Kapalı', 'Açık'],
+      get: () => gs.subtitles ? 'Açık' : 'Kapalı',
+      set: (v) => { gs.subtitles = v === 'Açık'; },
+    },
+    {
+      key: 'volume',
+      label: 'Ses Seviyesi',
+      values: ['%0', '%25', '%50', '%75', '%100'],
+      get: () => Math.round(gs.volume) + '%',
+      set: (v) => { gs.volume = +v.replace('%', ''); },
+    },
+  ];
+
+  for (const row of rows) {
+    const container = document.createElement('div');
+    container.className = 'setting-row';
+
+    const label = document.createElement('span');
+    label.className = 'setting-label';
+    label.textContent = row.label;
+
+    const value = document.createElement('button');
+    value.className = 'setting-value';
+    value.textContent = row.get();
+    value.onclick = () => {
+      const vals = row.values;
+      const cur = row.get();
+      let idx = vals.indexOf(cur);
+      if (idx < 0) idx = 0;
+      const next = vals[(idx + 1) % vals.length];
+      value.textContent = next;
+      row.set(next);
+    };
+
+    container.appendChild(label);
+    container.appendChild(value);
+    box.appendChild(container);
+  }
 }
 
 async function renderList() {
@@ -55,7 +159,6 @@ async function renderList() {
   const act = activeId();
   const wc = $('worldCount');
   if (wc) wc.textContent = `${worlds.length} dünya`;
-  // Menü başlığında aktif dünya adı + seed
   try {
     const cur = worlds.find((w) => w.id === act);
     const ms = $('menuSeed');
@@ -75,7 +178,6 @@ async function renderList() {
       await setActive(w.id);
       w.lastPlayed = Date.now();
       try { await dbWorlds.put(w); } catch {}
-      // Reload YOK: aynı sayfada dünyaya gir (buton tıklaması = kilit izni)
       if (typeof window.__enterWorld === 'function') window.__enterWorld(w.id);
       else location.reload();
     };
@@ -89,7 +191,6 @@ async function renderList() {
         try { await dbPlayers.remove(w.id); } catch {}
         if (activeId() === w.id) await setActive('default');
         await ensureDefault();
-        // Oynanan dünya silindiyse oyundan çıkar (reload yok)
         if (wasCurrent && typeof window.__exitToMenu === 'function') await window.__exitToMenu(false);
         renderList();
       } catch (e) { alert('Silme başarısız: ' + e); }
@@ -103,22 +204,31 @@ async function init() {
   const sp = document.getElementById('splash');
   if (sp) sp.textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
   showScreen('menuMain');
-  $('btnSingle').onclick = () => showScreen('menuSingle');
-  $('btnHelpMenu').onclick = () => showScreen('menuHelp');
-  $('btnBackMain').onclick = () => showScreen('menuMain');
-  $('btnBackMain2').onclick = () => showScreen('menuMain');
+
+  // Ana menü butonları
+  $('btnSingle')?.onclick = () => showScreen('menuSingle');
+  $('btnSettings')?.onclick = () => { renderSettings(); showScreen('menuSettings'); };
+  $('btnHelpMenu')?.onclick = () => showScreen('menuHelp');
+  $('btnBackMain')?.onclick = () => showScreen('menuMain');
+  $('btnBackMain2')?.onclick = () => showScreen('menuMain');
+  $('btnBackSettings')?.onclick = () => showScreen('menuMain');
+
+  // Ayarlar panelini (oyun içi overlay) kapatma
+  $('settingsDoneBtn')?.onclick = () => {
+    document.getElementById('settingsPanel')?.classList.add('hidden');
+  };
+
   try { await openDB(); } catch { return; }
   try { await ensureDefault(); } catch {}
   try { await renderList(); } catch {}
-  $('randomSeedBtn').onclick = () => { $('worldSeed').value = randomSeed(); };
-  $('createBtn').onclick = async () => {
+  $('randomSeedBtn')?.onclick = () => { $('worldSeed').value = randomSeed(); };
+  $('createBtn')?.onclick = async () => {
     const name = ($('worldName').value || 'Yeni Dünya').trim().slice(0, 24);
     const seed = ($('worldSeed').value || randomSeed()).trim().slice(0, 64);
     const gamemode = $('worldMode').value === 'survival' ? 'survival' : 'creative';
     const id = 'w-' + Date.now().toString(36);
     await dbWorlds.put({ id, name, seed, gamemode, createdAt: Date.now(), lastPlayed: Date.now() });
     await setActive(id);
-    // Oluşturunca direkt oyuna gir (reload yok, tıklama kilit izni verir)
     if (typeof window.__enterWorld === 'function') window.__enterWorld(id);
     else location.reload();
   };
@@ -129,4 +239,18 @@ async function boot() {
   await loadActive();
   await init();
 }
+
 boot();
+
+// ---- Duraklatma menüsü ayar butonu (main.js tarafından çağrılabilir) ----
+window.openPauseSettings = function() {
+  renderSettings();
+  document.getElementById('settingsPanel')?.classList.remove('hidden');
+  document.getElementById('settingsTitle')?.textContent = '⚙️ Ayarlar';
+  const doneBtn = document.getElementById('settingsDoneBtn');
+  if (doneBtn) doneBtn.textContent = 'Kapat';
+};
+
+window.closePauseSettings = function() {
+  document.getElementById('settingsPanel')?.classList.add('hidden');
+};
