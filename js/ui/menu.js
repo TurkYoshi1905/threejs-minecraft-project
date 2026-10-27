@@ -206,23 +206,32 @@ async function init() {
   showScreen('menuMain');
 
   // Ana menü butonları
-  $('btnSingle')?.onclick = () => showScreen('menuSingle');
-  $('btnSettings')?.onclick = () => { renderSettings(); showScreen('menuSettings'); };
-  $('btnHelpMenu')?.onclick = () => showScreen('menuHelp');
-  $('btnBackMain')?.onclick = () => showScreen('menuMain');
-  $('btnBackMain2')?.onclick = () => showScreen('menuMain');
-  $('btnBackSettings')?.onclick = () => showScreen('menuMain');
+  const btnSingle = $('btnSingle');
+  if (btnSingle) btnSingle.onclick = () => showScreen('menuSingle');
+  const btnSettings = $('btnSettings');
+  if (btnSettings) btnSettings.onclick = () => { renderSettings(); showScreen('menuSettings'); };
+  const btnHelpMenu = $('btnHelpMenu');
+  if (btnHelpMenu) btnHelpMenu.onclick = () => showScreen('menuHelp');
+  const btnBackMain = $('btnBackMain');
+  if (btnBackMain) btnBackMain.onclick = () => showScreen('menuMain');
+  const btnBackMain2 = $('btnBackMain2');
+  if (btnBackMain2) btnBackMain2.onclick = () => showScreen('menuMain');
+  const btnBackSettings = $('btnBackSettings');
+  if (btnBackSettings) btnBackSettings.onclick = () => showScreen('menuMain');
 
   // Ayarlar panelini (oyun içi overlay) kapatma
-  $('settingsDoneBtn')?.onclick = () => {
+  const settingsDoneBtn = $('settingsDoneBtn');
+  if (settingsDoneBtn) settingsDoneBtn.onclick = () => {
     document.getElementById('settingsPanel')?.classList.add('hidden');
   };
 
   try { await openDB(); } catch { return; }
   try { await ensureDefault(); } catch {}
   try { await renderList(); } catch {}
-  $('randomSeedBtn')?.onclick = () => { $('worldSeed').value = randomSeed(); };
-  $('createBtn')?.onclick = async () => {
+  const randomSeedBtn = $('randomSeedBtn');
+  if (randomSeedBtn) randomSeedBtn.onclick = () => { $('worldSeed').value = randomSeed(); };
+  const createBtn = $('createBtn');
+  if (createBtn) createBtn.onclick = async () => {
     const name = ($('worldName').value || 'Yeni Dünya').trim().slice(0, 24);
     const seed = ($('worldSeed').value || randomSeed()).trim().slice(0, 64);
     const gamemode = $('worldMode').value === 'survival' ? 'survival' : 'creative';
@@ -246,7 +255,8 @@ boot();
 window.openPauseSettings = function() {
   renderSettings();
   document.getElementById('settingsPanel')?.classList.remove('hidden');
-  document.getElementById('settingsTitle')?.textContent = '⚙️ Ayarlar';
+  const settingsTitle = document.getElementById('settingsTitle');
+  if (settingsTitle) settingsTitle.textContent = '⚙️ Ayarlar';
   const doneBtn = document.getElementById('settingsDoneBtn');
   if (doneBtn) doneBtn.textContent = 'Kapat';
 };
