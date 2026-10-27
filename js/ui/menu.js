@@ -16,6 +16,28 @@ window.gameSettings = window.gameSettings || {
   volume: 100,
 };
 
+// Kullanıcı tanımlı özel ayarlar (localStorage'da kalıcı olarak saklanır)
+window.customSettings = window.customSettings || {};
+
+const CUSTOM_SETTINGS_KEY = 'mc-custom-settings';
+
+function loadCustomSettings() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        window.customSettings = parsed;
+      }
+    }
+  } catch {}
+}
+function saveCustomSettings() {
+  try {
+    localStorage.setItem(CUSTOM_SETTINGS_KEY, JSON.stringify(window.customSettings));
+  } catch {}
+}
+
 async function loadActive() {
   try {
     const m = await dbMeta.get('active-world', null);
@@ -68,7 +90,7 @@ function showScreen(name) {
   }
 }
 
-// Settings panelini yoksa dinamik olarak oluşturur (premium modal)
+// Settings panelini yoksa dinamik olarak oluşturur (düzgun karanlık modal)
 function ensureSettingsPanel() {
   let panel = document.getElementById('settingsPanel');
   if (panel) return panel;
@@ -92,6 +114,44 @@ function ensureSettingsPanel() {
   header.appendChild(icon);
   header.appendChild(title);
   inner.appendChild(header);
+
+  // Kontrol butonları (Özel ayar ekle / sıfırla)
+  const controls = document.createElement('div');
+  controls.className = 'settings-controls';
+
+  const btnAdd = document.createElement('button');
+  btnAdd.className = 'settings-btn-add';
+  btnAdd.textContent = '+ Özel Ayar Ekle';
+  btnAdd.onclick = () => {
+    const name = prompt('Özel ayar adı (örn: FOV, Ses, Mavi):');
+    if (!name || !name.trim()) return;
+    const key = name.trim().replace(/\s+/g, '_').toLowerCase();
+    if (window.customSettings[key]) {
+      alert('Bu isimde bir ayar zaten var!');
+      return;
+    }
+    const value = prompt('Ayar değeri (örn: 90, açık, yüksek):');
+    if (value === null) return;
+    window.customSettings[key] = value.trim() || '1';
+    saveCustomSettings();
+    renderSettings();
+  };
+
+  const btnReset = document.createElement('button');
+  btnReset.className = 'settings-btn-add';
+  btnReset.textContent = '↺ Tümünü Sıfırla';
+  btnReset.style.background = 'linear-gradient(135deg, #a33 0%, #772222 100%)';
+  btnReset.style.borderColor = '#771111';
+  btnReset.onclick = () => {
+    if (!confirm('Tüm özel ayarları silmek istediğinize emin misiniz?')) return;
+    window.customSettings = {};
+    saveCustomSettings();
+    renderSettings();
+  };
+
+  controls.appendChild(btnAdd);
+  controls.appendChild(btnReset);
+  inner.appendChild(controls);
 
   // Content
   const content = document.createElement('div');
@@ -126,16 +186,6 @@ function renderSettings() {
   }
   const gs = window.gameSettings;
   box.innerHTML = '';
-
-  const settingIcons = {
-    renderDistance: '🔭',
-    graphics: '🖥️',
-    particles: '✨',
-    invertMouse: '🖱️',
-    mouseSensitivity: '⚡',
-    subtitles: '💬',
-    volume: '🔊',
-  };
 
   const rows = [
     {
@@ -198,6 +248,7 @@ function renderSettings() {
     },
   ];
 
+  // Sistem ayar satırları
   for (const row of rows) {
     const container = document.createElement('div');
     container.className = 'setting-row';
@@ -205,7 +256,7 @@ function renderSettings() {
     const icon = document.createElement('span');
     icon.className = 'setting-icon-row';
     icon.textContent = row.icon;
-    icon.style.cssText = 'font-size: 18px; min-width: 30px; text-align: center;';
+    icon.style.cssText = 'font-size: 17px; min-width: 28px; text-align: center;';
 
     const label = document.createElement('span');
     label.className = 'setting-label';
@@ -228,6 +279,60 @@ function renderSettings() {
     container.appendChild(label);
     container.appendChild(value);
     box.appendChild(container);
+  }
+
+  // Özel ayarlar bölümü
+  const customKeys = Object.keys(window.customSettings);
+  if (customKeys.length > 0) {
+    const customLabel = document.createElement('div');
+    customLabel.style.cssText = 'font-size: 11px; color: #6fcf47; text-shadow: 1px 1px 0 #000; margin-top: 8px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;';
+    customLabel.textContent = 'ÖZEL AYARLAR (Kullanıcı Tanımlı)';
+    box.appendChild(customLabel);
+
+    for (const key of customKeys) {
+      const value = window.customSettings[key];
+      const container = document.createElement('div');
+      container.className = 'setting-row custom-setting-row';
+
+      const icon = document.createElement('span');
+      icon.className = 'setting-icon-row';
+      icon.textContent = '🛠️';
+      icon.style.cssText = 'font-size: 17px; min-width: 28px; text-align: center;';
+
+      const label = document.createElement('span');
+      label.className = 'setting-label';
+      label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+      const valueBtn = document.createElement('button');
+      valueBtn.className = 'setting-value';
+      valueBtn.textContent = value;
+      valueBtn.onclick = () => {
+        const newValue = prompt(`"${label.textContent}" için yeni değer:`, value);
+        if (newValue !== null) {
+          window.customSettings[key] = newValue.trim() || value;
+          saveCustomSettings();
+          renderSettings();
+        }
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '🗑️';
+      delBtn.style.cssText = 'font-size: 14px; background: #333; border: 2px solid #555; border-radius: 3px; color: #fff; cursor: pointer; padding: 4px 8px; box-shadow: 0 2px 0 #000;';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm(`"${label.textContent}" özel ayarını silmek istediğinize emin misiniz?`)) {
+          delete window.customSettings[key];
+          saveCustomSettings();
+          renderSettings();
+        }
+      };
+
+      container.appendChild(icon);
+      container.appendChild(label);
+      container.appendChild(valueBtn);
+      container.appendChild(delBtn);
+      box.appendChild(container);
+    }
   }
 
   panel.classList.remove('hidden');
@@ -291,6 +396,9 @@ async function init() {
   const sp = document.getElementById('splash');
   if (sp) sp.textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
   showScreen('menuMain');
+
+  // Özel ayarları yükle
+  loadCustomSettings();
 
   // Ana menü butonları
   const btnSingle = $('btnSingle');

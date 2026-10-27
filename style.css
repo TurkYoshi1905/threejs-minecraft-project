@@ -804,7 +804,7 @@ body.at-border::after {
 }
 #createBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #1a1a1a; }
 
-/* ================= PREMIUM AYARLAR MODALI ================= */
+/* ================= DÜZGUN KARANLIK AYARLAR MODALI ================= */
 #settingsPanel {
   position: fixed;
   inset: 0;
@@ -812,9 +812,9 @@ body.at-border::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(8px);
-  background: rgba(10, 10, 10, 0.7);
-  animation: settingsFadeIn 0.25s ease-out;
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.85);
+  animation: settingsFadeIn 0.2s ease-out;
 }
 @keyframes settingsFadeIn {
   from { opacity: 0; }
@@ -823,143 +823,196 @@ body.at-border::after {
 .settings-box {
   position: relative;
   z-index: 260;
-  width: min(640px, 94vw);
-  max-height: 88vh;
+  width: min(560px, 92vw);
+  max-height: 70vh;
   overflow-y: auto;
-  animation: settingsSlideUp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  animation: settingsSlideUp 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 @keyframes settingsSlideUp {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  from { opacity: 0; transform: translateY(15px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .settings-box-inner {
-  background: linear-gradient(135deg, #4a4a4a 0%, #3a3a3a 50%, #2a2a2a 100%);
-  border: 4px solid #1a1a1a;
-  outline: 3px solid #555;
-  outline-offset: -3px;
-  border-radius: 6px;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
-  color: #eee;
+  background: linear-gradient(135deg, #252525 0%, #1a1a1a 50%, #121212 100%);
+  border: 3px solid #333;
+  outline: 2px solid #555;
+  outline-offset: -2px;
+  border-radius: 5px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+  color: #ddd;
   font-family: 'Press Start 2P', monospace;
-  padding: 24px;
+  padding: 18px;
 }
 .settings-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 3px solid #444;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #444;
 }
 .settings-icon {
-  width: 42px; height: 42px;
+  width: 36px; height: 36px;
   background: linear-gradient(135deg, #6fcf47, #5cb83c);
   border: 3px solid #2e6b1f;
-  border-radius: 6px;
+  border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 4px 0 #1a1a1a;
+  font-size: 20px;
+  box-shadow: 0 3px 0 #1a1a1a;
 }
 .settings-title {
-  font-size: 20px;
+  font-size: 17px;
   color: #fff;
-  text-shadow: 3px 3px 0 #1a1a1a, 1px 1px 0 #333;
-  letter-spacing: 2px;
+  text-shadow: 2px 2px 0 #000;
+  letter-spacing: 1px;
 }
 .settings-title small {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: normal;
   text-shadow: none;
-  color: #aaa;
+  color: #888;
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 #settingsContent {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  max-height: 45vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+#settingsContent::-webkit-scrollbar {
+  width: 8px;
+}
+#settingsContent::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+#settingsContent::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+#settingsContent::-webkit-scrollbar-thumb:hover {
+  background: #6fcf47;
 }
 .setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid #444;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #333;
 }
 .setting-row:last-child { border-bottom: none; }
 .setting-row:hover {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.03);
+  border-radius: 3px;
+}
+.custom-setting-row {
+  background: rgba(111, 207, 71, 0.08);
+  border: 1px solid #6fcf47;
   border-radius: 4px;
-  padding-left: 8px;
-  padding-right: 8px;
-  margin-left: -8px;
-  margin-right: -8px;
+  padding: 8px;
+  margin-top: 6px;
+}
+.setting-icon-row {
+  font-size: 17px;
+  min-width: 28px;
+  text-align: center;
+  opacity: 0.85;
 }
 .setting-label {
-  font-size: 13px;
-  color: #ddd;
+  font-size: 12px;
+  color: #ccc;
   font-weight: 600;
   text-shadow: 1px 1px 0 #000;
-  min-width: 150px;
+  min-width: 140px;
+  flex: 1;
 }
 .setting-value {
-  font-size: 13px;
+  font-size: 12px;
   color: #fff;
-  background: linear-gradient(135deg, #333 0%, #222 100%);
-  border: 3px solid;
-  border-color: #444 #aaa #aaa #444;
-  border-radius: 4px;
-  padding: 8px 14px;
-  min-width: 110px;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  border-radius: 3px;
+  padding: 6px 10px;
+  min-width: 95px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.12s;
   text-shadow: 1px 1px 0 #000;
-  box-shadow: 0 3px 0 #111;
+  box-shadow: 0 2px 0 #000;
 }
 .setting-value:hover {
-  border-color: #6fcf47 #a8e67a #a8e67a #6fcf47;
-  background: linear-gradient(135deg, #444 0%, #333 100%);
-  box-shadow: 0 3px 0 #222;
+  border-color: #6fcf47;
+  background: #252525;
   transform: translateY(-1px);
 }
 .setting-value:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #111;
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 #000;
 }
 .setting-value.active {
-  border-color: #ffff54 #ffffaa #ffffaa #ffff54;
+  border-color: #ffff54;
   color: #ffff54;
 }
+.settings-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
+  flex-wrap: wrap;
+}
+.settings-btn-add {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 6px 12px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  background: linear-gradient(135deg, #4a9630 0%, #3e7a25 100%);
+  border: 2px solid #2e6b1f;
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #000;
+  transition: all 0.12s;
+}
+.settings-btn-add:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+.settings-btn-add:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 #000;
+}
 .settings-footer {
-  margin-top: 28px;
-  padding-top: 16px;
-  border-top: 2px solid #444;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 2px solid #333;
   text-align: center;
 }
 .settings-btn-done {
   font-family: 'Press Start 2P', monospace;
-  font-size: 15px;
-  padding: 14px 34px;
+  font-size: 14px;
+  padding: 12px 30px;
   color: #fff;
   text-shadow: 2px 2px 0 #2e6b1f;
   background: linear-gradient(135deg, #6fcf47 0%, #5cb83c 50%, #4a9630 100%);
-  border: 4px solid;
+  border: 3px solid;
   border-color: #2e6b1f #5cb83c #5cb83c #2e6b1f;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  box-shadow: 0 6px 0 #1a1a1a, 0 0 20px rgba(111, 207, 71, 0.4);
-  transition: all 0.15s;
+  box-shadow: 0 5px 0 #1a1a1a;
+  transition: all 0.12s;
   letter-spacing: 1px;
 }
 .settings-btn-done:hover {
   filter: brightness(1.15);
-  box-shadow: 0 6px 0 #1a1a1a, 0 0 35px rgba(111, 207, 71, 0.7);
+  box-shadow: 0 5px 0 #1a1a1a, 0 0 25px rgba(111, 207, 71, 0.4);
   transform: translateY(-2px);
 }
 .settings-btn-done:active {
-  transform: translateY(4px);
+  transform: translateY(3px);
   box-shadow: 0 2px 0 #1a1a1a;
 }
 
