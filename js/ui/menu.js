@@ -68,10 +68,64 @@ function showScreen(name) {
   }
 }
 
+// Settings panelini yoksa dinamik olarak oluşturur (index.html'ye bağımlı değil)
+function ensureSettingsPanel() {
+  let panel = document.getElementById('settingsPanel');
+  if (panel) return panel;
+
+  panel = document.createElement('div');
+  panel.id = 'settingsPanel';
+  panel.className = 'hidden';
+  panel.style.cssText = `
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.75);
+  `;
+
+  const box = document.createElement('div');
+  box.className = 'settings-box';
+  box.style.cssText = `
+    background: #c6c6c6; border: 3px solid #373737; border-radius: 4px;
+    padding: 20px; width: min(560px, 92vw); max-height: 85vh; overflow-y: auto;
+    color: #222; font-size: 14px;
+  `;
+
+  const title = document.createElement('h2');
+  title.id = 'settingsTitle';
+  title.textContent = '⚙️ Ayarlar';
+  title.style.cssText = 'font-family: "Press Start 2P", monospace; font-size: 16px; margin: 0 0 16px; color: #222;';
+
+  const content = document.createElement('div');
+  content.id = 'settingsContent';
+  content.style.cssText = 'display: flex; flex-direction: column; gap: 14px;';
+
+  const footer = document.createElement('div');
+  footer.className = 'settings-footer';
+  footer.style.cssText = 'margin-top: 20px; text-align: right;';
+
+  const doneBtn = document.createElement('button');
+  doneBtn.id = 'settingsDoneBtn';
+  doneBtn.className = 'mc-btn green big';
+  doneBtn.textContent = 'Kapat';
+  doneBtn.onclick = () => {
+    panel.classList.add('hidden');
+  };
+
+  footer.appendChild(doneBtn);
+  box.appendChild(title);
+  box.appendChild(content);
+  box.appendChild(footer);
+  panel.appendChild(box);
+  document.body.appendChild(panel);
+
+  return panel;
+}
+
 function renderSettings() {
-  const box = $('#settingsContent');
+  const panel = ensureSettingsPanel();
+  const box = document.getElementById('settingsContent');
   if (!box) {
-    console.warn('[menu] #settingsContent element bulunamadı');
+    console.warn('[menu] #settingsContent elementi oluşturulamadı');
     return;
   }
   const gs = window.gameSettings;
@@ -156,6 +210,8 @@ function renderSettings() {
     container.appendChild(value);
     box.appendChild(container);
   }
+
+  panel.classList.remove('hidden');
 }
 
 async function renderList() {
@@ -221,7 +277,7 @@ async function init() {
   const btnSingle = $('btnSingle');
   if (btnSingle) btnSingle.onclick = () => showScreen('menuSingle');
   const btnSettings = $('btnSettings');
-  if (btnSettings) btnSettings.onclick = () => { renderSettings(); showScreen('menuSettings'); };
+  if (btnSettings) btnSettings.onclick = () => { renderSettings(); };
   const btnHelpMenu = $('btnHelpMenu');
   if (btnHelpMenu) btnHelpMenu.onclick = () => showScreen('menuHelp');
   const btnBackMain = $('btnBackMain');
@@ -273,8 +329,6 @@ boot();
 // ---- Duraklatma menüsü ayar butonu (main.js tarafından çağrılabilir) ----
 window.openPauseSettings = function() {
   renderSettings();
-  const p = document.getElementById('settingsPanel');
-  if (p) p.classList.remove('hidden');
   const t = document.getElementById('settingsTitle');
   if (t) t.textContent = '⚙️ Ayarlar';
   const doneBtn = document.getElementById('settingsDoneBtn');
