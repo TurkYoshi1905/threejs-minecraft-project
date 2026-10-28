@@ -868,9 +868,9 @@ document.addEventListener('keydown', (e) => {
     const now = performance.now();
     if (now - lastSpaceT < DOUBLE_SPACE_MS) {
       lastSpaceT = 0;
-      player.flying = !player.flying;
+      targetFlying = !player.flying;
       player.vel.y = 0;
-      toast(player.flying ? 'Uçma açık' : 'Uçma kapalı');
+      toast(targetFlying ? 'Uçma açık' : 'Uçma kapalı');
     } else lastSpaceT = now;
   }
   if (e.code === 'KeyQ' && locked && !player.dead && chunkManager) {
@@ -1241,6 +1241,15 @@ function animate() {
   wasPaused = paused;
   const simDt = paused ? 0 : dt;
   if (locked) movePlayer(simDt);
+  
+  // Yaratıcı modda uçma: yumuşak geçiş (targetFlying -> player.flying)
+  if (locked && GAMEMODE === 'creative' && targetFlying !== player.flying) {
+    const flyLerp = Math.min(1, dt * 10);
+    if (Math.random() < flyLerp) {
+      player.flying = targetFlying;
+      player.vel.y = 0;
+    }
+  }
 
 
   if (chunkManager) {
