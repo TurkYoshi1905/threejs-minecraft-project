@@ -591,22 +591,25 @@ export class InventoryUI {
       return;
     }
 
+    // Kaynak nesnesinin kopyasını oluştur (referans ataması YAPMA — MC'deki stack ayırması mantığı)
+    const cloneSrc = () => ({ kind: src.kind, id: src.id, count: src.count, dur: src.dur });
+
     // ---- Envanter/craft slotından hedefe taşı ----
     // Aletler birleşmez, sadece taşınır/takas edilir
     if (skind === 'item' && ITEMS[src.id]?.tool) {
       if (!dst && !right) {
-        if (toArea === 'craft') { craftGrid[toIndex] = src; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
         if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
         else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
       }
       else if (dst && !right) {
-        if (toArea === 'craft') { craftGrid[toIndex] = src; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
         if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
         else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
       }
-      // sağ+tık + dolu slot = işlem yok
+      // sağ+tık + dolu slot = işlem yok (MC)
     }
     else if (!dst) {
       // Hedef boş
@@ -615,14 +618,14 @@ export class InventoryUI {
         else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind: skind, id: src.id, count: 1 }; }
         src.count--;
       } else {
-        if (toArea === 'craft') { craftGrid[toIndex] = src; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
         if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
         else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
       }
     }
     else if ((dst.kind || kindOf(dst.id)) === skind && dst.id === src.id) {
-      // Aynı eşya: birleştir (yığın)
+      // Aynı eşya: birleştir (yığın). Stack sınırı 64'i aşamaz.
       const dmax = maxOf(skind, src.id);
       const take = right ? 1 : Math.min(src.count, dmax - dst.count);
       const real = Math.min(take, src.count, Math.max(0, dmax - dst.count));
@@ -637,8 +640,8 @@ export class InventoryUI {
       // Farklı eşya + sol tık = takas
       if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
       else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
-      if (toArea === 'craft') { craftGrid[toIndex] = src; }
-      else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+      if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
+      else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
     }
     // sağ+tık + farklı eşya = işlem yok (MC)
 

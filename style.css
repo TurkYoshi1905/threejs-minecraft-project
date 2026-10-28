@@ -262,7 +262,15 @@ html, body {
 }
 .chest-slot img { width: 36px; height: 36px; }
 
-/* ================= SANDIK PANELI (MINECRAFT KIBI ORTALAMA) ================= */
+/* ================= SANDIK PANELI (MINECRAFT KIBI, TAM ORTALAMA) ================= */
+/* Sandık panelinin ana konteyneri: ekran ortasında, genişlik sınırlı */
+#chestPanel .inv-box {
+  max-width: 620px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Sandık ızgara (tek: 9 sütun, çift: 18 sütun) — ortalanmış */
 #chestGrid {
   display: grid;
   gap: 2px;
@@ -274,6 +282,8 @@ html, body {
 #chestGrid.double {
   max-width: calc(18 * 44px + 17 * 2px + 8px);
 }
+
+/* Sandık slotu: MC standart 44x44, 3D kenar efekti */
 .chest-slot {
   width: 44px;
   height: 44px;
@@ -305,11 +315,6 @@ html, body {
   color: white;
   text-shadow: 1px 1px 0 black;
   pointer-events: none;
-}
-/* Sandık paneli ana konteyner merkezi */
-#chestPanel .inv-box {
-  max-width: 620px;
-  width: 100%;
 }
 
 #hotbar {
