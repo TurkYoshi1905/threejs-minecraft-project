@@ -192,6 +192,19 @@ export class ChestUI {
       }
     }
     d.onpointerdown = (e) => { e.preventDefault(); this.clickSlot(vi, e); };
+    d.onpointermove = (e) => {
+      if (e.buttons === 1) {
+        const inv = this.inventory;
+        if (inv && !inv.drag) {
+          inv.dragStart('chest', vi, e);
+        }
+        if (inv && inv.drag) inv.dragMove(e);
+      }
+    };
+    d.onpointerup = (e) => {
+      const inv = this.inventory;
+      if (inv && inv.drag) inv.dragEnd(e);
+    };
     d.oncontextmenu = (e) => e.preventDefault();
     d.ondragstart = (e) => e.preventDefault();
     return d;

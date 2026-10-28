@@ -339,12 +339,13 @@ export class InventoryUI {
   }
 
   dragStart(area, index, e) {
-    // NOT: boş slotta da durum kurulur; yoksa eldeki stack boş slota
-    // tıkla/sürükle-bırak ile ASLA yerleştirilemez (kritik düzeltme).
+    // Boş slotta da durum kurulur; eldeki stack boş slota tıkla/sürükle-bırak
+    // ile yerleştirilebilir (MC davranışı).
     const s = this.stackAt(area, index);
     this.drag = {
       area, index, button: e.button, shift: e.shiftKey,
-      x0: e.clientX, y0: e.clientY, moved: false, id: s ? s.id : 0,
+      x0: e.clientX, y0: e.clientY, moved: false,
+      id: s ? s.id : 0,
       kind: s ? (s.kind || kindOf(s.id)) : null,
       count: s ? s.count : 0,
       hover: null,
@@ -353,6 +354,17 @@ export class InventoryUI {
       this.ensureGhost();
       this.ghost.querySelector('img').src = this.getIcon(s.id, s.kind || kindOf(s.id));
       this.ghost.querySelector('.cnt').textContent = this.cursorCountText(s);
+    } else {
+      // Boş slottan sürükleme başlatıldıysa ama elde cursor varsa (tıklama sonrası)
+      // cursor'u sürükleme kaynağı olarak kullan.
+      if (this.cursor) {
+        this.drag.id = this.cursor.id;
+        this.drag.kind = this.cursor.kind || kindOf(this.cursor.id);
+        this.drag.count = this.cursor.count;
+        this.ensureGhost();
+        this.ghost.querySelector('img').src = this.getIcon(this.cursor.id, this.drag.kind);
+        this.ghost.querySelector('.cnt').textContent = this.cursorCountText(this.cursor);
+      }
     }
   }
 
@@ -361,15 +373,29 @@ export class InventoryUI {
     let t = null;
     try {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      t = el?.closest?.('.inv-slot') || null;
+      if (el) {
+        t = el.closest?.('.inv-slot') || null;
+      }
       if (!t && document.elementsFromPoint) {
-        for (const cand of document.elementsFromPoint(e.clientX, e.clientY)) {
-          const s = cand?.closest?.('.inv-slot');
+        const pts = document.elementsFromPoint(e.clientX, e.clientY);
+        for (const cand of pts) {
+          const s = cand.closest?.('.inv-slot');
           if (s) { t = s; break; }
         }
       }
     } catch { t = null; }
-    return t && t.dataset.area ? { area: t.dataset.area, index: +t.dataset.index } : null;
+    if (t && t.dataset.area) {
+      return { area: t.dataset.area, index: +t.dataset.index };
+    }
+    // Fare boş alanda (slottan dışı): envanter ızgarası kapsayıcısı içindeyse 'grid' olarak işaretle
+    try {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const grid = el?.closest ? el.closest('#invGrid, #craft2Grid, #craft3Grid') : null;
+      if (grid) {
+        return { area: 'grid', index: -1 };
+      }
+    } catch {}
+    return null;
   }
 
   dragMove(e) {
@@ -429,29 +455,32 @@ export class InventoryUI {
     const dr = this.drag;
     this.drag = null;
     if (!dr || !this.isAnyPanelOpen()) { this.hideGhost(); return; }
+
+    // Hareket yoksa = klasik tık (boş slot dahil: eldeki stack'i yerleştir)
     if (!dr.moved) {
-      // klasik tık davranışı (boş slot dahil — eldekini yerleştirir)
       this.hideGhost();
       this.clickSlot(dr.area, dr.index, { button: dr.button, shiftKey: dr.shift });
-      // MC: aldıysan eldekini farede sayı ile göster
       if (this.cursor && e && typeof e.clientX === 'number') {
         this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
       }
       return;
     }
+
+    // Sürükleme bitti: hedef slotu belirle
     let hov = dr.hover || this.dragHover(e);
     this.hideGhost();
+
+    // Fare boş alanda (slottan dışı) ve envanter kapsayıcısı içindeyse 'grid' (silme alanı) olarak işaretle
     if ((!hov || !hov.area) && e && typeof e.clientX === 'number') {
-      // Slot arasi bosluga birakildi: palet kapsayicisindaysa cop say (MC geri bildirimi)
       try {
         const el = document.elementFromPoint(e.clientX, e.clientY);
-        const grid = el && el.closest ? el.closest('#invGrid') : null;
+        const grid = el?.closest ? el.closest('#invGrid, #craft2Grid, #craft3Grid') : null;
         if (grid) hov = { area: 'grid', index: -1 };
       } catch {}
     }
-    if (!hov || !hov.area) return; // dışarı bırakıldı: iade
-    if (hov.area === 'grid' && hov.index < 0) {
-      // kapsayıcıya bırak = eldekini/ kaynaktakini sil
+
+    if (!hov || !hov.area) {
+      // Tamamen dışarı bırakıldı: kaynaktaki eşyayı iade et
       if (this.cursor) { this.cursor = null; this.hideGhost(); this.renderMain(); this.renderHot(); this.onChange(); }
       else if (dr.area !== 'grid') {
         const fromArr = dr.area === 'hot' ? this.hotbar : this.main;
@@ -461,27 +490,34 @@ export class InventoryUI {
       }
       return;
     }
-    const toArea = hov.area, toIndex = hov.index;
-    if (toArea === 'grid') {
-      // ızgaraya bırak = sil (sadece envanter slotlarından gelen)
+
+    const toArea = hov.area;
+    const toIndex = hov.index;
+
+    // Grid'e bırak (silme alanı) — sadece envanter slotlarından gelen
+    if (toArea === 'grid' && toIndex < 0) {
       if (dr.area !== 'grid') {
         const fromArr = dr.area === 'hot' ? this.hotbar : this.main;
         fromArr[dr.index] = null;
-        if (this.cursor && this.cursor.id) this.cursor = null;
         this.renderMain(); this.renderHot();
         this.onChange();
       }
       return;
     }
+
+    // Aynı slota geri bırakıldı: hiçbir şey yapma
     if (dr.area === toArea && dr.index === toIndex) return;
+
+    // Gerçek slot-to-slot taşıma
     this.dropMove(dr.area, dr.index, toArea, toIndex, dr.button === 2);
   }
 
-  // Sürükle-bırak yerleştirme (kaynak slottan hedef slota)
+  // Sürükle-bırak yerleştirme (kaynak slottan hedef slota) — MC mantığı
   dropMove(fromArea, fromIndex, toArea, toIndex, right) {
     const toArr = toArea === 'hot' ? this.hotbar : this.main;
+
+    // ---- Yaratıcı paletten kopyala (izgara) ----
     if (fromArea === 'grid') {
-      // Yaratıcı paletten kopya (MC: sol 64, sağ 1)
       const list = this.filteredGrid();
       const id = list[fromIndex];
       if (id == null) return;
@@ -494,33 +530,54 @@ export class InventoryUI {
         toArr[toIndex] = { kind, id, count: maxOf(kind, id) };
       }
       if (toArea === 'hot') this.sel = toIndex;
-    } else {
-      const fromArr = fromArea === 'hot' ? this.hotbar : this.main;
-      const src = fromArr[fromIndex];
-      if (!src) return;
-      const skind = src.kind || kindOf(src.id);
-      const smax = maxOf(skind, src.id);
-      const dst = toArr[toIndex];
-      // Aletler birleşmez, sadece taşınır/takas edilir
-      if (skind === 'item' && ITEMS[src.id]?.tool) {
-        if (!dst && !right) { toArr[toIndex] = src; fromArr[fromIndex] = null; }
-        else if (dst && !right) { fromArr[fromIndex] = dst; toArr[toIndex] = src; }
-      } else if (!dst) {
-        if (right && src.count > 1) {
-          toArr[toIndex] = { kind: skind, id: src.id, count: 1 };
-          src.count--;
-        }
-        else { toArr[toIndex] = src; fromArr[fromIndex] = null; }
-      } else if ((dst.kind || kindOf(dst.id)) === skind && dst.id === src.id) {
-        const dmax = maxOf(skind, src.id);
-        const take = right ? 1 : Math.min(src.count, dmax - dst.count);
-        const real = Math.min(take, src.count, Math.max(0, dmax - dst.count));
-        dst.count += real; src.count -= real;
-        if (src.count <= 0) fromArr[fromIndex] = null;
-      } else if (!right) {
-        fromArr[fromIndex] = dst; toArr[toIndex] = src; // takas
+      this.renderMain(); this.renderHot();
+      this.onChange();
+      return;
+    }
+
+    // ---- Envanter slotından slot'a taşı ----
+    const fromArr = fromArea === 'hot' ? this.hotbar : this.main;
+    const src = fromArr[fromIndex];
+    if (!src) return;
+
+    const skind = src.kind || kindOf(src.id);
+    const smax = maxOf(skind, src.id);
+    const dst = toArr[toIndex];
+
+    // Aletler birleşmez, sadece taşınır/takas edilir
+    if (skind === 'item' && ITEMS[src.id]?.tool) {
+      if (!dst && !right) { toArr[toIndex] = src; fromArr[fromIndex] = null; }
+      else if (dst && !right) { fromArr[fromIndex] = dst; toArr[toIndex] = src; }
+      // sağ+tık + dolu slot = işlem yok
+    }
+    else if (!dst) {
+      // Hedef boş
+      if (right && src.count > 1) {
+        toArr[toIndex] = { kind: skind, id: src.id, count: 1 };
+        src.count--;
+      } else {
+        toArr[toIndex] = src;
+        fromArr[fromIndex] = null;
       }
-      if (toArea === 'hot' || fromArea === 'hot') this.sel = toArea === 'hot' ? toIndex : this.sel;
+    }
+    else if ((dst.kind || kindOf(dst.id)) === skind && dst.id === src.id) {
+      // Aynı eşya: birleştir (yığın)
+      const dmax = maxOf(skind, src.id);
+      const take = right ? 1 : Math.min(src.count, dmax - dst.count);
+      const real = Math.min(take, src.count, Math.max(0, dmax - dst.count));
+      dst.count += real;
+      src.count -= real;
+      if (src.count <= 0) fromArr[fromIndex] = null;
+    }
+    else if (!right) {
+      // Farklı eşya + sol tık = takas
+      fromArr[fromIndex] = dst;
+      toArr[toIndex] = src;
+    }
+    // sağ+tık + farklı eşya = işlem yok (MC)
+
+    if (toArea === 'hot' || fromArea === 'hot') {
+      this.sel = toArea === 'hot' ? toIndex : this.sel;
     }
     this.renderMain(); this.renderHot();
     this.onChange();

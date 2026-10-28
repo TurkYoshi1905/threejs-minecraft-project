@@ -191,9 +191,11 @@ export class CraftUI {
     if (made) this.inventory.renderAll();
     this.refresh();
   }
-  slotEl(content, onclick) {
+  slotEl(content, index, onclick) {
     const d = document.createElement('div');
     d.className = 'inv-slot craft-slot';
+    d.dataset.area = 'craft';
+    d.dataset.index = index;
     if (content) {
       const kind = content.kind || (content.id >= 100 ? 'item' : 'block');
       const img = document.createElement('img');
@@ -208,7 +210,23 @@ export class CraftUI {
         d.appendChild(c);
       }
     }
+    // Tık (craft clickCell)
     d.onpointerdown = (e) => { e.preventDefault(); onclick(e); };
+    // Sürükle-bırak başlat
+    d.onpointermove = (e) => {
+      if (e.buttons === 1 && this.inventory) {
+        const inv = this.inventory;
+        if (!inv.drag) {
+          inv.dragStart('craft', +d.dataset.index, e);
+        }
+        inv.dragMove(e);
+      }
+    };
+    d.onpointerup = (e) => {
+      if (this.inventory && this.inventory.drag) {
+        this.inventory.dragEnd(e);
+      }
+    };
     d.oncontextmenu = (e) => e.preventDefault();
     d.ondragstart = (e) => e.preventDefault();
     return d;
@@ -218,7 +236,7 @@ export class CraftUI {
     this.el.grid.innerHTML = '';
     this.el.grid.style.gridTemplateColumns = `repeat(${this.size}, 1fr)`;
     this.el.grid.className = 'craft-grid';
-    this.grid.forEach((s, i) => this.el.grid.appendChild(this.slotEl(s, (e) => this.clickCell(i, e))));
+    this.grid.forEach((s, i) => this.el.grid.appendChild(this.slotEl(s, i, (e) => this.clickCell(i, e))));
     this.el.out.innerHTML = '';
     const o = this.result ? this.slotEl({ id: this.result.id, count: this.result.count }, (e) => this.clickOut(e)) : this.slotEl(null, () => {});
     if (this.result) o.classList.add('craft-out');

@@ -262,6 +262,50 @@ html, body {
 }
 .chest-slot img { width: 36px; height: 36px; }
 
+/* ================= SANDIK PANELI (MINECRAFT KIBI ORTALAMA) ================= */
+#chestGrid {
+  display: grid;
+  gap: 3px;
+  background: #8b8b8b;
+  padding: 4px;
+  margin: 0 auto;
+  max-width: calc(9 * 44px + 8 * 3px + 8px);
+}
+#chestGrid.double {
+  max-width: calc(18 * 44px + 17 * 3px + 8px);
+}
+.chest-slot {
+  width: 44px;
+  height: 44px;
+  background: #9a9a9a;
+  border: 2px solid;
+  border-color: #373737 #fff #fff #373737;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chest-slot img {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.chest-slot .cnt {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 0 black;
+  pointer-events: none;
+}
+
 #hotbar {
   position: fixed;
   bottom: 12px;
