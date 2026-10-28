@@ -2,7 +2,8 @@ import { BLOCKS } from '../world/blocks.js';
 import { ITEMS } from '../world/items.js';
 
 // Sandık paneli (MC): tek 27 / çift 54 slot + çanta aynası.
-// Yarılar ayrı 27'lik depolar; çift görünümde alt alta birleşir.
+// Yarılar ayrı 27'lik depolar; çift görünümde yan yana birleşir.
+// Tüm sürükle-bırak işlemleri InventoryUI üzerinden yönetilir.
 
 function kindOf(id) { return id >= 100 ? 'item' : 'block'; }
 function maxOf(kind, id) {
@@ -27,13 +28,18 @@ export class ChestUI {
     };
     if (this.el.close) this.el.close.onclick = () => opts.onClose?.();
   }
-  get isOpen() { return this.el.panel && !this.el.panel.classList.contains('hidden'); }
+
+  get isOpen() {
+    return this.el.panel && !this.el.panel.classList.contains('hidden');
+  }
+
   open(x, y, z) {
     this.pos = { x, y, z };
     this.mgr.get(x, y, z);
     this.el.panel?.classList.remove('hidden');
     this.renderAll();
   }
+
   close() {
     this.pos = null;
     this.el.panel?.classList.add('hidden');
@@ -45,6 +51,7 @@ export class ChestUI {
       try { this.inventory.addItem(c.id, c.count, c.kind, c.dur); } catch {}
     }
   }
+
   // Çantadan sandığa yığın ekleme (Shift+tık)
   insertStack(s) {
     if (!s || s.count <= 0) return 0;
@@ -86,6 +93,7 @@ export class ChestUI {
     this.onChange();
     return moved;
   }
+
   // Görünüm yarıları: [tıklanan yarı, eşleşmiş yarı (varsa)]
   halves() {
     if (!this.pos) return [];
@@ -99,13 +107,16 @@ export class ChestUI {
     }
     return out;
   }
+
   get isDouble() { return this.halves().length > 1; }
+
   viewSlot(vi) {
     const hs = this.halves();
     const h = hs[Math.floor(vi / 27)];
     if (!h) return null;
     return { half: h, i: vi % 27 };
   }
+
   clickSlot(vi, e) {
     const inv = this.inventory;
     const slot = this.viewSlot(vi);
@@ -165,9 +176,12 @@ export class ChestUI {
     this.renderAll();
     this.onChange();
   }
+
   slotEl(content, vi) {
     const d = document.createElement('div');
     d.className = 'inv-slot chest-slot';
+    d.dataset.area = 'chest';
+    d.dataset.index = vi;
     if (content) {
       const kind = content.kind || kindOf(content.id);
       const img = document.createElement('img');
@@ -191,6 +205,7 @@ export class ChestUI {
         d.appendChild(bar);
       }
     }
+    // Tık (eski davranış) + sürükle-bırak (MC gibi)
     d.onpointerdown = (e) => { e.preventDefault(); this.clickSlot(vi, e); };
     d.onpointermove = (e) => {
       if (e.buttons === 1) {
@@ -209,6 +224,7 @@ export class ChestUI {
     d.ondragstart = (e) => e.preventDefault();
     return d;
   }
+
   renderInv() {
     if (!this.el.main || !this.el.hot || !this.inventory) return;
     this.el.main.innerHTML = '';
@@ -216,6 +232,7 @@ export class ChestUI {
     this.el.hot.innerHTML = '';
     this.inventory.hotbar.forEach((s, i) => this.el.hot.appendChild(this.inventory.slotEl(s, 'hot', i)));
   }
+
   renderAll() {
     if (!this.el.grid) return;
     const hs = this.halves();

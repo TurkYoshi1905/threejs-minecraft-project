@@ -270,7 +270,7 @@ html, body {
   margin: 0 auto;
 }
 
-/* Sandık ızgara (tek: 9 sütun, çift: 18 sütun) — ortalanmış */
+/* Sandık ızgara (tek: 9 sütun, çift: 18 sütun) — tam ortalanmış */
 #chestGrid {
   display: grid;
   gap: 2px;
