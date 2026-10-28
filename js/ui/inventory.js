@@ -79,6 +79,7 @@ export class InventoryUI {
     try {
       if (!document.getElementById('tablePanel')?.classList.contains('hidden')) return true;
       if (!document.getElementById('furnacePanel')?.classList.contains('hidden')) return true;
+      if (!document.getElementById('chestPanel')?.classList.contains('hidden')) return true;
     } catch {}
     return false;
   }
@@ -673,9 +674,19 @@ export class InventoryUI {
 
   quickMove(area, index) {
     const from = area === 'hot' ? this.hotbar : this.main;
-    const to = area === 'hot' ? this.main : this.hotbar;
     const s = from[index];
     if (!s) return;
+
+    // Sandık açıksa çantadan sandığa hızlı aktar
+    if (typeof window.chestUI !== 'undefined' && window.chestUI && window.chestUI.isOpen) {
+      window.chestUI.insertStack(s);
+      if (s.count <= 0) from[index] = null;
+      this.renderMain(); this.renderHot();
+      this.onChange();
+      return;
+    }
+
+    const to = area === 'hot' ? this.main : this.hotbar;
     const skind = s.kind || kindOf(s.id);
     // Alet: ilk boş slota taşı
     if (skind === 'item' && ITEMS[s.id]?.tool) {

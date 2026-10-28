@@ -1045,67 +1045,6 @@ body.at-border::after {
   text-shadow: 2px 2px 0 #000;
 }
 
-/* ================= OYUNCU ELİ (FIRST-PERSON HAND) ================= */
-#handContainer {
-  position: fixed;
-  bottom: 100px;
-  right: 60px;
-  z-index: 25;
-  width: 120px;
-  height: 160px;
-  pointer-events: none;
-  display: none;
-}
-#handContainer.visible { display: block; }
-#hand {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 100px;
-  height: 140px;
-  transform-origin: bottom right;
-  animation: handIdle 2.5s ease-in-out infinite;
-}
-@keyframes handIdle {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(2px, -4px) rotate(1deg); }
-  50% { transform: translate(0, 0) rotate(0deg); }
-  75% { transform: translate(-2px, -2px) rotate(-1deg); }
-}
-#handArm {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 44px;
-  height: 100px;
-  background: linear-gradient(#d28c5a, #b97a4e);
-  border: 2px solid #8b5a3b;
-  border-top: none;
-  border-left: none;
-  border-radius: 0 0 0 12px;
-  transform: rotate(-10deg);
-  transform-origin: bottom right;
-}
-@keyframes handWalk {
-  0%, 100% { transform: translate(0, 0) rotate(-10deg); }
-  25% { transform: translate(2px, -3px) rotate(-8deg); }
-  50% { transform: translate(0, 2px) rotate(-10deg); }
-  75% { transform: translate(-2px, -3px) rotate(-12deg); }
-}
-#handItem {
-  position: absolute;
-  bottom: 80px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  background: #8b8b8b;
-  border: 2px solid #555;
-  border-radius: 2px;
-  transform: rotate(-15deg);
-  transform-origin: center;
-  display: none;
-}
-#handItem.visible { display: block; }
 
 /* Sürünme / Koşma göstergesi */
 #sneakIndicator, #sprintIndicator {

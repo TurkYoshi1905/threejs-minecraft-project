@@ -115,19 +115,20 @@
   <!-- ================= AYARLAR PANELİ (Oyun İçi / Menü) ================= -->
   <div id="settingsPanel" class="hidden">
     <div class="settings-box">
-      <h2 id="settingsTitle">⚙️ Ayarlar</h2>
-      <div id="settingsContent"></div>
-      <div class="settings-footer">
-        <button id="settingsDoneBtn" class="mc-btn green big">Bitti</button>
+      <div class="settings-box-inner">
+        <div class="settings-header">
+          <div class="settings-icon">⚙️</div>
+          <div class="settings-title" id="settingsTitle">Ayarlar<small>Three.js Minecraft</small></div>
+        </div>
+        <div class="settings-controls">
+          <button id="btnAddCustomSetting" class="settings-btn-add" type="button">+ Özel Ayar Ekle</button>
+          <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;">↺ Sıfırla</button>
+        </div>
+        <div id="settingsContent"></div>
+        <div class="settings-footer">
+          <button id="settingsDoneBtn" class="settings-btn-done">Bitti</button>
+        </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ================= OYUNCU ELİ (First-Person Hand) ================= -->
-  <div id="handContainer">
-    <div id="hand">
-      <div id="handArm"></div>
-      <div id="handItem"></div>
     </div>
   </div>
 
@@ -262,16 +263,6 @@
     </div>
   </div>
 
-  <!-- Duraklatma menüsü (oyun içi Esc) -->
-  <div id="pauseMenu" class="hidden">
-    <h2>⏸️ Duraklatıldı</h2>
-    <div class="mc-screen">
-      <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
-      <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
-      <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
-    </div>
-    <small>İpucu: E envanter • T sohbet • H yardım</small>
-  </div>
 
   <!-- Ölüm ekranı -->
   <div id="deathScreen" class="hidden">

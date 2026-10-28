@@ -89,45 +89,105 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
     }
   }
 
-  // MC kapı: ince panel (3/16). Kapalı = hücre ortasında, normal oyuncuya bakar.
-  // Açık = menteşeden 90° salınmış. Alt yarı alt doku, üst yarı üst doku.
+  // MC kapı: ince panel (3/16). Kapalı = dikey panel, normal oyuncuya bakar.
+  // Açık = menteşeden 90° salınmış dikey panel. Alt yarı alt doku, üst yarı üst doku.
   const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
   function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1) {
     const n = DOOR_N[face & 3] || DOOR_N[0];
     const t = [-n[2], 0, n[0]]; // panel teğeti
     const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
     const quads = [];
+    const hh = 0.09375; // 3/32 blok kalınlık (toplam 3/16 panel kalınlığı)
+
     if (!open) {
-      const cx = wx + 0.5, cz = wz + 0.5, hh = 0.094;
-      const c = [
-        [cx - t[0] * 0.5 - n[0] * hh, y, cz - t[2] * 0.5 - n[2] * hh],
-        [cx + t[0] * 0.5 - n[0] * hh, y, cz + t[2] * 0.5 - n[2] * hh],
-        [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
-        [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
-      ];
-      // on yuz (+n) ve arka yuz (-n) icin iki quad
-      quads.push({ p: [c[0], c[1], c[2], c[3]], n });
-      quads.push({ p: [c[1], c[0], c[3], c[2]], n: [-n[0], 0, -n[2]] });
+      // KAPALI: Tam dikey dikdörtgen panel (y..y+1).
+      // Yüzler tamamen dikey (y koordinatı x/z'yi ASLA etkilemez).
+      const cx = wx + 0.5, cz = wz + 0.5;
+      // Ön yüz (+n)
+      quads.push({
+        p: [
+          [cx - t[0] * 0.5 + n[0] * hh, y,     cz - t[2] * 0.5 + n[2] * hh],
+          [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
+          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
+          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
+        ],
+        n: [n[0], 0, n[2]],
+      });
+      // Arka yüz (-n)
+      quads.push({
+        p: [
+          [cx + t[0] * 0.5 - n[0] * hh, y,     cz + t[2] * 0.5 - n[2] * hh],
+          [cx - t[0] * 0.5 - n[0] * hh, y,     cz - t[2] * 0.5 - n[2] * hh],
+          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
+          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
+        ],
+        n: [-n[0], 0, -n[2]],
+      });
+      // Yan kenar 1 (-t)
+      quads.push({
+        p: [
+          [cx - t[0] * 0.5 - n[0] * hh, y,     cz - t[2] * 0.5 - n[2] * hh],
+          [cx - t[0] * 0.5 + n[0] * hh, y,     cz - t[2] * 0.5 + n[2] * hh],
+          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
+          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
+        ],
+        n: [-t[0], 0, -t[2]],
+      });
+      // Yan kenar 2 (+t)
+      quads.push({
+        p: [
+          [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
+          [cx + t[0] * 0.5 - n[0] * hh, y,     cz + t[2] * 0.5 - n[2] * hh],
+          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
+          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
+        ],
+        n: [t[0], 0, t[2]],
+      });
     } else {
-      // Acik: DIKEY dikdortgen panel. Mentese dikey kenari h'te (y..y+1),
-      // uzak dikey kenar h+d'de (y..y+1). Eksen-hizali, burulma yok (MC).
+      // AÇIK: Menteşeden 90° duvara doğru dönmüş tam dikey panel.
       const hs = (hinge < 0 ? -1 : 1);
       const hx = wx + 0.5 + t[0] * 0.5 * hs, hz = wz + 0.5 + t[2] * 0.5 * hs;
-      const dx = -n[0], dz = -n[2], hh = 0.094;
-      const c = [
-        [hx - t[0] * hh, y, hz - t[2] * hh],
-        [hx + dx - t[0] * hh, y, hz + dz - t[2] * hh],
-        [hx + dx - t[0] * hh, y + 1, hz + dz - t[2] * hh],
-        [hx - t[0] * hh, y + 1, hz - t[2] * hh],
-      ];
-      const c2 = [
-        [hx + t[0] * hh, y, hz + t[2] * hh],
-        [hx + dx + t[0] * hh, y, hz + dz + t[2] * hh],
-        [hx + dx + t[0] * hh, y + 1, hz + dz + t[2] * hh],
-        [hx + t[0] * hh, y + 1, hz + t[2] * hh],
-      ];
-      quads.push({ p: [c[0], c[1], c[2], c[3]], n: [-t[0], 0, -t[2]] });
-      quads.push({ p: [c2[1], c2[0], c2[3], c2[2]], n: [t[0], 0, t[2]] });
+      const dx = -n[0], dz = -n[2];
+      // Yan yüz 1 (-t)
+      quads.push({
+        p: [
+          [hx - t[0] * hh,           y,     hz - t[2] * hh],
+          [hx + dx - t[0] * hh,      y,     hz + dz - t[2] * hh],
+          [hx + dx - t[0] * hh,      y + 1, hz + dz - t[2] * hh],
+          [hx - t[0] * hh,           y + 1, hz - t[2] * hh],
+        ],
+        n: [-t[0], 0, -t[2]],
+      });
+      // Yan yüz 2 (+t)
+      quads.push({
+        p: [
+          [hx + dx + t[0] * hh,      y,     hz + dz + t[2] * hh],
+          [hx + t[0] * hh,           y,     hz + t[2] * hh],
+          [hx + t[0] * hh,           y + 1, hz + t[2] * hh],
+          [hx + dx + t[0] * hh,      y + 1, hz + dz + t[2] * hh],
+        ],
+        n: [t[0], 0, t[2]],
+      });
+      // Panel ucu kenarı
+      quads.push({
+        p: [
+          [hx + dx - t[0] * hh,      y,     hz + dz - t[2] * hh],
+          [hx + dx + t[0] * hh,      y,     hz + dz + t[2] * hh],
+          [hx + dx + t[0] * hh,      y + 1, hz + dz + t[2] * hh],
+          [hx + dx - t[0] * hh,      y + 1, hz + dz - t[2] * hh],
+        ],
+        n: [dx, 0, dz],
+      });
+      // Menteşe kenarı
+      quads.push({
+        p: [
+          [hx + t[0] * hh,           y,     hz + t[2] * hh],
+          [hx - t[0] * hh,           y,     hz - t[2] * hh],
+          [hx - t[0] * hh,           y + 1, hz - t[2] * hh],
+          [hx + t[0] * hh,           y + 1, hz + t[2] * hh],
+        ],
+        n: [-dx, 0, -dz],
+      });
     }
     for (const q of quads) {
       const base = bucket.pos.length / 3;
@@ -155,9 +215,16 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
         if (id === 25 || id === 26) {
           const by = id === 25 ? y : y - 1;
           const st = getDoor ? getDoor(cx * 16 + lx, by, cz * 16 + lz) : null;
-          const tex = faceTextureName(id, 'pz');
+          const face = (st && st.face | 0) || 0;
+          const open = !!(st && st.open);
+          const hinge = (st && st.hinge) || 1;
+          const wx0 = cx * 16 + lx, wz0 = cz * 16 + lz;
+          // Kapıyı doğru yüz yönüyle çiz (her yön için ayrı doku)
+          const DIRS = ['pz', 'nz', 'px', 'nx'];
+          const dir = DIRS[face] || 'pz';
+          const tex = faceTextureName(id, dir, face, 0);
           const rect = uvMap[tex] || uvMap['stone'];
-          addDoor(op, cx * 16 + lx, y, cz * 16 + lz, rect, (st && st.face | 0) || 0, !!(st && st.open), (st && st.hinge) || 1);
+          addDoor(op, wx0, y, wz0, rect, face, open, hinge);
           continue;
         }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)

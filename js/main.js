@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v10';
+const BUILD = 'v11';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -60,6 +60,13 @@ let frameNo = 0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, RENDER_DISTANCE * 16 * 0.45, RENDER_DISTANCE * 16 * 0.95);
+window.addEventListener('gamesettingschange', (e) => {
+  const rd = (e.detail && typeof e.detail.renderDistance === 'number') ? e.detail.renderDistance : 5;
+  if (scene.fog && !headUnderwater) {
+    scene.fog.near = rd * 16 * 0.45;
+    scene.fog.far = rd * 16 * 0.95;
+  }
+});
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
 camera.rotation.order = 'YXZ';
@@ -98,6 +105,7 @@ const player = {
   sneaking: false,
   sprinting: false,
 };
+let currentEye = EYE;
 let lastWTime = 0;
 const DOUBLE_TAP_MS = 300;
 let timeOfDay = 6000; // 0-23999, 6000 öğle
@@ -225,6 +233,15 @@ function collides(px, py, pz) {
   return false;
 }
 
+function hasGround(px, py, pz) {
+  for (const cx of [-PW, PW]) {
+    for (const cz of [-PW, PW]) {
+      if (solidAt(px + cx, py - 0.1, pz + cz)) return true;
+    }
+  }
+  return false;
+}
+
 function movePlayer(dt) {
   // border clamp
   if (border) {
@@ -237,6 +254,19 @@ function movePlayer(dt) {
   let dx = (-sin * f + cos * s), dz = (-cos * f - sin * s);
   const len = Math.hypot(dx, dz) || 1;
   dx = dx / len * speed * dt; dz = dz / len * speed * dt;
+
+  // Sürünme (Shift): Oyuncu yerdeyken kenardan asla düşmez (MC)
+  if (player.sneaking && player.onGround && !player.flying) {
+    while (dx !== 0 && !hasGround(player.pos.x + dx, player.pos.y, player.pos.z)) {
+      if (Math.abs(dx) < 0.005) { dx = 0; break; }
+      dx *= 0.5;
+    }
+    while (dz !== 0 && !hasGround(player.pos.x, player.pos.y, player.pos.z + dz)) {
+      if (Math.abs(dz) < 0.005) { dz = 0; break; }
+      dz *= 0.5;
+    }
+  }
+
   if (!collides(player.pos.x + dx, player.pos.y, player.pos.z)) player.pos.x += dx;
   if (!collides(player.pos.x, player.pos.y, player.pos.z + dz)) player.pos.z += dz;
 
@@ -561,7 +591,8 @@ function isPaused() {
 let wasPaused = false;
 function deathHidden() { return document.getElementById('deathScreen').classList.contains('hidden'); }
 function anyOverlay() {
-  return (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen) || !deathHidden();
+  const settingsOpen = !!(document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden'));
+  return settingsOpen || (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen) || !deathHidden();
 }
 function dropOverflowAtPlayer(id, count, kind = null) {
   // çanta dolunca üretilenler yere düşer (blok+eşya)
@@ -604,7 +635,10 @@ function toggleDoor(x, y, z) {
   if (chunkManager.getBlock(bx, by, bz) !== 25) return;
   const st = doorMgr.get(bx, by, bz);
   st.open = !st.open;
-  chunkManager.enqueueMesh(Math.floor(bx / 16), Math.floor(bz / 16));
+  const cx = Math.floor(bx / 16), cz = Math.floor(bz / 16);
+  chunkManager.enqueueMesh(cx, cz);
+  const c = chunkManager.chunks.get(cx + ',' + cz);
+  if (c) chunkManager.remesh(c);
   renderHotbar();
   saveAll();
 }
@@ -721,9 +755,6 @@ canvas.addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   lockDbg(locked ? 'kilit ALINDI' : 'kilit BIRAKILDI');
-  // Oyuncu elini göster/gizle
-  const handContainer = document.getElementById('handContainer');
-  if (handContainer) handContainer.classList.toggle('visible', locked && worldReady && !player.dead);
   if (locked) { hasStarted = true; wantMain = false; mouseGuard = true; }
   else { mouseL = false; mouseR = false; placeCd = 0; hideBreakBar(); effects?.hideCrack(); }
   refreshMenus();
@@ -732,11 +763,13 @@ let mouseGuard = true; // kilit sonrasi ilk olaydaki sicrama artigi yoksay
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   if (mouseGuard) { mouseGuard = false; return; }
+  const sens = ((window.gameSettings && typeof window.gameSettings.mouseSensitivity === 'number') ? window.gameSettings.mouseSensitivity : 100) / 100;
+  const invert = (window.gameSettings && window.gameSettings.invertMouse) ? -1 : 1;
   // Tarayici kilit gecislerinde dev movementX firlatir (360 donme); kelepcele (MC hissi ayni)
   const dx = Math.max(-60, Math.min(60, e.movementX || 0));
   const dy = Math.max(-60, Math.min(60, e.movementY || 0));
-  player.yaw -= dx * 0.0025;
-  player.pitch -= dy * 0.0025;
+  player.yaw -= dx * 0.0025 * sens;
+  player.pitch -= dy * 0.0025 * sens * invert;
   player.pitch = THREE.MathUtils.clamp(player.pitch, -1.55, 1.55);
   camera.rotation.order = 'YXZ'; // emniyet: sira hicbir zaman bozulmasin
 });
@@ -762,6 +795,12 @@ function toggleInventory() {
 document.addEventListener('keydown', (e) => {
   if (chat && chat.isOpen) return; // sohbet kendi tuşlarını yönetir
   if (typingTarget(e)) { if (e.code !== 'Escape') return; }
+  const sp = document.getElementById('settingsPanel');
+  if (e.code === 'Escape' && sp && !sp.classList.contains('hidden')) {
+    sp.classList.add('hidden');
+    refreshMenus();
+    return;
+  }
   if (e.code === 'Escape' && inventory && inventory.isOpen) { toggleInventory(); return; }
   if (e.code === 'Escape' && craftTable && craftTable.isOpen) { closeTable(true); return; }
   if (e.code === 'Escape' && furnaceUI && furnaceUI.isOpen) { closeFurnace(); return; }
@@ -1186,19 +1225,6 @@ function animate() {
   const simDt = paused ? 0 : dt;
   if (locked) movePlayer(simDt);
 
-  // El yürüş animasyonu: hareket tuşlarından biri basılıysa hızlı sallanma
-  const hand = document.getElementById('hand');
-  const handContainer = document.getElementById('handContainer');
-  if (hand && handContainer && locked && worldReady && !player.dead) {
-    const moving = keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'];
-    if (moving && !hand.classList.contains('walking')) {
-      hand.classList.add('walking');
-      hand.style.animation = 'handWalk 0.4s ease-in-out infinite';
-    } else if (!moving && hand.classList.contains('walking')) {
-      hand.classList.remove('walking');
-      hand.style.animation = 'handIdle 2.5s ease-in-out infinite';
-    }
-  }
 
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);
@@ -1207,7 +1233,9 @@ function animate() {
     if (dt <= 0.034) chunkManager.processQueues();
     chunkManager.processSaves(1);
   }
-  camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
+  const targetEye = (player.sneaking && !player.flying) ? (EYE - 0.24) : EYE;
+  currentEye += (targetEye - currentEye) * Math.min(1, dt * 15);
+  camera.position.set(player.pos.x, player.pos.y + currentEye, player.pos.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
   // ---- gün döngüsü (/time): zaman akar, güneş/ay/yıldız senkron ----
   timeOfDay = (timeOfDay + (simDt * 24000) / DAY_LENGTH_S) % 24000;
@@ -1678,6 +1706,7 @@ async function enterWorld(id) {
         onChange: () => { renderHotbar(); saveAll(); },
         onClose: () => closeChest(),
       });
+      window.chestUI = chestUI;
       try { document.getElementById('chestClose').onclick = () => closeChest(); } catch {}
     } else {
       inventory.setMode(GAMEMODE);

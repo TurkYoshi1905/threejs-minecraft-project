@@ -19,7 +19,26 @@ window.gameSettings = window.gameSettings || {
 // Kullanıcı tanımlı özel ayarlar (localStorage'da kalıcı olarak saklanır)
 window.customSettings = window.customSettings || {};
 
+const GAME_SETTINGS_KEY = 'mc-game-settings';
 const CUSTOM_SETTINGS_KEY = 'mc-custom-settings';
+
+function loadGameSettings() {
+  try {
+    const raw = localStorage.getItem(GAME_SETTINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        Object.assign(window.gameSettings, parsed);
+      }
+    }
+  } catch {}
+}
+function saveGameSettings() {
+  try {
+    localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify(window.gameSettings));
+    window.dispatchEvent(new CustomEvent('gamesettingschange', { detail: window.gameSettings }));
+  } catch {}
+}
 
 function loadCustomSettings() {
   try {
@@ -90,89 +109,69 @@ function showScreen(name) {
   }
 }
 
-// Settings panelini yoksa dinamik olarak oluşturur (düzgun karanlık modal)
+// Settings panelini yoksa dinamik olarak oluşturur (düzgün karanlık modal)
 function ensureSettingsPanel() {
   let panel = document.getElementById('settingsPanel');
-  if (panel) return panel;
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'settingsPanel';
+    panel.className = 'hidden';
+    panel.innerHTML = `
+      <div class="settings-box">
+        <div class="settings-box-inner">
+          <div class="settings-header">
+            <div class="settings-icon">⚙️</div>
+            <div class="settings-title" id="settingsTitle">Ayarlar<small>Three.js Minecraft</small></div>
+          </div>
+          <div class="settings-controls">
+            <button id="btnAddCustomSetting" class="settings-btn-add" type="button">+ Özel Ayar Ekle</button>
+            <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;">↺ Sıfırla</button>
+          </div>
+          <div id="settingsContent"></div>
+          <div class="settings-footer">
+            <button id="settingsDoneBtn" class="settings-btn-done">Bitti</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+  }
 
-  panel = document.createElement('div');
-  panel.id = 'settingsPanel';
+  const btnAdd = document.getElementById('btnAddCustomSetting');
+  if (btnAdd) {
+    btnAdd.onclick = () => {
+      const name = prompt('Özel ayar adı (örn: FOV, Ses, Mavi):');
+      if (!name || !name.trim()) return;
+      const key = name.trim().replace(/\s+/g, '_').toLowerCase();
+      if (window.customSettings[key]) {
+        alert('Bu isimde bir ayar zaten var!');
+        return;
+      }
+      const value = prompt('Ayar değeri (örn: 90, açık, yüksek):');
+      if (value === null) return;
+      window.customSettings[key] = value.trim() || '1';
+      saveCustomSettings();
+      renderSettings();
+    };
+  }
 
-  const inner = document.createElement('div');
-  inner.className = 'settings-box-inner';
+  const btnReset = document.getElementById('btnResetCustomSetting');
+  if (btnReset) {
+    btnReset.onclick = () => {
+      if (!confirm('Tüm özel ayarları silmek istediğinize emin misiniz?')) return;
+      window.customSettings = {};
+      saveCustomSettings();
+      renderSettings();
+    };
+  }
 
-  // Header
-  const header = document.createElement('div');
-  header.className = 'settings-header';
-  const icon = document.createElement('div');
-  icon.className = 'settings-icon';
-  icon.textContent = '⚙️';
-  const title = document.createElement('div');
-  title.className = 'settings-title';
-  title.id = 'settingsTitle';
-  title.innerHTML = 'Ayarlar<small>Three.js Minecraft v2.1</small>';
-  header.appendChild(icon);
-  header.appendChild(title);
-  inner.appendChild(header);
-
-  // Kontrol butonları (Özel ayar ekle / sıfırla)
-  const controls = document.createElement('div');
-  controls.className = 'settings-controls';
-
-  const btnAdd = document.createElement('button');
-  btnAdd.className = 'settings-btn-add';
-  btnAdd.textContent = '+ Özel Ayar Ekle';
-  btnAdd.onclick = () => {
-    const name = prompt('Özel ayar adı (örn: FOV, Ses, Mavi):');
-    if (!name || !name.trim()) return;
-    const key = name.trim().replace(/\s+/g, '_').toLowerCase();
-    if (window.customSettings[key]) {
-      alert('Bu isimde bir ayar zaten var!');
-      return;
-    }
-    const value = prompt('Ayar değeri (örn: 90, açık, yüksek):');
-    if (value === null) return;
-    window.customSettings[key] = value.trim() || '1';
-    saveCustomSettings();
-    renderSettings();
-  };
-
-  const btnReset = document.createElement('button');
-  btnReset.className = 'settings-btn-add';
-  btnReset.textContent = '↺ Tümünü Sıfırla';
-  btnReset.style.background = 'linear-gradient(135deg, #a33 0%, #772222 100%)';
-  btnReset.style.borderColor = '#771111';
-  btnReset.onclick = () => {
-    if (!confirm('Tüm özel ayarları silmek istediğinize emin misiniz?')) return;
-    window.customSettings = {};
-    saveCustomSettings();
-    renderSettings();
-  };
-
-  controls.appendChild(btnAdd);
-  controls.appendChild(btnReset);
-  inner.appendChild(controls);
-
-  // Content
-  const content = document.createElement('div');
-  content.id = 'settingsContent';
-  inner.appendChild(content);
-
-  // Footer
-  const footer = document.createElement('div');
-  footer.className = 'settings-footer';
-  const doneBtn = document.createElement('button');
-  doneBtn.id = 'settingsDoneBtn';
-  doneBtn.className = 'settings-btn-done';
-  doneBtn.textContent = 'Bitti';
-  doneBtn.onclick = () => {
-    panel.classList.add('hidden');
-  };
-  footer.appendChild(doneBtn);
-  inner.appendChild(footer);
-
-  panel.appendChild(inner);
-  document.body.appendChild(panel);
+  const doneBtn = document.getElementById('settingsDoneBtn');
+  if (doneBtn) {
+    doneBtn.onclick = () => {
+      panel.classList.add('hidden');
+      if (typeof window.closePauseSettings === 'function') window.closePauseSettings();
+    };
+  }
 
   return panel;
 }
@@ -273,6 +272,7 @@ function renderSettings() {
       const next = vals[(idx + 1) % vals.length];
       value.textContent = next;
       row.set(next);
+      saveGameSettings();
     };
 
     container.appendChild(icon);
@@ -397,7 +397,8 @@ async function init() {
   if (sp) sp.textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
   showScreen('menuMain');
 
-  // Özel ayarları yükle
+  // Ayarları yükle
+  loadGameSettings();
   loadCustomSettings();
 
   // Ana menü butonları

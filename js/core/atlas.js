@@ -144,15 +144,15 @@ export async function buildAtlas() {
     const u1 = (col * CELL + GUT + TILE) / canvas.width;
     const v1 = 1 - (row * CELL + GUT) / canvas.height;
     const v0 = 1 - (row * CELL + GUT + TILE) / canvas.height;
-    // Kenar sızmasını engellemek için yarım texel içeri
-    const padU = 0.5 / canvas.width, padV = 0.5 / canvas.height;
-    uvMap[name] = { u0: u0 + padU, v0: v0 + padV, u1: u1 - padU, v1: v1 - padV };
+    // Gutter zaten kenar piksellerini 4px dışarı tekrarladığı için
+    // tam (0..1) piksel sınırları kullanılır (bloklar arası dikiş/çerçeve çizgisi kalmaz, MC gibi tam birleşik olur).
+    uvMap[name] = { u0, v0, u1, v1 };
   });
 
   const texture = new THREE.CanvasTexture(canvas);
-  // Vanilla MC: yakında keskin (Nearest büyütme), uzakta yumuşak (mip'li küçültme).
+  // Vanilla MC: yakında keskin (Nearest büyütme), uzakta mipmap (MC: GL_NEAREST_MIPMAP_LINEAR)
   texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.minFilter = THREE.NearestMipmapLinearFilter;
   texture.generateMipmaps = true;
   texture.colorSpace = THREE.SRGBColorSpace;
 

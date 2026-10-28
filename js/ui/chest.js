@@ -37,6 +37,54 @@ export class ChestUI {
   close() {
     this.pos = null;
     this.el.panel?.classList.add('hidden');
+    // Elde kalan stack'i oyuncu çantasına iade et
+    if (this.inventory && this.inventory.cursor) {
+      const c = this.inventory.cursor;
+      this.inventory.cursor = null;
+      this.inventory.hideGhost?.();
+      try { this.inventory.addItem(c.id, c.count, c.kind, c.dur); } catch {}
+    }
+  }
+  // Çantadan sandığa yığın ekleme (Shift+tık)
+  insertStack(s) {
+    if (!s || s.count <= 0) return 0;
+    const hs = this.halves();
+    if (!hs.length) return 0;
+    const skind = s.kind || kindOf(s.id);
+    const mx = maxOf(skind, s.id);
+    const isTool = skind === 'item' && ITEMS[s.id]?.tool;
+    let moved = 0;
+
+    if (!isTool) {
+      // 1. Mevcut yığınların üzerine doldur
+      for (const h of hs) {
+        for (let i = 0; i < h.st.slots.length && s.count > 0; i++) {
+          const cur = h.st.slots[i];
+          if (cur && cur.id === s.id && (cur.kind || kindOf(cur.id)) === skind && cur.count < mx) {
+            const take = Math.min(s.count, mx - cur.count);
+            cur.count += take;
+            s.count -= take;
+            moved += take;
+          }
+        }
+      }
+    }
+    // 2. Boş slotlara yerleştir
+    for (const h of hs) {
+      for (let i = 0; i < h.st.slots.length && s.count > 0; i++) {
+        if (!h.st.slots[i] && s.count > 0) {
+          const take = isTool ? 1 : Math.min(s.count, mx);
+          const itemSlot = { kind: skind, id: s.id, count: take };
+          if (isTool && typeof s.dur === 'number') itemSlot.dur = s.dur;
+          h.st.slots[i] = itemSlot;
+          s.count -= take;
+          moved += take;
+        }
+      }
+    }
+    this.renderAll();
+    this.onChange();
+    return moved;
   }
   // Görünüm yarıları: [tıklanan yarı, eşleşmiş yarı (varsa)]
   halves() {
@@ -63,8 +111,22 @@ export class ChestUI {
     const slot = this.viewSlot(vi);
     if (!slot) return;
     const right = e.button === 2;
+    const shift = e.shiftKey;
     const cur = slot.half.st.slots[slot.i];
     const curKind = cur ? (cur.kind || kindOf(cur.id)) : null;
+
+    // Shift + tık: Sandıktan oyuncu çantasına hızlı aktarım
+    if (shift && cur) {
+      const take = cur.count;
+      const success = inv.addItem(cur.id, take, curKind, cur.dur);
+      if (success) {
+        slot.half.st.slots[slot.i] = null;
+      }
+      this.renderAll();
+      this.onChange();
+      return;
+    }
+
     if (!inv.cursor && cur) {
       if (right && cur.count > 1 && !(curKind === 'item' && ITEMS[cur.id]?.tool)) {
         const half = Math.ceil(cur.count / 2);
