@@ -305,6 +305,15 @@ export class InventoryUI {
     // Tık (eski davranış) + sürükle-bırak (MC gibi) aynı slotta:
     // 6px'ten az hareket = tık, fazlası = sürükleme.
     d.onpointerdown = (e) => { e.preventDefault(); this.dragStart(area, index, e); };
+    d.onpointermove = (e) => {
+      if (e.buttons === 1) {
+        if (!this.drag) this.dragStart(area, index, e);
+        this.dragMove(e);
+      }
+    };
+    d.onpointerup = (e) => {
+      if (this.drag) this.dragEnd(e);
+    };
     d.oncontextmenu = (e) => e.preventDefault();
     d.ondragstart = (e) => e.preventDefault();
     return d;

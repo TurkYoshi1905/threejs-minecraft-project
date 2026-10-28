@@ -49,7 +49,7 @@ function plankBase(g) {
   g.fillRect(5, 0, 1, 16); g.fillRect(11, 0, 1, 16);
 }
 function proceduralTile(name) {
-  if (name !== 'crafting_table_top' && name !== 'crafting_table_side' && name !== 'torch') return null;
+  if (!['crafting_table_top', 'crafting_table_side', 'torch', 'chest_front', 'chest_front_l', 'chest_front_r', 'chest_side', 'chest_top'].includes(name)) return null;
   const c = document.createElement('canvas');
   c.width = c.height = TILE;
   const g = c.getContext('2d');
@@ -72,12 +72,72 @@ function proceduralTile(name) {
     g.strokeStyle = '#6b4c22'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(8, 2); g.lineTo(8, 14); g.moveTo(2, 8); g.lineTo(14, 8); g.stroke(); // ızgara izi
     g.fillStyle = '#5b5b5b'; g.fillRect(2, 2, 2, 2); g.fillRect(12, 12, 2, 2); // alet başları hissi
-  } else {
-    plankBase(g);
-    g.fillStyle = '#c4a061'; g.fillRect(0, 0, 16, 4); // üst tabla çıkıntısı
-    g.fillStyle = '#4a3418'; g.fillRect(0, 4, 16, 1);
-    g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(2, 7, 5, 5); g.fillRect(9, 7, 5, 6); // ön paneller
-    g.fillStyle = '#2e2e2e'; g.fillRect(0, 15, 16, 1);
+  } else if (name === 'chest_front') {
+    // Tek sandık ön yüzü: 16x16, orta dikey çizgili iki panel
+    g.fillStyle = '#8a6d3b'; g.fillRect(0, 0, 16, 16); // gövde
+    g.fillStyle = '#6b4f2f';
+    g.fillRect(0, 0, 16, 3);   // üst kenar
+    g.fillRect(0, 13, 16, 3);  // alt kenar
+    g.fillRect(0, 0, 3, 16);   // sol kenar
+    g.fillRect(13, 0, 3, 16);  // sağ kenar
+    g.fillStyle = '#5c3e1e'; g.fillRect(7, 0, 2, 16);   // orta dikey çizgi
+    g.fillStyle = '#a0824f'; g.fillRect(2, 2, 5, 6);    // sol panel üst
+    g.fillRect(2, 8, 5, 6);    // sol panel alt
+    g.fillRect(9, 2, 5, 6);    // sağ panel üst
+    g.fillRect(9, 8, 5, 6);    // sağ panel alt
+    g.fillStyle = '#3e2a13';
+    g.fillRect(2, 7, 5, 1); g.fillRect(9, 7, 5, 1);     // panel ayraç
+    g.fillRect(3, 3, 1, 1); g.fillRect(12, 3, 1, 1);    // kilit/niş
+    g.fillRect(3, 12, 1, 1); g.fillRect(12, 12, 1, 1);
+  } else if (name === 'chest_front_l') {
+    // Çift sandık sol yarı ön yüzü
+    g.fillStyle = '#8a6d3b'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#6b4f2f';
+    g.fillRect(0, 0, 16, 3);   // üst kenar
+    g.fillRect(0, 13, 16, 3);  // alt kenar
+    g.fillRect(0, 0, 3, 16);   // sol kenar
+    g.fillStyle = '#5c3e1e'; g.fillRect(13, 0, 3, 16);  // orta dikey çizgi (sağda)
+    g.fillStyle = '#a0824f'; g.fillRect(2, 2, 5, 6);    // sol panel üst
+    g.fillRect(2, 8, 5, 6);    // sol panel alt
+    g.fillStyle = '#3e2a13';
+    g.fillRect(2, 7, 5, 1);    // panel ayraç
+    g.fillRect(3, 3, 1, 1); g.fillRect(3, 12, 1, 1);    // kilit/niş
+  } else if (name === 'chest_front_r') {
+    // Çift sandık sağ yarı ön yüzü
+    g.fillStyle = '#8a6d3b'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#6b4f2f';
+    g.fillRect(0, 0, 16, 3);   // üst kenar
+    g.fillRect(0, 13, 16, 3);  // alt kenar
+    g.fillRect(13, 0, 3, 16);  // sağ kenar
+    g.fillStyle = '#5c3e1e'; g.fillRect(0, 0, 3, 16);   // orta dikey çizgi (solda)
+    g.fillStyle = '#a0824f'; g.fillRect(9, 2, 5, 6);    // sağ panel üst
+    g.fillRect(9, 8, 5, 6);    // sağ panel alt
+    g.fillStyle = '#3e2a13';
+    g.fillRect(9, 7, 5, 1);    // panel ayraç
+    g.fillRect(12, 3, 1, 1); g.fillRect(12, 12, 1, 1);  // kilit/niş
+  } else if (name === 'chest_side') {
+    // Sandık yan yüzü
+    g.fillStyle = '#8a6d3b'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#6b4f2f';
+    g.fillRect(0, 0, 16, 3);   // üst kenar
+    g.fillRect(0, 13, 16, 3);  // alt kenar
+    g.fillRect(0, 0, 3, 16);   // kenar
+    g.fillRect(13, 0, 3, 16);  // kenar
+    g.fillStyle = '#a0824f'; g.fillRect(5, 6, 6, 4);    // orta panel
+    g.fillStyle = '#3e2a13'; g.fillRect(5, 10, 6, 1);   // ayraç
+  } else if (name === 'chest_top') {
+    // Sandık üst yüzü
+    g.fillStyle = '#a0824f'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#8a6d3b';
+    g.fillRect(0, 0, 16, 2);   // ön kenar
+    g.fillRect(0, 14, 16, 2);  // arka kenar
+    g.fillRect(0, 0, 2, 16);   // sol kenar
+    g.fillRect(14, 0, 2, 16);  // sağ kenar
+    g.fillStyle = '#6b4f2f';
+    g.fillRect(4, 4, 8, 8);    // orta bölüm
+    g.fillStyle = '#3e2a13';
+    g.fillRect(6, 2, 4, 1); g.fillRect(6, 13, 4, 1);    // detay
+    g.fillRect(2, 6, 1, 4); g.fillRect(13, 6, 1, 4);
   }
   return c;
 }

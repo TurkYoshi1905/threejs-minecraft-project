@@ -265,14 +265,14 @@ html, body {
 /* ================= SANDIK PANELI (MINECRAFT KIBI ORTALAMA) ================= */
 #chestGrid {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   background: #8b8b8b;
   padding: 4px;
-  margin: 0 auto;
-  max-width: calc(9 * 44px + 8 * 3px + 8px);
+  margin: 0 auto 8px auto;
+  max-width: calc(9 * 44px + 8 * 2px + 8px);
 }
 #chestGrid.double {
-  max-width: calc(18 * 44px + 17 * 3px + 8px);
+  max-width: calc(18 * 44px + 17 * 2px + 8px);
 }
 .chest-slot {
   width: 44px;
@@ -288,6 +288,7 @@ html, body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  flex-shrink: 0;
 }
 .chest-slot img {
   width: 36px;
@@ -297,13 +298,18 @@ html, body {
 }
 .chest-slot .cnt {
   position: absolute;
-  right: 1px;
-  bottom: 0;
-  font-size: 12px;
+  right: 2px;
+  bottom: 2px;
+  font-size: 11px;
   font-weight: bold;
   color: white;
   text-shadow: 1px 1px 0 black;
   pointer-events: none;
+}
+/* Sandık paneli ana konteyner merkezi */
+#chestPanel .inv-box {
+  max-width: 620px;
+  width: 100%;
 }
 
 #hotbar {
