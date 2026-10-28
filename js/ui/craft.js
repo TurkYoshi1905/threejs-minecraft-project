@@ -243,7 +243,7 @@ export class CraftUI {
     this.el.grid.className = 'craft-grid';
     this.grid.forEach((s, i) => this.el.grid.appendChild(this.slotEl(s, i, (e) => this.clickCell(i, e))));
     this.el.out.innerHTML = '';
-    const o = this.result ? this.slotEl({ id: this.result.id, count: this.result.count }, (e) => this.clickOut(e)) : this.slotEl(null, () => {});
+    const o = this.result ? this.slotEl({ id: this.result.id, count: this.result.count }, -1, (e) => this.clickOut(e)) : this.slotEl(null, -1, () => {});
     if (this.result) o.classList.add('craft-out');
     this.el.out.appendChild(o);
   }
