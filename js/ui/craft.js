@@ -195,7 +195,7 @@ export class CraftUI {
     if (made) this.inventory.renderAll();
     this.refresh();
   }
-  slotEl(content, index, onclick) {
+  slotEl(content, index, onclick = () => {}) {
     const d = document.createElement('div');
     d.className = 'inv-slot craft-slot';
     d.dataset.area = 'craft';

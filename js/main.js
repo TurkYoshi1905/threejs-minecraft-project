@@ -825,7 +825,8 @@ document.addEventListener('keydown', (e) => {
   keys[e.code] = true;
 
   // Sürünme (Shift) — MC gibi yavaşlatır, kenardan düşmeme sağlar
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+  // Envanter/craft/fırın/sandık gibi panel açıkken eğilim devre dışı
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !anyOverlay()) {
     player.sneaking = true;
   }
 
@@ -903,7 +904,7 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => {
   keys[e.code] = false;
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !anyOverlay()) {
     player.sneaking = false;
   }
   // Koşma: W bırakılınca durur (MC gibi sürekli basılı tutma gerekmez ama ici basit tutuyoruz)
