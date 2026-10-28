@@ -108,6 +108,10 @@ const player = {
 let currentEye = EYE;
 let lastWTime = 0;
 const DOUBLE_TAP_MS = 300;
+let targetSpeed = 0;   // yumuşak geçiş için hedef hız
+let currentSpeed = 0;  // mevcut hız (yumuşak)
+let targetFlying = false; // yaratıcı uçma hedef durumu
+let isFlyingSmooth = false; // uçma geçiş aktif mi
 let timeOfDay = 6000; // 0-23999, 6000 öğle
 const WATER_FOG = new THREE.Color(0x144a8f); // su altı fog rengi
 let headUnderwater = false;
@@ -247,7 +251,20 @@ function movePlayer(dt) {
   if (border) {
     if (border.clamp(player.pos)) { /* duvara vurdu */ }
   }
-  const speed = player.flying ? 12 : (player.sprinting ? 5.612 : (player.sneaking ? 3.15 : 4.5));
+  // Hedef hızı belirle (yumuşak geçiş için)
+  if (player.flying) {
+    targetSpeed = 12;
+  } else if (player.sprinting) {
+    targetSpeed = 5.612;
+  } else if (player.sneaking) {
+    targetSpeed = 3.15;
+  } else {
+    targetSpeed = 4.5;
+  }
+  // Yumuşak geçiş: mevcut hızı hedef hızla eşitle (MC anlık değil, yumuşak ivme)
+  const speedLerp = Math.min(1, dt * 12);
+  currentSpeed += (targetSpeed - currentSpeed) * speedLerp;
+  const speed = currentSpeed;
   const f = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
   const s = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
   const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
@@ -812,8 +829,8 @@ document.addEventListener('keydown', (e) => {
     player.sneaking = true;
   }
 
-  // Çift-W koşma (MC sprint)
-  if (e.code === 'KeyW' && locked && !player.dead && !player.flying && !anyOverlay()) {
+  // Çift-W koşma (MC sprint) — SÜRÜNME (Shift) açıkken iki kez W basınca HIZLANMAYACAK
+  if (e.code === 'KeyW' && locked && !player.dead && !player.flying && !anyOverlay() && !player.sneaking) {
     const now = performance.now();
     if (now - lastWTime < DOUBLE_TAP_MS) {
       player.sprinting = true;

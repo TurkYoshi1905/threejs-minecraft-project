@@ -245,6 +245,23 @@ html, body {
 
 .hidden { display: none !important; }
 
+/* ---- Sandık paneli: tek ve büyük sandık merkeze ortalanmış ---- */
+#chestGrid {
+  display: grid;
+  gap: 3px;
+  background: #8b8b8b;
+  padding: 4px;
+  margin: 0 auto;
+  max-width: calc(9 * 44px + 8 * 3px + 8px);
+}
+#chestGrid.double {
+  max-width: calc(18 * 44px + 17 * 3px + 8px);
+}
+.chest-slot {
+  width: 44px; height: 44px;
+}
+.chest-slot img { width: 36px; height: 36px; }
+
 #hotbar {
   position: fixed;
   bottom: 12px;

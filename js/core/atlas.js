@@ -183,5 +183,9 @@ export function faceTextureName(id, dir, facing = 0, code = 0) {
     const FDIR = ['pz', 'nz', 'px', 'nx'];
     return dir === (FDIR[facing] || 'pz') ? (id === 24 ? 'furnace_front_on' : b.front) : b.side;
   }
+  // Kapı: tüm yüzler (ön, arka, yan) için oak_door_bottom / oak_door_top
+  if (b.door) {
+    return b.all;
+  }
   return b.side;
 }
