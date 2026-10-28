@@ -41,6 +41,7 @@ export class InventoryUI {
     this.tab = 'all';
     this.filter = '';
     this.cursor = null;
+    this.craftUIs = {}; // panelId -> CraftUI referansı (craft grid'e drop yapmak için)
     // Yeni dünya = boş envanter (her iki modda da). Creative E'den seçer,
     // survival kırarak/toplayarak doldurur.
     this.hotbar = new Array(10).fill(null);
@@ -173,6 +174,11 @@ export class InventoryUI {
       if (typeof data.sel === 'number') this.sel = Math.max(0, Math.min(9, data.sel));
     } catch {}
     this.renderAll();
+  }
+
+  // CraftUI panellerini kaydeder (craft grid'e sürükle-bırak için)
+  registerCraftUI(panelId, craftUI) {
+    this.craftUIs[panelId] = craftUI;
   }
 
   serialize() {
@@ -394,7 +400,11 @@ export class InventoryUI {
       }
     } catch { t = null; }
     if (t && t.dataset.area) {
-      return { area: t.dataset.area, index: +t.dataset.index };
+      return {
+        area: t.dataset.area,
+        index: +t.dataset.index,
+        craftPanel: t.dataset.craftPanel || null,
+      };
     }
     // Fare boş alanda (slottan dışı): envanter ızgarası kapsayıcısı içindeyse 'grid' olarak işaretle
     try {
@@ -518,55 +528,97 @@ export class InventoryUI {
     if (dr.area === toArea && dr.index === toIndex) return;
 
     // Gerçek slot-to-slot taşıma
-    this.dropMove(dr.area, dr.index, toArea, toIndex, dr.button === 2);
+    this.dropMove(dr.area, dr.index, toArea, toIndex, dr.button === 2, hov.craftPanel);
   }
 
   // Sürükle-bırak yerleştirme (kaynak slottan hedef slota) — MC mantığı
-  dropMove(fromArea, fromIndex, toArea, toIndex, right) {
-    const toArr = toArea === 'hot' ? this.hotbar : this.main;
+  // craftPanel: hedef craft panelinin ID'si (toArea === 'craft' olduğunda)
+  dropMove(fromArea, fromIndex, toArea, toIndex, right, craftPanel = null) {
+    // Craft grid'i çözümle
+    const getCraftGrid = (panelId) => {
+      const c = this.craftUIs[panelId];
+      return c ? c.grid : null;
+    };
+    const craftGrid = craftPanel ? getCraftGrid(craftPanel) : null;
 
-    // ---- Yaratıcı paletten kopyala (izgara) ----
+    // Kaynak verisini al (craft grid'ten veya envanterden)
+    let src;
+    if (fromArea === 'craft') {
+      if (!craftGrid) return;
+      src = craftGrid[fromIndex];
+    } else {
+      const fromArr = fromArea === 'hot' ? this.hotbar : this.main;
+      src = fromArr[fromIndex];
+    }
+    if (!src) return;
+
+    const skind = src.kind || kindOf(src.id);
+    const smax = maxOf(skind, src.id);
+
+    // Hedef verisini al (craft grid'ten veya envanterden)
+    let dst;
+    if (toArea === 'craft') {
+      if (!craftGrid) return;
+      dst = craftGrid[toIndex];
+    } else {
+      const toArr = toArea === 'hot' ? this.hotbar : this.main;
+      dst = toArr[toIndex];
+    }
+
+    // Aynı slota geri bırakıldı: hiçbir şey yapma
+    if (fromArea === toArea && fromIndex === toIndex) return;
+
+    // ---- Yaratıcı paletten kopyala (izgara -> envanter veya craft) ----
     if (fromArea === 'grid') {
       const list = this.filteredGrid();
       const id = list[fromIndex];
       if (id == null) return;
       const kind = kindOf(id);
       if (kind === 'item' && ITEMS[id]?.tool) {
-        toArr[toIndex] = { kind, id, count: 1, dur: ITEMS[id].maxDur };
+        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: 1, dur: ITEMS[id].maxDur }; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: 1, dur: ITEMS[id].maxDur }; }
       } else if (right) {
-        toArr[toIndex] = { kind, id, count: 1 };
+        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: 1 }; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: 1 }; }
       } else {
-        toArr[toIndex] = { kind, id, count: maxOf(kind, id) };
+        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: maxOf(kind, id) }; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: maxOf(kind, id) }; }
       }
       if (toArea === 'hot') this.sel = toIndex;
+      if (toArea === 'craft' && craftGrid) { const c = this.craftUIs[craftPanel]; if (c) c.refresh(); }
       this.renderMain(); this.renderHot();
       this.onChange();
       return;
     }
 
-    // ---- Envanter slotından slot'a taşı ----
-    const fromArr = fromArea === 'hot' ? this.hotbar : this.main;
-    const src = fromArr[fromIndex];
-    if (!src) return;
-
-    const skind = src.kind || kindOf(src.id);
-    const smax = maxOf(skind, src.id);
-    const dst = toArr[toIndex];
-
+    // ---- Envanter/craft slotından hedefe taşı ----
     // Aletler birleşmez, sadece taşınır/takas edilir
     if (skind === 'item' && ITEMS[src.id]?.tool) {
-      if (!dst && !right) { toArr[toIndex] = src; fromArr[fromIndex] = null; }
-      else if (dst && !right) { fromArr[fromIndex] = dst; toArr[toIndex] = src; }
+      if (!dst && !right) {
+        if (toArea === 'craft') { craftGrid[toIndex] = src; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
+        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
+      }
+      else if (dst && !right) {
+        if (toArea === 'craft') { craftGrid[toIndex] = src; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
+        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
+      }
       // sağ+tık + dolu slot = işlem yok
     }
     else if (!dst) {
       // Hedef boş
       if (right && src.count > 1) {
-        toArr[toIndex] = { kind: skind, id: src.id, count: 1 };
+        if (toArea === 'craft') { craftGrid[toIndex] = { kind: skind, id: src.id, count: 1 }; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind: skind, id: src.id, count: 1 }; }
         src.count--;
       } else {
-        toArr[toIndex] = src;
-        fromArr[fromIndex] = null;
+        if (toArea === 'craft') { craftGrid[toIndex] = src; }
+        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
+        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
+        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
       }
     }
     else if ((dst.kind || kindOf(dst.id)) === skind && dst.id === src.id) {
@@ -576,14 +628,29 @@ export class InventoryUI {
       const real = Math.min(take, src.count, Math.max(0, dmax - dst.count));
       dst.count += real;
       src.count -= real;
-      if (src.count <= 0) fromArr[fromIndex] = null;
+      if (src.count <= 0) {
+        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
+        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
+      }
     }
     else if (!right) {
       // Farklı eşya + sol tık = takas
-      fromArr[fromIndex] = dst;
-      toArr[toIndex] = src;
+      if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
+      else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
+      if (toArea === 'craft') { craftGrid[toIndex] = src; }
+      else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = src; }
     }
     // sağ+tık + farklı eşya = işlem yok (MC)
+
+    // Craft grid'i yeniden render et
+    if (toArea === 'craft' && craftGrid) {
+      const c = this.craftUIs[craftPanel];
+      if (c) c.refresh();
+    }
+    if (fromArea === 'craft' && craftGrid) {
+      const c = this.craftUIs[craftPanel];
+      if (c) c.refresh();
+    }
 
     if (toArea === 'hot' || fromArea === 'hot') {
       this.sel = toArea === 'hot' ? toIndex : this.sel;

@@ -81,6 +81,10 @@ export class CraftUI {
       title: opts.titleId ? document.getElementById(opts.titleId) : null,
     };
     if (this.el.close) this.el.close.onclick = () => opts.onClose?.();
+    // Craft panelini inventory'ye tanıt (sürükle-bırak craft grid'ine yazmak için)
+    if (this.inventory && this.inventory.registerCraftUI) {
+      this.inventory.registerCraftUI(this.el.panel.id, this);
+    }
     this.renderAll();
   }
   get isOpen() { return this.el.panel && !this.el.panel.classList.contains('hidden'); }
@@ -196,6 +200,7 @@ export class CraftUI {
     d.className = 'inv-slot craft-slot';
     d.dataset.area = 'craft';
     d.dataset.index = index;
+    d.dataset.craftPanel = this.el.panel.id;
     if (content) {
       const kind = content.kind || (content.id >= 100 ? 'item' : 'block');
       const img = document.createElement('img');
