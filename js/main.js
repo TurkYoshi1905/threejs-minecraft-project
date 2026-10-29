@@ -112,6 +112,10 @@ let targetSpeed = 0;   // yumuşak geçiş için hedef hız
 let currentSpeed = 0;  // mevcut hız (yumuşak)
 let targetFlying = false; // yaratıcı uçma hedef durumu
 let isFlyingSmooth = false; // uçma geçiş aktif mi
+let currentFov = 75;    // mevcut FOV (yumuşak geçiş)
+let targetFov = 75;     // hedef FOV
+const FOV_SPRINT_BOOST = 5; // sprintte FOV artışı
+const FOV_FLY_BOOST = 3;    // uçarken FOV artışı
 let timeOfDay = 6000; // 0-23999, 6000 öğle
 const WATER_FOG = new THREE.Color(0x144a8f); // su altı fog rengi
 let headUnderwater = false;
@@ -254,12 +258,16 @@ function movePlayer(dt) {
   // Hedef hızı belirle (yumuşak geçiş için)
   if (player.flying) {
     targetSpeed = 12;
-  } else if (player.sprinting) {
+    targetFov = 75 + FOV_FLY_BOOST;
+  } else if (player.sprinting && !player.sneaking) {
     targetSpeed = 5.612;
+    targetFov = 75 + FOV_SPRINT_BOOST;
   } else if (player.sneaking) {
     targetSpeed = 3.15;
+    targetFov = 75;
   } else {
     targetSpeed = 4.5;
+    targetFov = 75;
   }
   // Yumuşak geçiş: mevcut hızı hedef hızla eşitle (MC anlık değil, yumuşak ivme)
   const speedLerp = Math.min(1, dt * 12);
@@ -826,8 +834,10 @@ document.addEventListener('keydown', (e) => {
 
   // Sürünme (Shift) — MC gibi yavaşlatır, kenardan düşmeme sağlar
   // Envanter/craft/fırın/sandık gibi panel açıkken eğilim devre dışı
+  // Eğilme sprint'i iptal eder (koşarken eğilip yürüyemeyiz)
   if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !anyOverlay()) {
     player.sneaking = true;
+    player.sprinting = false; // eğilince koşma durur
   }
 
   // Çift-W koşma (MC sprint) — SÜRÜNME (Shift) açıkken iki kez W basınca HIZLANMAYACAK
@@ -1264,6 +1274,18 @@ function animate() {
   currentEye += (targetEye - currentEye) * Math.min(1, dt * 15);
   camera.position.set(player.pos.x, player.pos.y + currentEye, player.pos.z);
   camera.rotation.set(player.pitch, player.yaw, 0);
+
+  // FOV yumuşak geçiş (sprint/uçma ile FOV artışı)
+  const fovLerp = Math.min(1, dt * 10);
+  currentFov += (targetFov - currentFov) * fovLerp;
+  camera.fov = currentFov;
+  camera.updateProjectionMatrix();
+
+  // Uçma animasyonu: yaratıcı modda uçarken hafif yukarı-aşağı sallanma
+  if (player.flying && GAMEMODE === 'creative' && locked) {
+    const flyBob = Math.sin(now * 0.006) * 0.04;
+    camera.position.y += flyBob;
+  }
   // ---- gün döngüsü (/time): zaman akar, güneş/ay/yıldız senkron ----
   timeOfDay = (timeOfDay + (simDt * 24000) / DAY_LENGTH_S) % 24000;
   {
