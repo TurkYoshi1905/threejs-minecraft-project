@@ -49,7 +49,8 @@ export const BLOCKS = {
   42: { ad: 'Kırmızı Yün', all: 'red_wool' },
   43: { ad: 'Siyah Yün', all: 'black_wool' },
   // --- Yeni Bloklar (20 adet) ---
-  44: { ad: 'Terrakota', all: 'terracotta' },
+  // Terrakota serisi: düz terracotta (siray/renksiz) = ID 44, sonra 16 renkli varyant = ID 45-60
+  44: { ad: 'Düz Terrakota', all: 'terracotta' },           // renksiz/siray terrakotta
   45: { ad: 'Beyaz Terrakota', all: 'white_terracotta' },
   46: { ad: 'Turuncu Terrakota', all: 'orange_terracotta' },
   47: { ad: 'Magenta Terrakota', all: 'magenta_terracotta' },
