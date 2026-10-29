@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v12';
+const BUILD = 'v13';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -116,7 +116,6 @@ let currentFov = 75;    // mevcut FOV (yumuşak geçiş)
 let targetFov = 75;     // hedef FOV
 const FOV_SPRINT_BOOST = 12; // sprintte FOV artışı (vanilla MC ~%15 kick: 75 -> 87)
 const FOV_FLY_BOOST = 7;    // uçarken FOV artışı (75 -> 82)
-let sprintBobPhase = 0;     // sprint adım animasyon fazı
 let flyBobPhase = 0;        // uçma süzülme animasyon fazı
 let flyTransitionY = 0;     // uçmaya kalkarken yumuşak yükseliş animasyonu
 let timeOfDay = 6000; // 0-23999, 6000 öğle
@@ -1292,17 +1291,8 @@ function animate() {
     camera.position.y += flyBob + flyTransitionY;
   }
 
-  // Koşma (sprint) animasyonu: iki kez W ile koşarken yumuşak adım sallanması (head bobbing) ve açı
-  const isMoving = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
-  if (player.sprinting && !player.flying && player.onGround && locked && isMoving) {
-    sprintBobPhase += dt * 15;
-    const sprintBob = Math.sin(sprintBobPhase) * 0.035;
-    const sprintTilt = Math.cos(sprintBobPhase * 0.5) * 0.006;
-    camera.position.y += sprintBob;
-    camera.rotation.z += sprintTilt;
-  } else {
-    sprintBobPhase = 0;
-  }
+  // Koşma (sprint): kamera sarsılmaz, yumuşak FOV geçişi ile hız hissi sağlanır
+  camera.rotation.z = 0;
   // ---- gün döngüsü (/time): zaman akar, güneş/ay/yıldız senkron ----
   timeOfDay = (timeOfDay + (simDt * 24000) / DAY_LENGTH_S) % 24000;
   {

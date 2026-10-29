@@ -277,7 +277,10 @@ export class InventoryUI {
 
   clear() {
     this.main = new Array(27).fill(null);
-    this.renderMain(); this.onChange();
+    this.hotbar = new Array(10).fill(null);
+    this.cursor = null;
+    this.hideGhost?.();
+    this.renderAll(); this.onChange();
   }
 
   slotEl(slot, area, index) {

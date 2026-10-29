@@ -238,7 +238,12 @@ export class ChestUI {
     const hs = this.halves();
     if (this.el.title) this.el.title.textContent = hs.length > 1 ? 'Büyük Sandık' : 'Sandık';
     this.el.grid.innerHTML = '';
-    this.el.grid.className = 'chest-grid' + (hs.length > 1 ? ' double' : '');
+    // CSS id seçicisi #chestGrid kullandığı için className değil classList ile double ekle/kaldır
+    if (hs.length > 1) {
+      this.el.grid.classList.add('double');
+    } else {
+      this.el.grid.classList.remove('double');
+    }
     hs.forEach((h, hi) => {
       h.st.slots.forEach((s, i) => this.el.grid.appendChild(this.slotEl(s, hi * 27 + i)));
     });

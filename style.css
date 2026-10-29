@@ -245,48 +245,56 @@ html, body {
 
 .hidden { display: none !important; }
 
-/* ---- Sandık paneli: tek ve büyük sandık merkeze ortalanmış ---- */
-#chestGrid {
-  display: grid;
-  gap: 3px;
-  background: #8b8b8b;
-  padding: 4px;
-  margin: 0 auto;
-  max-width: calc(9 * 44px + 8 * 3px + 8px);
-}
-#chestGrid.double {
-  max-width: calc(18 * 44px + 17 * 3px + 8px);
-}
-.chest-slot {
-  width: 44px; height: 44px;
-}
-.chest-slot img { width: 36px; height: 36px; }
-
 /* ================= SANDIK PANELI (MINECRAFT KIBI, TAM ORTALAMA) ================= */
 /* Sandık panelinin ana konteyneri: ekran ortasında, genişlik sınırlı */
+#chestPanel {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55);
+}
 #chestPanel .inv-box {
   max-width: 620px;
   width: 100%;
   margin: 0 auto;
 }
 
-/* Sandık ızgara (tek: 9 sütun, çift: 18 sütun) — tam ortalanmış */
+/* Sandık ızgara (tek: 9 sütun, çift: 9 sütun iki bölge = 54 slot) — tam ortalanmış */
 #chestGrid {
   display: grid;
-  gap: 2px;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
   background: #8b8b8b;
   padding: 4px;
   margin: 0 auto 8px auto;
-  max-width: calc(9 * 44px + 8 * 2px + 8px);
 }
 #chestGrid.double {
-  max-width: calc(18 * 44px + 17 * 2px + 8px);
+  /* Çift sandık: yine 9 sütun, 6 satır (54 slot) — MC gibi üst üste */
+  grid-template-columns: repeat(9, 1fr);
+}
+
+/* Sandık çanta ve hotbar gridleri — MC düzeni */
+#chestMain {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  background: #8b8b8b;
+  padding: 4px;
+  margin-top: 2px;
+}
+#chestHot {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  background: #8b8b8b;
+  padding: 4px;
+  margin-top: 2px;
 }
 
 /* Sandık slotu: MC standart 44x44, 3D kenar efekti */
 .chest-slot {
-  width: 44px;
-  height: 44px;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
   background: #9a9a9a;
   border: 2px solid;
   border-color: #373737 #fff #fff #373737;
@@ -301,8 +309,8 @@ html, body {
   flex-shrink: 0;
 }
 .chest-slot img {
-  width: 36px;
-  height: 36px;
+  width: 90%;
+  height: 90%;
   image-rendering: pixelated;
   pointer-events: none;
 }
