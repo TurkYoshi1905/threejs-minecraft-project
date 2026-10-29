@@ -18,7 +18,7 @@ const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];
 // Biyom/tint renkleri (0..1). Minecraft 1.21.1 vanilla uyumlu.
 // Üst doku: biyom rengine göre değişir, varsayılan (plains) #85BA6B ≈ RGB(133,186,107).
 const TINTS = {
-  grass_block_top: [0.90, 1.00, 0.73], // vanilla 1.21.1 çimen üstü rengi (açık yeşil)
+  grass_block_top: [145 / 255, 189 / 255, 89 / 255], // vanilla 1.21.1 Plains çimen üstü (#91BD59)
   grass_block_snow: [0.85, 0.9, 0.9],
   oak_leaves: [0.30, 0.68, 0.18],
   water_still: [0.24, 0.45, 0.95],

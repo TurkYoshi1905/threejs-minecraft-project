@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v11';
+const BUILD = 'v12';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -114,8 +114,11 @@ let targetFlying = false; // yaratıcı uçma hedef durumu
 let isFlyingSmooth = false; // uçma geçiş aktif mi
 let currentFov = 75;    // mevcut FOV (yumuşak geçiş)
 let targetFov = 75;     // hedef FOV
-const FOV_SPRINT_BOOST = 5; // sprintte FOV artışı
-const FOV_FLY_BOOST = 3;    // uçarken FOV artışı
+const FOV_SPRINT_BOOST = 12; // sprintte FOV artışı (vanilla MC ~%15 kick: 75 -> 87)
+const FOV_FLY_BOOST = 7;    // uçarken FOV artışı (75 -> 82)
+let sprintBobPhase = 0;     // sprint adım animasyon fazı
+let flyBobPhase = 0;        // uçma süzülme animasyon fazı
+let flyTransitionY = 0;     // uçmaya kalkarken yumuşak yükseliş animasyonu
 let timeOfDay = 6000; // 0-23999, 6000 öğle
 const WATER_FOG = new THREE.Color(0x144a8f); // su altı fog rengi
 let headUnderwater = false;
@@ -500,7 +503,7 @@ function sideIcon(id) {
     const texName = b.all ?? b.side;
     const rect = atlas?.uvMap?.[texName];
     if (atlas && rect) {
-      const TINTS2 = { grass_block_top: '#BBF66D', oak_leaves: '#4daf2e', water_still: '#3d6fe0' };
+      const TINTS2 = { grass_block_top: '#91BD59', oak_leaves: '#4daf2e', water_still: '#3d6fe0' };
       const src = atlas.canvas;
       const c = document.createElement('canvas'); c.width = c.height = 32;
       const g = c.getContext('2d');
@@ -879,9 +882,17 @@ document.addEventListener('keydown', (e) => {
     const now = performance.now();
     if (now - lastSpaceT < DOUBLE_SPACE_MS) {
       lastSpaceT = 0;
-      targetFlying = !player.flying;
-      player.vel.y = 0;
-      toast(targetFlying ? 'Uçma açık' : 'Uçma kapalı');
+      player.flying = !player.flying;
+      targetFlying = player.flying;
+      if (player.flying) {
+        // Yumuşak kalkış: hafif yukarı ivme ve kamera yaylanma animasyonu
+        player.vel.y = 2.0;
+        flyTransitionY = 0.28;
+      } else {
+        player.vel.y = -0.5;
+        flyTransitionY = 0;
+      }
+      toast(player.flying ? 'Uçma açık' : 'Uçma kapalı');
     } else lastSpaceT = now;
   }
   if (e.code === 'KeyQ' && locked && !player.dead && chunkManager) {
@@ -1252,16 +1263,6 @@ function animate() {
   wasPaused = paused;
   const simDt = paused ? 0 : dt;
   if (locked) movePlayer(simDt);
-  
-  // Yaratıcı modda uçma: yumuşak geçiş (targetFlying -> player.flying)
-  if (locked && GAMEMODE === 'creative' && targetFlying !== player.flying) {
-    const flyLerp = Math.min(1, dt * 10);
-    if (Math.random() < flyLerp) {
-      player.flying = targetFlying;
-      player.vel.y = 0;
-    }
-  }
-
 
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);
@@ -1281,10 +1282,26 @@ function animate() {
   camera.fov = currentFov;
   camera.updateProjectionMatrix();
 
-  // Uçma animasyonu: yaratıcı modda uçarken hafif yukarı-aşağı sallanma
+  // Uçma animasyonu: yaratıcı modda uçarken yumuşak süzülme ve yaylanma animasyonu
   if (player.flying && GAMEMODE === 'creative' && locked) {
-    const flyBob = Math.sin(now * 0.006) * 0.04;
-    camera.position.y += flyBob;
+    flyBobPhase += dt * 3.5;
+    const flyBob = Math.sin(flyBobPhase) * 0.035;
+    if (flyTransitionY > 0) {
+      flyTransitionY = Math.max(0, flyTransitionY - dt * 1.2);
+    }
+    camera.position.y += flyBob + flyTransitionY;
+  }
+
+  // Koşma (sprint) animasyonu: iki kez W ile koşarken yumuşak adım sallanması (head bobbing) ve açı
+  const isMoving = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
+  if (player.sprinting && !player.flying && player.onGround && locked && isMoving) {
+    sprintBobPhase += dt * 15;
+    const sprintBob = Math.sin(sprintBobPhase) * 0.035;
+    const sprintTilt = Math.cos(sprintBobPhase * 0.5) * 0.006;
+    camera.position.y += sprintBob;
+    camera.rotation.z += sprintTilt;
+  } else {
+    sprintBobPhase = 0;
   }
   // ---- gün döngüsü (/time): zaman akar, güneş/ay/yıldız senkron ----
   timeOfDay = (timeOfDay + (simDt * 24000) / DAY_LENGTH_S) % 24000;
@@ -1625,6 +1642,7 @@ async function enterWorld(id) {
     if (!atlas) {
       say('Atlas kuruluyor...');
       atlas = await buildAtlas();
+      for (const k in iconCache) delete iconCache[k]; // yeni atlas ile temiz ikonlar üretilsin
       try {
         if (new URLSearchParams(location.search).get('debug') === 'atlas') {
           const dbg = document.createElement('div');
@@ -1634,7 +1652,7 @@ async function enterWorld(id) {
           im.src = atlas.canvas.toDataURL();
           im.style.cssText = 'width:256px;height:256px;image-rendering:pixelated;display:block';
           dbg.appendChild(im);
-          dbg.appendChild(document.createTextNode('atlas 8x8 (tıkla kapat)'));
+          dbg.appendChild(document.createTextNode('atlas (tıkla kapat)'));
           dbg.onclick = () => dbg.remove();
           document.body.appendChild(dbg);
         }

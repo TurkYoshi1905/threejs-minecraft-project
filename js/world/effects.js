@@ -27,7 +27,7 @@ function tileAvg(atlas, texName) {
     }
     if (!n) return (tileAvg._c[key] = new THREE.Color(0x888888));
     // biyom tint'i (üst, yan şeritle aynı yeşil: #BBF66D)
-    const T = { grass_block_top: [0.735, 0.966, 0.429], oak_leaves: [0.3, 0.68, 0.18], water_still: [0.24, 0.45, 0.95] }[texName];
+    const T = { grass_block_top: [145 / 255, 189 / 255, 89 / 255], oak_leaves: [0.3, 0.68, 0.18], water_still: [0.24, 0.45, 0.95] }[texName];
     const col = new THREE.Color((r / n / 255) * (T?.[0] ?? 1), (gg / n / 255) * (T?.[1] ?? 1), (b / n / 255) * (T?.[2] ?? 1));
     return (tileAvg._c[key] = col);
   } catch { return (tileAvg._c[key] = new THREE.Color(0x888888)); }
@@ -146,7 +146,7 @@ export class Effects {
         g.drawImage(src, rect.u0 * src.width, (1 - rect.v1) * src.height,
           (rect.u1 - rect.u0) * src.width, (rect.v1 - rect.v0) * src.height, 0, 0, 16, 16);
         // biyom tint'i (üst, yan şeritle aynı yeşil)
-        const T = { grass_block_top: '#BBF66D', oak_leaves: '#4daf2e', water_still: '#3d6fe0' }[texName];
+        const T = { grass_block_top: '#91BD59', oak_leaves: '#4daf2e', water_still: '#3d6fe0' }[texName];
         if (T) {
           const tmp = document.createElement('canvas'); tmp.width = tmp.height = 16;
           tmp.getContext('2d').drawImage(c, 0, 0);

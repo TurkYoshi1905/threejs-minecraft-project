@@ -3,10 +3,7 @@ import { BLOCKS } from '../world/blocks.js';
 
 // Tüm blok texture'larını tek atlas'ta birleştirir.
 // Neden: chunk başına 10 draw call yerine 2 draw call (opaque + transparent).
-// Atlas: 8x8 grid, her tile 16px => 128x128 canvas.
-
-const ATLAS_COLS = 8;
-const ATLAS_ROWS = 8;
+// Atlas: dinamik grid (varsayılan 16x16, 256 tile kapasitesi).
 const TILE = 16;
 
 function collectTextureNames() {
@@ -171,12 +168,16 @@ async function loadImage(name) {
 
 export async function buildAtlas() {
   const names = collectTextureNames();
+  // Dinamik atlas boyutu: tüm dokuları taşmadan barındıracak kapasite (en az 16x16 = 256 tile)
+  const count = names.length;
+  const cols = Math.max(16, Math.ceil(Math.sqrt(count)));
+  const rows = Math.max(16, Math.ceil(count / cols));
   // Gutter: her tile'ın etrafına 4px kenar-piksel tekrarı. Vanilla MC de mip'li
   // atlasında pay bırakır; mipmap küçültmelerinde komşu tile sızmasını bitirir.
   const GUT = 4, CELL = TILE + GUT * 2;
   const canvas = document.createElement('canvas');
-  canvas.width = ATLAS_COLS * CELL;
-  canvas.height = ATLAS_ROWS * CELL;
+  canvas.width = cols * CELL;
+  canvas.height = rows * CELL;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
 
@@ -184,8 +185,8 @@ export async function buildAtlas() {
   const loaded = await Promise.all(names.map(loadImage));
 
   loaded.forEach(({ image }, i) => {
-    const col = i % ATLAS_COLS;
-    const row = Math.floor(i / ATLAS_COLS);
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     const dx = col * CELL + GUT, dy = row * CELL + GUT;
     const iw = image.width || TILE, ih = image.height || TILE;
     ctx.drawImage(image, 0, 0, iw, ih, dx, dy, TILE, TILE);
