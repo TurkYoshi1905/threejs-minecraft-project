@@ -71,9 +71,10 @@ export class InventoryUI {
     this.el.search.oninput = () => { this.filter = this.el.search.value.toLocaleLowerCase('tr'); this.renderGrid(); };
     // Sürükle-bırak için pencere düzeyi takip (tık davranışı bozulmaz)
     this.drag = null;
+    this.rightDragVisited = new Set();
     window.addEventListener('pointermove', (e) => this.dragMove(e));
     window.addEventListener('pointerup', (e) => this.dragEnd(e));
-    window.addEventListener('pointercancel', () => { this.drag = null; if (this.ghost) this.ghost.style.display = 'none'; });
+    window.addEventListener('pointercancel', () => { this.drag = null; this.rightDragVisited.clear(); if (this.ghost) this.ghost.style.display = 'none'; });
     this.renderAll();
   }
 
@@ -319,7 +320,7 @@ export class InventoryUI {
     // 6px'ten az hareket = tık, fazlası = sürükleme.
     d.onpointerdown = (e) => { e.preventDefault(); this.dragStart(area, index, e); };
     d.onpointermove = (e) => {
-      if (e.buttons === 1) {
+      if (e.buttons === 1 || e.buttons === 2) {
         if (!this.drag) this.dragStart(area, index, e);
         this.dragMove(e);
       }
@@ -361,33 +362,129 @@ export class InventoryUI {
   }
 
   dragStart(area, index, e) {
-    // Boş slotta da durum kurulur; eldeki stack boş slota tıkla/sürükle-bırak
-    // ile yerleştirilebilir (MC davranışı).
+    const isRight = e.button === 2;
+    this.rightDragVisited.clear();
+
+    // Sağ tıkla sürükleme: elinde eşya yoksa slottaki eşyanın yarısını ele al
+    if (isRight && !this.cursor && area !== 'grid') {
+      const cur = this.stackAt(area, index);
+      if (cur) {
+        const curKind = cur.kind || kindOf(cur.id);
+        const isTool = curKind === 'item' && ITEMS[cur.id]?.tool;
+        if (!isTool) {
+          const half = Math.ceil(cur.count / 2);
+          this.cursor = { kind: curKind, id: cur.id, count: half };
+          cur.count -= half;
+          if (cur.count <= 0) {
+            const arr = area === 'hot' ? this.hotbar : this.main;
+            arr[index] = null;
+          }
+          this.renderMain(); this.renderHot();
+          this.onChange();
+          const startKey = `${area}::${index}`;
+          this.rightDragVisited.add(startKey);
+        }
+      }
+    } else if (isRight && this.cursor) {
+      // Elde eşya varken sağ tıklandığında başlangıç slotuna 1 tane bırak
+      const craftPanel = e.target?.closest?.('.inv-slot')?.dataset?.craftPanel || null;
+      const startKey = `${area}:${craftPanel || ''}:${index}`;
+      this.rightDragVisited.add(startKey);
+      this.distributeOneTo({ area, index, craftPanel });
+    }
+
     const s = this.stackAt(area, index);
     this.drag = {
       area, index, button: e.button, shift: e.shiftKey,
       x0: e.clientX, y0: e.clientY, moved: false,
-      id: s ? s.id : 0,
-      kind: s ? (s.kind || kindOf(s.id)) : null,
-      count: s ? s.count : 0,
+      id: s ? s.id : (this.cursor ? this.cursor.id : 0),
+      kind: s ? (s.kind || kindOf(s.id)) : (this.cursor ? (this.cursor.kind || kindOf(this.cursor.id)) : null),
+      count: s ? s.count : (this.cursor ? this.cursor.count : 0),
       hover: null,
     };
-    if (s) {
+    if (this.cursor) {
+      this.ensureGhost();
+      this.ghost.querySelector('img').src = this.getIcon(this.cursor.id, this.cursor.kind || kindOf(this.cursor.id));
+      this.ghost.querySelector('.cnt').textContent = this.cursorCountText(this.cursor);
+    } else if (s) {
       this.ensureGhost();
       this.ghost.querySelector('img').src = this.getIcon(s.id, s.kind || kindOf(s.id));
       this.ghost.querySelector('.cnt').textContent = this.cursorCountText(s);
-    } else {
-      // Boş slottan sürükleme başlatıldıysa ama elde cursor varsa (tıklama sonrası)
-      // cursor'u sürükleme kaynağı olarak kullan.
-      if (this.cursor) {
-        this.drag.id = this.cursor.id;
-        this.drag.kind = this.cursor.kind || kindOf(this.cursor.id);
-        this.drag.count = this.cursor.count;
-        this.ensureGhost();
-        this.ghost.querySelector('img').src = this.getIcon(this.cursor.id, this.drag.kind);
-        this.ghost.querySelector('.cnt').textContent = this.cursorCountText(this.cursor);
+    }
+  }
+
+  // Minecraft tarzı: sağ tık basılı sürüklerken her geçilen slota 1 adet dağıt
+  distributeOneTo(hov) {
+    if (!this.cursor || this.cursor.count <= 0 || !hov || !hov.area || hov.index < 0 || hov.area === 'grid') return;
+    const curKind = this.cursor.kind || kindOf(this.cursor.id);
+    const isTool = curKind === 'item' && ITEMS[this.cursor.id]?.tool;
+    if (isTool) return;
+    const max = maxOf(curKind, this.cursor.id);
+
+    if (hov.area === 'craft') {
+      const c = this.craftUIs[hov.craftPanel];
+      if (!c) return;
+      const slot = c.grid[hov.index];
+      if (!slot) {
+        c.grid[hov.index] = { kind: curKind, id: this.cursor.id, count: 1 };
+        this.cursor.count--;
+      } else {
+        const sk = slot.kind || kindOf(slot.id);
+        if (slot.id === this.cursor.id && sk === curKind && slot.count < max) {
+          slot.count++;
+          this.cursor.count--;
+        } else {
+          return;
+        }
+      }
+      c.renderAll();
+      c.refresh();
+    } else if (hov.area === 'main' || hov.area === 'hot') {
+      const arr = hov.area === 'hot' ? this.hotbar : this.main;
+      const slot = arr[hov.index];
+      if (!slot) {
+        arr[hov.index] = { kind: curKind, id: this.cursor.id, count: 1 };
+        this.cursor.count--;
+      } else {
+        const sk = slot.kind || kindOf(slot.id);
+        if (slot.id === this.cursor.id && sk === curKind && slot.count < max) {
+          slot.count++;
+          this.cursor.count--;
+        } else {
+          return;
+        }
+      }
+      this.renderMain();
+      this.renderHot();
+    } else if (hov.area === 'chest') {
+      if (typeof window.chestUI !== 'undefined' && window.chestUI && window.chestUI.isOpen) {
+        const slotInfo = window.chestUI.viewSlot(hov.index);
+        if (slotInfo) {
+          const cur = slotInfo.half.st.slots[slotInfo.i];
+          if (!cur) {
+            slotInfo.half.st.slots[slotInfo.i] = { kind: curKind, id: this.cursor.id, count: 1 };
+            this.cursor.count--;
+          } else {
+            const sk = cur.kind || kindOf(cur.id);
+            if (cur.id === this.cursor.id && sk === curKind && cur.count < max) {
+              cur.count++;
+              this.cursor.count--;
+            } else {
+              return;
+            }
+          }
+          window.chestUI.renderAll();
+        }
       }
     }
+
+    if (this.cursor.count <= 0) {
+      this.cursor = null;
+      this.hideGhost();
+    } else {
+      this.refreshGhost();
+    }
+    this.onChange();
   }
 
   // Sürükleme hedefini her harekette önceden hesapla (bırakma anına güvenme)
@@ -430,6 +527,21 @@ export class InventoryUI {
     if (this.cursor && (!this.drag || !this.drag.moved)) {
       this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
     }
+
+    // Sağ tık basılı sürükleme: Minecraft tarzı her geçilen slota 1 adet dağıt
+    if ((e.buttons === 2 || (this.drag && this.drag.button === 2)) && this.cursor && this.cursor.count > 0) {
+      this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
+      const hov = this.dragHover(e);
+      if (hov && hov.area && hov.index >= 0 && hov.area !== 'grid') {
+        const key = `${hov.area}:${hov.craftPanel || ''}:${hov.index}`;
+        if (!this.rightDragVisited.has(key)) {
+          this.rightDragVisited.add(key);
+          this.distributeOneTo(hov);
+        }
+      }
+      return;
+    }
+
     if (!this.drag) return;
     if (Math.hypot(e.clientX - this.drag.x0, e.clientY - this.drag.y0) > 6) {
       this.drag.moved = true;
@@ -480,7 +592,18 @@ export class InventoryUI {
   dragEnd(e) {
     const dr = this.drag;
     this.drag = null;
+    this.rightDragVisited.clear();
     if (!dr || !this.isAnyPanelOpen()) { this.hideGhost(); return; }
+
+    // Sağ tık sürüklemesi bittiğinde: eşyalar sürükleme esnasında slota 1'er 1'er bırakılmıştır
+    if (dr.button === 2) {
+      if (this.cursor && e && typeof e.clientX === 'number') {
+        this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
+      } else if (!this.cursor) {
+        this.hideGhost();
+      }
+      return;
+    }
 
     // Hareket yoksa = klasik tık (boş slot dahil: eldeki stack'i yerleştir)
     if (!dr.moved) {

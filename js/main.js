@@ -21,7 +21,7 @@ import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
 // ============ WORLD META (çoklu dünya: aktif kayıt DB'den okunur) ============
-const BUILD = 'v13';
+const BUILD = 'v14';
 window.__BUILD = BUILD;
 try { console.log('%cThree.js Minecraft ' + BUILD, 'font-weight:bold'); } catch {}
 try { document.getElementById('buildTag').textContent = BUILD; } catch {}
@@ -843,7 +843,8 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Çift-W koşma (MC sprint) — SÜRÜNME (Shift) açıkken iki kez W basınca HIZLANMAYACAK
-  if (e.code === 'KeyW' && locked && !player.dead && !player.flying && !anyOverlay() && !player.sneaking) {
+  // !e.repeat: Tuşa basılı tutulduğunda tarayıcının OS key-repeat göndermesini engeller (sadece fiziksel çift tıklamayla çalışır)
+  if (e.code === 'KeyW' && !e.repeat && locked && !player.dead && !player.flying && !anyOverlay() && !player.sneaking) {
     const now = performance.now();
     if (now - lastWTime < DOUBLE_TAP_MS) {
       player.sprinting = true;

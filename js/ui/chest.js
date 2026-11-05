@@ -208,7 +208,7 @@ export class ChestUI {
     // Tık (eski davranış) + sürükle-bırak (MC gibi)
     d.onpointerdown = (e) => { e.preventDefault(); this.clickSlot(vi, e); };
     d.onpointermove = (e) => {
-      if (e.buttons === 1) {
+      if (e.buttons === 1 || e.buttons === 2) {
         const inv = this.inventory;
         if (inv && !inv.drag) {
           inv.dragStart('chest', vi, e);

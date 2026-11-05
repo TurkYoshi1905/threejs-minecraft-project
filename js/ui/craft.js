@@ -219,7 +219,7 @@ export class CraftUI {
     d.onpointerdown = (e) => { e.preventDefault(); onclick(e); };
     // Sürükle-bırak başlat
     d.onpointermove = (e) => {
-      if (e.buttons === 1 && this.inventory) {
+      if ((e.buttons === 1 || e.buttons === 2) && this.inventory) {
         const inv = this.inventory;
         if (!inv.drag) {
           inv.dragStart('craft', +d.dataset.index, e);

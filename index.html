@@ -31,7 +31,7 @@
   </div>
 
   <!-- Açılış splash: her girişte tam ekran logo, sonra menüye geçiş -->
-  <div id="bootSplash"><img src="assets/logo.png" alt="Minecraft Klonu" onerror="this.parentElement.classList.add('gone')" /></div>
+  <div id="bootSplash"><img src="assets/logo.png" alt="Three.js Minecraft" onerror="this.parentElement.classList.add('gone')" /></div>
 
   <!-- ================= ANA MENÜ (Minecraft 1.21.1 Tarzı) ================= -->
   <div id="menu">
@@ -40,7 +40,7 @@
     </div>
 
     <div class="mc-logo">
-      <h1>Minecraft Klonu</h1>
+      <h1>Three.js Minecraft</h1>
       <div id="splash">Three.js + Faithful Texture</div>
     </div>
 
@@ -56,24 +56,79 @@
       <div class="mc-footer">Three.js Minecraft v2.1 • MC 1.21.1 Uyumlu (Y: -64..319) • <span id="worldCount"></span> Dünya</div>
     </div>
 
-    <!-- Tek oyunculu / Dünya seçimi -->
-    <div id="menuSingle" class="mc-screen hidden">
-      <button id="playBtn" class="mc-btn green big">▶ Seçili Dünyada Oyna</button>
-      <div id="worldPanel">
-        <h3>🌍 Dünyalar</h3>
-        <div id="worldList"><div class="world-empty">Yükleniyor...</div></div>
-        <div id="createBox">
-          <div class="fld full"><label for="worldName">Dünya Adı</label><input id="worldName" maxlength="24" placeholder="örn: Benim Dünyam" /></div>
-          <div class="fld"><label for="worldSeed">Seed (boş = rastgele)</label><input id="worldSeed" maxlength="64" placeholder="örn: 12345" /></div>
-          <div class="fld"><label for="worldMode">Oyun Modu</label><select id="worldMode">
-            <option value="creative">Yaratıcı</option>
-            <option value="survival">Hayatta Kalma</option>
-          </select></div>
-          <div class="fld"><label>&nbsp;</label><button id="randomSeedBtn" type="button" title="Rastgele Seed">🎲</button></div>
-          <button id="createBtn" type="button">+ Yeni Dünya Oluştur</button>
+    <!-- Tek oyunculu / Dünya seçimi (Minecraft 1.21 Tarzı Geniş Liste) -->
+    <div id="menuSingle" class="mc-screen mc-screen-full hidden">
+      <div class="mc-screen-header">
+        <h2>🌍 Dünya Seç</h2>
+      </div>
+      <div id="worldPanel" class="world-panel-full">
+        <div id="worldList"><div class="world-empty">Dünyalar yükleniyor...</div></div>
+      </div>
+      <div class="mc-screen-footer">
+        <div class="btn-grid-2">
+          <button id="playBtn" class="mc-btn green">▶ Seçili Dünyada Oyna</button>
+          <button id="btnOpenCreate" class="mc-btn">+ Yeni Dünya Oluştur</button>
+          <button id="btnDeleteSelected" class="mc-btn red">🗑️ Dünyayı Sil</button>
+          <button id="btnBackMain" class="mc-btn">← Ana Menü</button>
         </div>
       </div>
-      <button id="btnBackMain" class="mc-btn">← Geri</button>
+    </div>
+
+    <!-- Yeni Dünya Oluşturma Ekranı (Minecraft 1.21 Tarzı Ayrı Bölmeler) -->
+    <div id="menuCreateWorld" class="mc-screen mc-screen-full hidden">
+      <div class="mc-screen-header">
+        <h2>✨ Yeni Dünya Oluştur</h2>
+        <div class="create-tabs">
+          <button id="tabBtnGame" class="create-tab-btn active" type="button">🎮 Oyun</button>
+          <button id="tabBtnWorld" class="create-tab-btn" type="button">🌍 Dünya</button>
+        </div>
+      </div>
+
+      <div class="create-panel-full">
+        <!-- Bölme 1: Oyun Ayarları -->
+        <div id="tabPaneGame" class="create-tab-pane">
+          <div class="create-group">
+            <label for="worldName" class="create-label">Dünya Adı</label>
+            <input id="worldName" class="mc-input big" maxlength="32" placeholder="Yeni Dünya" value="Yeni Dünya" />
+            <span class="create-hint">Kayıt listenizde görünecek isim</span>
+          </div>
+
+          <div class="create-group">
+            <label class="create-label">Oyun Modu</label>
+            <button id="btnToggleMode" class="mc-btn mode-toggle-btn" type="button">Oyun Modu: Yaratıcı</button>
+            <input id="worldMode" type="hidden" value="creative" />
+            <div id="modeDescription" class="create-desc-box">
+              <span class="mode-desc-title">Yaratıcı Mod</span>
+              <span class="mode-desc-text">Sınırsız blok ve kaynak, serbest uçuş ve anında blok kırma.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bölme 2: Dünya Ayarları -->
+        <div id="tabPaneWorld" class="create-tab-pane hidden">
+          <div class="create-group">
+            <label for="worldSeed" class="create-label">Dünya Tohumu (Seed)</label>
+            <div class="seed-row">
+              <input id="worldSeed" class="mc-input" maxlength="64" placeholder="Boş bırakırsanız rastgele oluşturulur" />
+              <button id="randomSeedBtn" class="mc-btn" type="button" title="Rastgele Seed">🎲 Rastgele</button>
+            </div>
+            <span class="create-hint">Aynı seed her zaman aynı araziyi ve biyomları üretir</span>
+          </div>
+
+          <div class="create-group">
+            <label class="create-label">Dünya Tipi</label>
+            <div class="static-badge-btn">Varsayılan (1.21.1 Sonsuz Voksel)</div>
+            <span class="create-hint">Y: -64..319 yükseklik sınırları, derin kayrak ve mağaralar</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mc-screen-footer">
+        <div class="btn-grid-2">
+          <button id="createBtn" class="mc-btn green" type="button">✔ Dünyayı Oluştur</button>
+          <button id="btnCancelCreate" class="mc-btn" type="button">← İptal</button>
+        </div>
+      </div>
     </div>
 
     <!-- Ayarlar Menüsü -->
@@ -303,7 +358,7 @@
     })();
   </script>
 
-  <script type="module" src="js/main.js?v=13"></script>
-  <script type="module" src="js/ui/menu.js?v=13"></script>
+  <script type="module" src="js/main.js?v=14"></script>
+  <script type="module" src="js/ui/menu.js?v=14"></script>
 </body>
 </html>

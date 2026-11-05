@@ -102,7 +102,7 @@ const SPLASHES = [
 ];
 
 function showScreen(name) {
-  const screens = ['menuMain', 'menuSingle', 'menuHelp', 'menuSettings'];
+  const screens = ['menuMain', 'menuSingle', 'menuCreateWorld', 'menuHelp', 'menuSettings'];
   for (const s of screens) {
     const el = document.getElementById(s);
     if (el) el.classList.toggle('hidden', s !== name);
@@ -338,6 +338,18 @@ function renderSettings() {
   panel.classList.remove('hidden');
 }
 
+async function playWorld(id) {
+  await setActive(id);
+  const worlds = await dbWorlds.list();
+  const w = worlds.find((x) => x.id === id);
+  if (w) {
+    w.lastPlayed = Date.now();
+    try { await dbWorlds.put(w); } catch {}
+  }
+  if (typeof window.__enterWorld === 'function') window.__enterWorld(id);
+  else location.reload();
+}
+
 async function renderList() {
   const box = $('worldList');
   if (!box) {
@@ -355,39 +367,48 @@ async function renderList() {
   } catch {}
   box.innerHTML = '';
   if (!worlds.length) {
-    box.innerHTML = '<div class="world-empty">Henüz dünya yok.</div>';
+    box.innerHTML = '<div class="world-empty">Henüz dünya yok. "Yeni Dünya Oluştur" butonuna basarak ilk dünyanızı yaratın!</div>';
     return;
   }
   for (const w of worlds) {
+    const isAct = w.id === act;
     const row = document.createElement('div');
-    row.className = 'world-row' + (w.id === act ? ' active' : '');
-    const name = document.createElement('span'); name.className = 'w-name'; name.textContent = w.name || 'Dünya';
-    const meta = document.createElement('span'); meta.className = 'w-meta';
-    const gmTr = (w.gamemode || 'creative') === 'survival' ? 'Hayatta Kalma' : 'Yaratıcı';
-    meta.textContent = `${gmTr} • ${String(w.seed).slice(0, 12)} • ${fmtDate(w.lastPlayed)}`;
-    const play = document.createElement('button'); play.className = 'w-play'; play.textContent = w.id === act ? 'Seçili' : 'Oyna';
-    play.onclick = async () => {
+    row.className = 'world-row' + (isAct ? ' active' : '');
+    
+    // Tıklandığında seç, çift tıklandığında hemen oyna
+    row.onclick = async () => {
       await setActive(w.id);
-      w.lastPlayed = Date.now();
-      try { await dbWorlds.put(w); } catch {}
-      if (typeof window.__enterWorld === 'function') window.__enterWorld(w.id);
-      else location.reload();
+      renderList();
     };
-    const del = document.createElement('button'); del.className = 'w-del'; del.textContent = 'Sil';
-    del.onclick = async () => {
-      if (!confirm(`"${w.name}" silinsin mi? Chunklar da silinir.`)) return;
-      const wasCurrent = typeof window.__currentWorld === 'function' && window.__currentWorld() === w.id;
-      try {
-        await dbChunks.deleteWorld(w.id);
-        await dbWorlds.delete(w.id);
-        try { await dbPlayers.remove(w.id); } catch {}
-        if (activeId() === w.id) await setActive('default');
-        await ensureDefault();
-        if (wasCurrent && typeof window.__exitToMenu === 'function') await window.__exitToMenu(false);
-        renderList();
-      } catch (e) { alert('Silme başarısız: ' + e); }
+    row.ondblclick = () => playWorld(w.id);
+
+    const icon = document.createElement('div');
+    icon.className = 'w-icon';
+    icon.textContent = (w.gamemode || 'creative') === 'survival' ? '⚔️' : '⛏️';
+
+    const info = document.createElement('div');
+    info.className = 'w-info';
+
+    const name = document.createElement('div');
+    name.className = 'w-name';
+    name.textContent = w.name || 'Dünya';
+
+    const meta = document.createElement('div');
+    meta.className = 'w-meta';
+    const gmTr = (w.gamemode || 'creative') === 'survival' ? 'Hayatta Kalma' : 'Yaratıcı';
+    meta.innerHTML = `<span class="gm-tag ${w.gamemode || 'creative'}">${gmTr}</span> • Seed: <span class="seed-tag">${String(w.seed).slice(0, 16)}</span> • ${fmtDate(w.lastPlayed)}`;
+
+    info.append(name, meta);
+
+    const play = document.createElement('button');
+    play.className = 'w-play';
+    play.textContent = isAct ? '✔ Seçili' : 'Oyna';
+    play.onclick = (e) => {
+      e.stopPropagation();
+      playWorld(w.id);
     };
-    row.append(name, meta, play, del);
+
+    row.append(icon, info, play);
     box.appendChild(row);
   }
 }
@@ -403,7 +424,7 @@ async function init() {
 
   // Ana menü butonları
   const btnSingle = $('btnSingle');
-  if (btnSingle) btnSingle.onclick = () => showScreen('menuSingle');
+  if (btnSingle) btnSingle.onclick = () => { showScreen('menuSingle'); renderList(); };
   const btnSettings = $('btnSettings');
   if (btnSettings) btnSettings.onclick = () => { renderSettings(); };
   const btnHelpMenu = $('btnHelpMenu');
@@ -415,35 +436,155 @@ async function init() {
   const btnBackSettings = $('btnBackSettings');
   if (btnBackSettings) btnBackSettings.onclick = () => showScreen('menuMain');
 
+  // Tek Oyunculu ekranı butonları
+  const playBtn = $('playBtn');
+  if (playBtn) {
+    playBtn.onclick = () => {
+      const act = activeId();
+      if (act) playWorld(act);
+    };
+  }
+
+  const btnOpenCreate = $('btnOpenCreate');
+  if (btnOpenCreate) {
+    btnOpenCreate.onclick = () => {
+      const wn = $('worldName');
+      if (wn) wn.value = 'Yeni Dünya ' + (Math.floor(Math.random() * 90) + 10);
+      const ws = $('worldSeed');
+      if (ws) ws.value = '';
+      showScreen('menuCreateWorld');
+    };
+  }
+
+  const btnDeleteSelected = $('btnDeleteSelected');
+  if (btnDeleteSelected) {
+    btnDeleteSelected.onclick = async () => {
+      const act = activeId();
+      const worlds = await dbWorlds.list();
+      const cur = worlds.find((w) => w.id === act);
+      if (!cur) return;
+      if (!confirm(`"${cur.name}" dünyasını silmek istediğinize emin misiniz?\nTüm inşa edilen chunklar ve veriler kalıcı olarak silinecektir.`)) return;
+      const wasCurrent = typeof window.__currentWorld === 'function' && window.__currentWorld() === cur.id;
+      try {
+        await dbChunks.deleteWorld(cur.id);
+        await dbWorlds.delete(cur.id);
+        try { await dbPlayers.remove(cur.id); } catch {}
+        const remain = await dbWorlds.list();
+        if (remain.length) await setActive(remain[0].id);
+        else await ensureDefault();
+        if (wasCurrent && typeof window.__exitToMenu === 'function') await window.__exitToMenu(false);
+        renderList();
+      } catch (e) {
+        alert('Silme başarısız: ' + e);
+      }
+    };
+  }
+
+  // Yeni Dünya Oluşturma Ekranı Sekmeleri
+  const tabBtnGame = $('tabBtnGame');
+  const tabBtnWorld = $('tabBtnWorld');
+  const tabPaneGame = $('tabPaneGame');
+  const tabPaneWorld = $('tabPaneWorld');
+
+  if (tabBtnGame && tabBtnWorld) {
+    tabBtnGame.onclick = () => {
+      tabBtnGame.classList.add('active');
+      tabBtnWorld.classList.remove('active');
+      if (tabPaneGame) tabPaneGame.classList.remove('hidden');
+      if (tabPaneWorld) tabPaneWorld.classList.add('hidden');
+    };
+    tabBtnWorld.onclick = () => {
+      tabBtnWorld.classList.add('active');
+      tabBtnGame.classList.remove('active');
+      if (tabPaneWorld) tabPaneWorld.classList.remove('hidden');
+      if (tabPaneGame) tabPaneGame.classList.add('hidden');
+    };
+  }
+
+  // Oyun Modu Değiştirme Butonu (Minecraft Java Tarzı)
+  const btnToggleMode = $('btnToggleMode');
+  const worldMode = $('worldMode');
+  const modeDescription = $('modeDescription');
+  if (btnToggleMode && worldMode) {
+    btnToggleMode.onclick = () => {
+      const cur = worldMode.value;
+      if (cur === 'creative') {
+        worldMode.value = 'survival';
+        btnToggleMode.textContent = 'Oyun Modu: Hayatta Kalma';
+        if (modeDescription) {
+          modeDescription.innerHTML = `
+            <span class="mode-desc-title">Hayatta Kalma Modu</span>
+            <span class="mode-desc-text">Kaynak topla, alet üret, seviye kazan, can ve açlık yönet.</span>
+          `;
+        }
+      } else {
+        worldMode.value = 'creative';
+        btnToggleMode.textContent = 'Oyun Modu: Yaratıcı';
+        if (modeDescription) {
+          modeDescription.innerHTML = `
+            <span class="mode-desc-title">Yaratıcı Mod</span>
+            <span class="mode-desc-text">Sınırsız blok ve kaynak, serbest uçuş ve anında blok kırma.</span>
+          `;
+        }
+      }
+    };
+  }
+
+  // Rastgele Seed Butonu
+  const randomSeedBtn = $('randomSeedBtn');
+  if (randomSeedBtn) {
+    randomSeedBtn.onclick = () => {
+      const ws = $('worldSeed');
+      if (ws) ws.value = randomSeed();
+    };
+  }
+
+  // İptal Butonu
+  const btnCancelCreate = $('btnCancelCreate');
+  if (btnCancelCreate) {
+    btnCancelCreate.onclick = () => {
+      showScreen('menuSingle');
+      renderList();
+    };
+  }
+
+  // Dünyayı Oluştur Butonu
+  const createBtn = $('createBtn');
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      const wn = $('worldName');
+      const ws = $('worldSeed');
+      const wm = $('worldMode');
+      const name = (wn ? wn.value.trim() : '') || 'Yeni Dünya';
+      const seed = (ws ? ws.value.trim() : '') || randomSeed();
+      const gamemode = (wm ? wm.value : 'creative') === 'survival' ? 'survival' : 'creative';
+      const id = 'w-' + Date.now().toString(36);
+      await dbWorlds.put({
+        id,
+        name: name.slice(0, 32),
+        seed: seed.slice(0, 64),
+        gamemode,
+        createdAt: Date.now(),
+        lastPlayed: Date.now(),
+      });
+      await setActive(id);
+      if (typeof window.__enterWorld === 'function') window.__enterWorld(id);
+      else location.reload();
+    };
+  }
+
   // Ayarlar panelini (oyun içi overlay) kapatma
   const settingsDoneBtn = $('settingsDoneBtn');
-  if (settingsDoneBtn) settingsDoneBtn.onclick = () => {
-    const p = document.getElementById('settingsPanel');
-    if (p) p.classList.add('hidden');
-  };
+  if (settingsDoneBtn) {
+    settingsDoneBtn.onclick = () => {
+      const p = document.getElementById('settingsPanel');
+      if (p) p.classList.add('hidden');
+    };
+  }
 
   try { await openDB(); } catch { return; }
   try { await ensureDefault(); } catch {}
   try { await renderList(); } catch {}
-  const randomSeedBtn = $('randomSeedBtn');
-  if (randomSeedBtn) randomSeedBtn.onclick = () => {
-    const ws = $('worldSeed');
-    if (ws) ws.value = randomSeed();
-  };
-  const createBtn = $('createBtn');
-  if (createBtn) createBtn.onclick = async () => {
-    const wn = $('worldName');
-    const ws = $('worldSeed');
-    const wm = $('worldMode');
-    const name = (wn ? wn.value : '') || 'Yeni Dünya';
-    const seed = (ws ? ws.value : '') || randomSeed();
-    const gamemode = (wm ? wm.value : 'creative') === 'survival' ? 'survival' : 'creative';
-    const id = 'w-' + Date.now().toString(36);
-    await dbWorlds.put({ id, name: name.trim().slice(0, 24), seed: seed.trim().slice(0, 64), gamemode, createdAt: Date.now(), lastPlayed: Date.now() });
-    await setActive(id);
-    if (typeof window.__enterWorld === 'function') window.__enterWorld(id);
-    else location.reload();
-  };
 }
 
 async function boot() {
