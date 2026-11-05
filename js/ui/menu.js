@@ -8,6 +8,7 @@ const activeId = () => activeCache;
 // Oyun-wide ayar state'i (main.js ve diğer modüller tarafından okunabilir)
 window.gameSettings = window.gameSettings || {
   renderDistance: 5,
+  fov: 70, // MC 1.21.1: 30 (Zoom) - 110 (Quake Pro), varsayılan: 70
   graphics: 'hizli', // 'hizli' | 'güzel'
   particles: 'tam', // 'tam' | 'azaltilmis' | 'kapali'
   invertMouse: false,
@@ -185,6 +186,33 @@ function renderSettings() {
   }
   const gs = window.gameSettings;
   box.innerHTML = '';
+
+  // FOV Ayarı (Slider + Sayı Girişi - MC 1.21.1: 30 - 110)
+  const fovRow = document.createElement('div');
+  fovRow.className = 'setting-row';
+  const curFov = typeof gs.fov === 'number' ? gs.fov : 70;
+  fovRow.innerHTML = `
+    <span class="setting-icon-row" style="font-size: 17px; min-width: 28px; text-align: center;">👁️</span>
+    <span class="setting-label">Görüş Açısı (FOV)</span>
+    <div class="setting-slider-wrap">
+      <input type="range" class="setting-range" min="30" max="110" step="1" value="${curFov}">
+      <input type="number" class="setting-num" min="30" max="110" step="1" value="${curFov}">
+    </div>
+  `;
+  const rangeInput = fovRow.querySelector('.setting-range');
+  const numInput = fovRow.querySelector('.setting-num');
+  const updateFov = (val) => {
+    let n = Math.round(Number(val));
+    if (isNaN(n)) n = 70;
+    n = Math.max(30, Math.min(110, n));
+    gs.fov = n;
+    rangeInput.value = n;
+    numInput.value = n;
+    saveGameSettings();
+  };
+  rangeInput.oninput = (e) => updateFov(e.target.value);
+  numInput.onchange = (e) => updateFov(e.target.value);
+  box.appendChild(fovRow);
 
   const rows = [
     {

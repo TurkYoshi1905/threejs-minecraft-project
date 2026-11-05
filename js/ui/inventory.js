@@ -628,31 +628,17 @@ export class InventoryUI {
       } catch {}
     }
 
-    if (!hov || !hov.area) {
-      // Tamamen dışarı bırakıldı: kaynaktaki eşyayı iade et
-      if (this.cursor) { this.cursor = null; this.hideGhost(); this.renderMain(); this.renderHot(); this.onChange(); }
-      else if (dr.area !== 'grid') {
-        const fromArr = dr.area === 'hot' ? this.hotbar : this.main;
-        fromArr[dr.index] = null;
-        this.renderMain(); this.renderHot();
-        this.onChange();
+    if (!hov || !hov.area || (hov.area === 'grid' && hov.index < 0)) {
+      // Dışarıya veya geçersiz alana bırakıldı: eşyayı asla yok etme!
+      this.renderMain(); this.renderHot();
+      if (this.cursor && e && typeof e.clientX === 'number') {
+        this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
       }
       return;
     }
 
     const toArea = hov.area;
     const toIndex = hov.index;
-
-    // Grid'e bırak (silme alanı) — sadece envanter slotlarından gelen
-    if (toArea === 'grid' && toIndex < 0) {
-      if (dr.area !== 'grid') {
-        const fromArr = dr.area === 'hot' ? this.hotbar : this.main;
-        fromArr[dr.index] = null;
-        this.renderMain(); this.renderHot();
-        this.onChange();
-      }
-      return;
-    }
 
     // Aynı slota geri bırakıldı: hiçbir şey yapma
     if (dr.area === toArea && dr.index === toIndex) return;
@@ -797,17 +783,13 @@ export class InventoryUI {
     this.invDbg('slot', area, index, 'btn=' + (e && e.button));
     const right = e.button === 2;
     const shift = e.shiftKey;
-    // Palet: elde tasinirken tiklama eldekini DEGISTIRIR (sol=tam stack, sag=tekli). Cop kutusu = surukle-birak.
+    // Palet: elde taşınırken tıklama yaratıcı envantere bırakır ve yok eder (MC Creative çöp kutusu/silme).
+    // Elde eşya yoksa yaratıcı paletten eşyayı alır.
     if (area === 'grid') {
       if (this.cursor) {
-        const list = this.filteredGrid();
-        const gid = list[index];
-        if (gid == null) return;
-        const gk = kindOf(gid);
-        if (ITEMS[gid]?.tool) this.cursor = { kind: gk, id: gid, count: 1, dur: ITEMS[gid].maxDur };
-        else if (right) this.cursor = { kind: gk, id: gid, count: 1 };
-        else this.cursor = { kind: gk, id: gid, count: maxOf(gk, gid) };
-        this.refreshGhost();
+        this.cursor = null;
+        this.hideGhost();
+        this.onChange();
         return;
       }
       this.clickGrid(index, e);
@@ -818,22 +800,32 @@ export class InventoryUI {
     const cur = arr[index];
     const curKind = cur ? (cur.kind || kindOf(cur.id)) : null;
     const now = performance.now();
-    // Çift-tıkla topla (MC): elde stack varken aynı id'ye çift tık = etraftakileri ele çek
-    if (!right && this.cursor && cur && cur.id === this.cursor.id && (cur.kind || kindOf(cur.id)) === (this.cursor.kind || kindOf(this.cursor.id))) {
+
+    // Çift-tıkla topla (MC): elde eşya varken aynı slota veya eşyaya çift tık = etraftakileri ele çek
+    const isDouble = !right && this._lastClick && (now - this._lastClick.t) < 450 && (
+      (this._lastClick.area === area && this._lastClick.index === index) ||
+      (this.cursor && this._lastClick.id === this.cursor.id)
+    );
+
+    if (isDouble && this.cursor) {
       const ck = this.cursor.kind || kindOf(this.cursor.id);
       const isTool = ck === 'item' && ITEMS[this.cursor.id]?.tool;
       if (!isTool && isFinite(this.cursor.count)) {
-        if (this._lastClick && (now - this._lastClick.t) < 400 && this._lastClick.area === area && this._lastClick.index === index) {
-          this.collectAll(this.cursor.id, this.cursor.kind);
-          this._lastClick = null;
-          this.renderMain(); this.renderHot();
-          this.refreshGhost();
-          this.onChange();
-          return;
-        }
+        this.collectAll(this.cursor.id, this.cursor.kind);
+        this._lastClick = null;
+        this.renderMain(); this.renderHot();
+        this.refreshGhost();
+        this.onChange();
+        return;
       }
     }
-    this._lastClick = { t: now, area, index };
+    this._lastClick = {
+      t: now,
+      area,
+      index,
+      id: cur ? cur.id : (this.cursor ? this.cursor.id : null),
+      kind: curKind || (this.cursor ? this.cursor.kind : null)
+    };
 
     const sameStack = (a, b) => a && b && a.id === b.id && (a.kind || kindOf(a.id)) === (b.kind || kindOf(b.id));
     const isToolSlot = (s) => s && (s.kind || kindOf(s.id)) === 'item' && ITEMS[s.id]?.tool;
@@ -901,12 +893,15 @@ export class InventoryUI {
   }
 
   collectAll(id, kind = null) {
-    // Eldeki id ile aynı olanları hotbar+çantadan ele çek
+    // Eldeki id ile aynı olanları hotbar+çantadan ve üretim masalarından ele çek
     const ck = kind || kindOf(id);
     if (!this.cursor || this.cursor.id !== id) return;
     if (ck === 'item' && ITEMS[id]?.tool) return;
     const mx = maxOf(ck, id);
     const bags = [this.hotbar, this.main];
+    for (const c of Object.values(this.craftUIs || {})) {
+      if (c && c.grid) bags.push(c.grid);
+    }
     for (const bag of bags) {
       for (let i = 0; i < bag.length; i++) {
         const s = bag[i];
@@ -914,9 +909,13 @@ export class InventoryUI {
           const take = Math.min(s.count, mx - this.cursor.count);
           this.cursor.count += take; s.count -= take;
           if (s.count <= 0) bag[i] = null;
-          if (this.cursor.count >= mx) return;
+          if (this.cursor.count >= mx) break;
         }
       }
+      if (this.cursor.count >= mx) break;
+    }
+    for (const c of Object.values(this.craftUIs || {})) {
+      if (c) { c.renderAll?.(); c.refresh?.(); }
     }
   }
 

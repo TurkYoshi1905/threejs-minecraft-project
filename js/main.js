@@ -102,6 +102,7 @@ const player = {
   yaw: Math.PI * 0.25, pitch: -0.1,
   onGround: false, flying: false,
   health: 20, dead: false, fallStart: 80,
+  oxygen: 300, drownTimer: 0,
   sneaking: false,
   sprinting: false,
 };
@@ -112,10 +113,10 @@ let targetSpeed = 0;   // yumuşak geçiş için hedef hız
 let currentSpeed = 0;  // mevcut hız (yumuşak)
 let targetFlying = false; // yaratıcı uçma hedef durumu
 let isFlyingSmooth = false; // uçma geçiş aktif mi
-let currentFov = 75;    // mevcut FOV (yumuşak geçiş)
-let targetFov = 75;     // hedef FOV
-const FOV_SPRINT_BOOST = 12; // sprintte FOV artışı (vanilla MC ~%15 kick: 75 -> 87)
-const FOV_FLY_BOOST = 7;    // uçarken FOV artışı (75 -> 82)
+let currentFov = 70;    // mevcut FOV (yumuşak geçiş)
+let targetFov = 70;     // hedef FOV
+const FOV_SPRINT_BOOST = 12; // sprintte FOV artışı (vanilla MC ~%15 kick)
+const FOV_FLY_BOOST = 7;    // uçarken FOV artışı
 let flyBobPhase = 0;        // uçma süzülme animasyon fazı
 let flyTransitionY = 0;     // uçmaya kalkarken yumuşak yükseliş animasyonu
 let timeOfDay = 6000; // 0-23999, 6000 öğle
@@ -230,7 +231,15 @@ function solidAt(x, y, z) {
     const by = id === 25 ? Math.floor(y) : Math.floor(y) - 1;
     try {
       const st = doorMgr.map.get(bx + ',' + by + ',' + bz);
-      return !(st && st.open);
+      if (st && st.open) return false;
+      // Oyuncu kapının hücresindeyse içinden geçebilir / yukarı fırlatılmaz
+      if (typeof player !== 'undefined' && player && player.pos) {
+        if (Math.floor(player.pos.x) === bx && Math.floor(player.pos.z) === bz) {
+          const py = Math.floor(player.pos.y);
+          if (py === by || py === by + 1) return false;
+        }
+      }
+      return true;
     } catch { return true; }
   }
   return true;
@@ -258,18 +267,19 @@ function movePlayer(dt) {
     if (border.clamp(player.pos)) { /* duvara vurdu */ }
   }
   // Hedef hızı belirle (yumuşak geçiş için)
+  const baseF = getBaseFov();
   if (player.flying) {
     targetSpeed = 12;
-    targetFov = 75 + FOV_FLY_BOOST;
+    targetFov = baseF + FOV_FLY_BOOST;
   } else if (player.sprinting && !player.sneaking) {
     targetSpeed = 5.612;
-    targetFov = 75 + FOV_SPRINT_BOOST;
+    targetFov = baseF + FOV_SPRINT_BOOST;
   } else if (player.sneaking) {
     targetSpeed = 3.15;
-    targetFov = 75;
+    targetFov = baseF;
   } else {
     targetSpeed = 4.5;
-    targetFov = 75;
+    targetFov = baseF;
   }
   // Yumuşak geçiş: mevcut hızı hedef hızla eşitle (MC anlık değil, yumuşak ivme)
   const speedLerp = Math.min(1, dt * 12);
@@ -327,8 +337,12 @@ function movePlayer(dt) {
     if (player.vel.y <= 0) {
       player.pos.y = Math.floor(ny) + 1;
       let guard = 0;
-      while (collides(player.pos.x, player.pos.y, player.pos.z) && guard++ < 8)
-        player.pos.y = Math.floor(player.pos.y) + 1;
+      while (collides(player.pos.x, player.pos.y, player.pos.z) && guard++ < 8) {
+        const by = Math.floor(player.pos.y);
+        const b = getBlock(Math.floor(player.pos.x), by, Math.floor(player.pos.z));
+        if (b === 25 || b === 26) break;
+        player.pos.y = by + 1;
+      }
       player.onGround = true;
       // düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
       const drop = player.fallStart - player.pos.y;
@@ -349,7 +363,53 @@ function movePlayer(dt) {
   if (player.pos.y > MAX_Y + 30) player.pos.y = MAX_Y + 30;
 }
 
-// ============ CAN / ÖLÜM / GAMEMODE ============
+// ============ CAN / ÖLÜM / GAMEMODE / OKSİJEN / XP / FOV ============
+const BUBBLE_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges">
+  <rect x="2" y="0" width="5" height="1" fill="#1b3040"/>
+  <rect x="2" y="8" width="5" height="1" fill="#1b3040"/>
+  <rect x="0" y="2" width="1" height="5" fill="#1b3040"/>
+  <rect x="8" y="2" width="1" height="5" fill="#1b3040"/>
+  <rect x="1" y="1" width="1" height="1" fill="#1b3040"/>
+  <rect x="7" y="1" width="1" height="1" fill="#1b3040"/>
+  <rect x="1" y="7" width="1" height="1" fill="#1b3040"/>
+  <rect x="7" y="7" width="1" height="1" fill="#1b3040"/>
+  <rect x="2" y="1" width="5" height="7" fill="#2d93e2"/>
+  <rect x="1" y="2" width="7" height="5" fill="#2d93e2"/>
+  <rect x="2" y="2" width="2" height="2" fill="#ffffff"/>
+  <rect x="2" y="4" width="1" height="1" fill="#75c1f0"/>
+  <rect x="3" y="5" width="3" height="2" fill="#19559c"/>
+</svg>`);
+
+function getBaseFov() {
+  const f = window.gameSettings?.fov;
+  return typeof f === 'number' && f >= 30 && f <= 110 ? f : 70;
+}
+
+function updateBubbles() {
+  const el = document.getElementById('bubbles');
+  if (!el) return;
+  if (GAMEMODE !== 'survival' || (!headUnderwater && player.oxygen >= 300)) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  const count = Math.max(0, Math.min(10, Math.ceil(player.oxygen / 30)));
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `<img class="bb" src="${BUBBLE_SVG}" alt="O2">`;
+  }
+  el.innerHTML = html;
+}
+
+function updateXpBar() {
+  const el = document.getElementById('xpContainer');
+  if (!el) return;
+  if (GAMEMODE !== 'survival') el.classList.add('hidden');
+  else el.classList.remove('hidden');
+}
+
 function updateHearts() {
   const el = document.getElementById('hearts');
   if (!el) return;
@@ -393,6 +453,7 @@ function kill(reason = 'Öldün') {
   player.dead = true;
   player.health = 0;
   updateHearts();
+  updateBubbles();
   hideBreakBar();
   effects?.hideCrack();
   document.exitPointerLock?.();
@@ -404,8 +465,9 @@ function respawn() {
   player.pos.copy(spawnPos());
   player.vel.set(0, 0, 0);
   player.health = 20; player.dead = false;
+  player.oxygen = 300; player.drownTimer = 0;
   player.fallStart = player.pos.y;
-  updateHearts();
+  updateHearts(); updateBubbles(); updateXpBar();
   document.getElementById('deathScreen').classList.add('hidden');
   tryLock();
 }
@@ -413,7 +475,7 @@ async function setGamemode(mode) {
   const prev = GAMEMODE;
   GAMEMODE = mode === 'survival' ? 'survival' : 'creative';
   if (GAMEMODE === 'survival') { player.flying = false; if (player.health <= 0) player.health = 20; }
-  updateHearts(); updateModeBadge();
+  updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar();
   inventory?.setMode(GAMEMODE);
   renderHotbar();
   if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? 'Hayatta Kalma: kalpler aktif, dikkatli ol!' : 'Yaratıcı: çift-Space ile uçma, envanter korunur');
@@ -486,6 +548,7 @@ const selNameEl = document.getElementById('selected-name');
 const iconCache = {};
 function iconFor(id, kind = null) {
   if (id === 25) return 'textures/oak_door_item.png'; // kapı ikonu = eşya dokusu (MC)
+  if (id === 22 || id === 24) return 'textures/furnace_front_on.png'; // fırın ikonu = yanan fırın önü (MC)
   const k = kind || (id >= 100 ? 'item' : 'block');
   if (k === 'item') {
     const t = ITEMS[id]?.tex || 'stick';
@@ -1319,6 +1382,30 @@ function animate() {
       headUnderwater = uw;
       document.getElementById('waterOverlay')?.classList.toggle('hidden', !uw);
     }
+    // Su altı oksijen & boğulma sistemi (MC 1.21.1: 300 tick / 15 sn, bitince 1 sn'de 1 kalp hasar)
+    if (GAMEMODE === 'survival' && !player.dead) {
+      if (uw) {
+        player.oxygen = Math.max(0, player.oxygen - 20 * simDt);
+        if (player.oxygen <= 0) {
+          player.drownTimer = (player.drownTimer || 0) + simDt;
+          if (player.drownTimer >= 1.0) {
+            player.drownTimer = 0;
+            damage(2, 'Boğuldun');
+          }
+        }
+      } else {
+        player.drownTimer = 0;
+        if (player.oxygen < 300) {
+          // Sudan çıkınca baloncuklar normal/hızlı şekilde dolar (MC: saniyede ~5-10 balon)
+          player.oxygen = Math.min(300, player.oxygen + 300 * simDt);
+        }
+      }
+      updateBubbles();
+    } else {
+      player.oxygen = 300;
+      player.drownTimer = 0;
+      updateBubbles();
+    }
     if (uw) {
       scene.fog.color.copy(WATER_FOG);
       scene.fog.near = 1;
@@ -1805,7 +1892,7 @@ async function enterWorld(id) {
     }
     player.vel.set(0, 0, 0);
     player.fallStart = player.pos.y;
-    updateHearts(); updateModeBadge();
+    updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar();
 
     // spawn çevresini önden yükle: önce 3x3 hızlı, gerisi stream
     say('Spawn yükleniyor (3x3)...');

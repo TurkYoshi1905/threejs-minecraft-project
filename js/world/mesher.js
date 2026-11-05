@@ -91,8 +91,10 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
 
   // MC kapı: ince panel (3/16). Kapalı = dikey panel, normal oyuncuya bakar.
   // Açık = menteşeden 90° salınmış dikey panel. Alt yarı alt doku, üst yarı üst doku.
+  // Kenarlar ve kapaklar ise meşe tahta dokusu (oak_planks) ile kaplanır.
   const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
-  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1) {
+  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1, woodRect = null) {
+    const edgeRect = woodRect || rect;
     const n = DOOR_N[face & 3] || DOOR_N[0];
     const t = [-n[2], 0, n[0]]; // panel teğeti
     const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
@@ -101,19 +103,19 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
 
     if (!open) {
       // KAPALI: Tam dikey dikdörtgen panel (y..y+1).
-      // Yüzler tamamen dikey (y koordinatı x/z'yi ASLA etkilemez).
       const cx = wx + 0.5, cz = wz + 0.5;
-      // Ön yüz (+n)
+      // Ön yüz (+n) - kapı dokusu
       quads.push({
         p: [
           [cx - t[0] * 0.5 + n[0] * hh, y,     cz - t[2] * 0.5 + n[2] * hh],
           [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
           [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
-          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
+          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh + n[2] * hh * 2], // t[2]
         ],
         n: [n[0], 0, n[2]],
+        r: rect,
       });
-      // Arka yüz (-n)
+      // Arka yüz (-n) - kapı dokusu
       quads.push({
         p: [
           [cx + t[0] * 0.5 - n[0] * hh, y,     cz + t[2] * 0.5 - n[2] * hh],
@@ -122,8 +124,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
         ],
         n: [-n[0], 0, -n[2]],
+        r: rect,
       });
-      // Yan kenar 1 (-t)
+      // Yan kenar 1 (-t) - ahşap kenar dokusu
       quads.push({
         p: [
           [cx - t[0] * 0.5 - n[0] * hh, y,     cz - t[2] * 0.5 - n[2] * hh],
@@ -132,8 +135,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
         ],
         n: [-t[0], 0, -t[2]],
+        r: edgeRect,
       });
-      // Yan kenar 2 (+t)
+      // Yan kenar 2 (+t) - ahşap kenar dokusu
       quads.push({
         p: [
           [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
@@ -142,13 +146,36 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
         ],
         n: [t[0], 0, t[2]],
+        r: edgeRect,
+      });
+      // Üst kapak (+y)
+      quads.push({
+        p: [
+          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
+          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
+          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
+          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
+        ],
+        n: [0, 1, 0],
+        r: edgeRect,
+      });
+      // Alt kapak (-y)
+      quads.push({
+        p: [
+          [cx - t[0] * 0.5 + n[0] * hh, y, cz - t[2] * 0.5 + n[2] * hh],
+          [cx + t[0] * 0.5 + n[0] * hh, y, cz + t[2] * 0.5 + n[2] * hh],
+          [cx + t[0] * 0.5 - n[0] * hh, y, cz + t[2] * 0.5 - n[2] * hh],
+          [cx - t[0] * 0.5 - n[0] * hh, y, cz - t[2] * 0.5 - n[2] * hh],
+        ],
+        n: [0, -1, 0],
+        r: edgeRect,
       });
     } else {
       // AÇIK: Menteşeden 90° duvara doğru dönmüş tam dikey panel.
       const hs = (hinge < 0 ? -1 : 1);
       const hx = wx + 0.5 + t[0] * 0.5 * hs, hz = wz + 0.5 + t[2] * 0.5 * hs;
       const dx = -n[0], dz = -n[2];
-      // Yan yüz 1 (-t)
+      // Yan yüz 1 (-t) - kapı dokusu
       quads.push({
         p: [
           [hx - t[0] * hh,           y,     hz - t[2] * hh],
@@ -157,8 +184,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [hx - t[0] * hh,           y + 1, hz - t[2] * hh],
         ],
         n: [-t[0], 0, -t[2]],
+        r: rect,
       });
-      // Yan yüz 2 (+t)
+      // Yan yüz 2 (+t) - kapı dokusu
       quads.push({
         p: [
           [hx + dx + t[0] * hh,      y,     hz + dz + t[2] * hh],
@@ -167,8 +195,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [hx + dx + t[0] * hh,      y + 1, hz + dz + t[2] * hh],
         ],
         n: [t[0], 0, t[2]],
+        r: rect,
       });
-      // Panel ucu kenarı
+      // Panel ucu kenarı - ahşap kenar dokusu
       quads.push({
         p: [
           [hx + dx - t[0] * hh,      y,     hz + dz - t[2] * hh],
@@ -177,8 +206,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [hx + dx - t[0] * hh,      y + 1, hz + dz - t[2] * hh],
         ],
         n: [dx, 0, dz],
+        r: edgeRect,
       });
-      // Menteşe kenarı
+      // Menteşe kenarı - ahşap kenar dokusu
       quads.push({
         p: [
           [hx + t[0] * hh,           y,     hz + t[2] * hh],
@@ -187,17 +217,41 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           [hx + t[0] * hh,           y + 1, hz + t[2] * hh],
         ],
         n: [-dx, 0, -dz],
+        r: edgeRect,
+      });
+      // Üst kapak (+y)
+      quads.push({
+        p: [
+          [hx - t[0] * hh,      y + 1, hz - t[2] * hh],
+          [hx + dx - t[0] * hh, y + 1, hz + dz - t[2] * hh],
+          [hx + dx + t[0] * hh, y + 1, hz + dz + t[2] * hh],
+          [hx + t[0] * hh,      y + 1, hz + t[2] * hh],
+        ],
+        n: [0, 1, 0],
+        r: edgeRect,
+      });
+      // Alt kapak (-y)
+      quads.push({
+        p: [
+          [hx - t[0] * hh,      y, hz - t[2] * hh],
+          [hx + t[0] * hh,      y, hz + t[2] * hh],
+          [hx + dx + t[0] * hh, y, hz + dz + t[2] * hh],
+          [hx + dx - t[0] * hh, y, hz + dz - t[2] * hh],
+        ],
+        n: [0, -1, 0],
+        r: edgeRect,
       });
     }
     for (const q of quads) {
       const base = bucket.pos.length / 3;
       const len = Math.hypot(q.n[0], q.n[1], q.n[2]) || 1;
       const nn = [q.n[0] / len, q.n[1] / len, q.n[2] / len];
+      const qr = q.r || rect;
       q.p.forEach((v, i) => {
         bucket.pos.push(v[0], v[1], v[2]);
         bucket.nor.push(...nn);
         const [fu, fv] = FACE_UV[i];
-        bucket.uv.push(rect.u0 + (rect.u1 - rect.u0) * fu, rect.v0 + (rect.v1 - rect.v0) * fv);
+        bucket.uv.push(qr.u0 + (qr.u1 - qr.u0) * fu, qr.v0 + (qr.v1 - qr.v0) * fv);
         bucket.col.push(shade, shade, shade);
       });
       bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
@@ -224,7 +278,8 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           const dir = DIRS[face] || 'pz';
           const tex = faceTextureName(id, dir, face, 0);
           const rect = uvMap[tex] || uvMap['stone'];
-          addDoor(op, wx0, y, wz0, rect, face, open, hinge);
+          const woodRect = uvMap['oak_planks'] || rect;
+          addDoor(op, wx0, y, wz0, rect, face, open, hinge, woodRect);
           continue;
         }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)
