@@ -251,7 +251,7 @@ function solidAt(x, y, z) {
 }
 function inWater(px, py, pz) { return getBlock(Math.floor(px), Math.floor(py + 0.4), Math.floor(pz)) === 16; }
 function collides(px, py, pz) {
-  for (const dx of [-PW, PW]) for (const dz of [-PW, PW]) for (const dy of [0.05, 0.9, PH - 0.1]) {
+  for (const dx of [-PW, PW]) for (const dz of [-PW, PW]) for (const dy of [0.1, 0.9, PH - 0.1]) {
     if (solidAt(px + dx, py + dy, pz + dz)) return true;
   }
   return false;
@@ -338,27 +338,29 @@ function movePlayer(dt) {
   if (player.onGround) player.fallStart = player.pos.y;
   const ny = player.pos.y + player.vel.y * dt;
   player.onGround = false;
-  if (collides(player.pos.x, ny, player.pos.z)) {
-    if (player.vel.y <= 0) {
-      // Aşağı inişte ayak seviyesindeki katı zemini 4 köşeden kontrol et
-      let maxFloor = -Infinity;
-      for (const dx of [-PW, PW]) {
-        for (const dz of [-PW, PW]) {
-          const bx = Math.floor(player.pos.x + dx);
-          const by = Math.floor(ny);
-          const bz = Math.floor(player.pos.z + dz);
+
+  if (player.vel.y <= 0) {
+    // Aşağı düşüş veya zeminde durma: ayak tabanının 4 köşesinde katı zemin ara
+    let maxFloor = -Infinity;
+    for (const dx of [-PW, PW]) {
+      for (const dz of [-PW, PW]) {
+        const bx = Math.floor(player.pos.x + dx);
+        const bz = Math.floor(player.pos.z + dz);
+        const by1 = Math.floor(ny);
+        const by2 = Math.floor(player.pos.y - 0.0001);
+        for (let by = by1; by <= by2; by++) {
           if (isFloorSolid(bx, by, bz)) {
             const floorTop = by + 1;
             if (floorTop > maxFloor) maxFloor = floorTop;
           }
         }
       }
-      if (maxFloor > -Infinity) {
-        player.pos.y = maxFloor;
-        player.onGround = true;
-      } else {
-        player.pos.y = ny;
-      }
+    }
+
+    if (maxFloor > -Infinity && ny <= maxFloor && player.pos.y >= maxFloor - 0.25) {
+      player.pos.y = maxFloor;
+      player.onGround = true;
+      player.vel.y = 0;
       // Düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
       const drop = player.fallStart - player.pos.y;
       player.fallStart = player.pos.y;
@@ -366,10 +368,30 @@ function movePlayer(dt) {
         damage(Math.floor(drop - 3), 'Yüksekten düştün');
       }
     } else {
-      player.pos.y = Math.floor(ny + PH) - PH - 0.001;
+      player.pos.y = ny;
     }
-    player.vel.y = 0;
-  } else player.pos.y = ny;
+  } else {
+    // Yukarı zıplama / yükselme (tavan kontrolü)
+    let hitCeil = false;
+    let lowestCeil = Infinity;
+    for (const dx of [-PW, PW]) {
+      for (const dz of [-PW, PW]) {
+        const bx = Math.floor(player.pos.x + dx);
+        const bz = Math.floor(player.pos.z + dz);
+        const by = Math.floor(ny + PH);
+        if (isFloorSolid(bx, by, bz)) {
+          hitCeil = true;
+          if (by < lowestCeil) lowestCeil = by;
+        }
+      }
+    }
+    if (hitCeil && lowestCeil < Infinity) {
+      player.pos.y = lowestCeil - PH - 0.001;
+      player.vel.y = 0;
+    } else {
+      player.pos.y = ny;
+    }
+  }
 
   if (player.pos.y < MIN_Y - 20) { // void
     if (GAMEMODE === 'survival' && !player.dead) { kill('Boşluğa düştün'); }
