@@ -223,21 +223,25 @@ function spawnPos() {
 
 function getBlock(x, y, z) { return chunkManager ? chunkManager.getBlock(x, y, z) : 0; }
 function isDoorBlock(id) { return id === 25 || id === 26; }
-function solidAt(x, y, z) {
+function isFloorSolid(x, y, z) {
   const id = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
+  if (!id || id === 16 || id === 21 || id === 25 || id === 26) return false;
+  return true;
+}
+function solidAt(x, y, z) {
+  const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+  const id = getBlock(bx, by, bz);
   if (!id) return false;
   if (id === 16 || id === 21) return false; // su ve meşale katı değil (içinden geçilir)
   if (id === 25 || id === 26) { // kapı: kapalı katı, açık geçirgen (MC)
-    const bx = Math.floor(x), bz = Math.floor(z);
-    const by = id === 25 ? Math.floor(y) : Math.floor(y) - 1;
+    const doorBaseY = id === 25 ? by : by - 1;
     try {
-      const st = doorMgr.map.get(bx + ',' + by + ',' + bz);
+      const st = doorMgr.map.get(bx + ',' + doorBaseY + ',' + bz);
       if (st && st.open) return false;
-      // Kapı kapalı: Oyuncu bu kapının içindeyse/yakınındaysa içinden geçebilir / yukarı fırlatılmaz
+      // Kapı kapalı: Oyuncu bu kapı bloğunun içindeyse serbestçe adım atıp çıkabilsin
       if (typeof player !== 'undefined' && player && player.pos) {
-        if (Math.abs(player.pos.x - (bx + 0.5)) < 0.85 && Math.abs(player.pos.z - (bz + 0.5)) < 0.85) {
-          const py = Math.floor(player.pos.y);
-          if (py === by || py === by + 1) return false;
+        if (Math.floor(player.pos.x) === bx && Math.floor(player.pos.z) === bz) {
+          return false;
         }
       }
       return true;
@@ -247,7 +251,7 @@ function solidAt(x, y, z) {
 }
 function inWater(px, py, pz) { return getBlock(Math.floor(px), Math.floor(py + 0.4), Math.floor(pz)) === 16; }
 function collides(px, py, pz) {
-  for (const dx of [-PW, PW]) for (const dz of [-PW, PW]) for (const dy of [0, 0.9, PH - 0.1]) {
+  for (const dx of [-PW, PW]) for (const dz of [-PW, PW]) for (const dy of [0.05, 0.9, PH - 0.1]) {
     if (solidAt(px + dx, py + dy, pz + dz)) return true;
   }
   return false;
@@ -256,7 +260,7 @@ function collides(px, py, pz) {
 function hasGround(px, py, pz) {
   for (const cx of [-PW, PW]) {
     for (const cz of [-PW, PW]) {
-      if (solidAt(px + cx, py - 0.1, pz + cz)) return true;
+      if (isFloorSolid(px + cx, py - 0.1, pz + cz)) return true;
     }
   }
   return false;
@@ -336,20 +340,24 @@ function movePlayer(dt) {
   player.onGround = false;
   if (collides(player.pos.x, ny, player.pos.z)) {
     if (player.vel.y <= 0) {
-      const underId = getBlock(Math.floor(player.pos.x), Math.floor(ny), Math.floor(player.pos.z));
-      if (!isDoorBlock(underId) && underId !== 0 && underId !== 16 && underId !== 21) {
-        player.pos.y = Math.floor(ny) + 1;
+      // Aşağı inişte ayak seviyesindeki katı zemini 4 köşeden kontrol et
+      let maxFloor = -Infinity;
+      for (const dx of [-PW, PW]) {
+        for (const dz of [-PW, PW]) {
+          const bx = Math.floor(player.pos.x + dx);
+          const by = Math.floor(ny);
+          const bz = Math.floor(player.pos.z + dz);
+          if (isFloorSolid(bx, by, bz)) {
+            const floorTop = by + 1;
+            if (floorTop > maxFloor) maxFloor = floorTop;
+          }
+        }
+      }
+      if (maxFloor > -Infinity) {
+        player.pos.y = maxFloor;
         player.onGround = true;
       } else {
-        // Kapı içindeyken dikeyde yukarı itilme: altımızdaki gerçek zemine otur
-        const currentFloor = Math.floor(player.pos.y);
-        const belowFloor = getBlock(Math.floor(player.pos.x), currentFloor - 1, Math.floor(player.pos.z));
-        if (belowFloor && !isDoorBlock(belowFloor) && belowFloor !== 16 && belowFloor !== 21) {
-          player.pos.y = currentFloor;
-          player.onGround = true;
-        } else {
-          player.pos.y = ny;
-        }
+        player.pos.y = ny;
       }
       // Düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
       const drop = player.fallStart - player.pos.y;
