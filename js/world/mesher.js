@@ -89,169 +89,138 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
     }
   }
 
-  // MC kapı: ince panel (3/16). Kapalı = dikey panel, normal oyuncuya bakar.
-  // Açık = menteşeden 90° salınmış dikey panel. Alt yarı alt doku, üst yarı üst doku.
-  // Kenarlar ve kapaklar ise meşe tahta dokusu (oak_planks) ile kaplanır.
+  // MC kapı: 3/16 ince 3D panel. Vanilla Minecraft 1.21.1 model spesifikasyonu:
+  // Alt yarı (id 25) alt doku, üst yarı (id 26) üst doku.
+  // Üst kapak sadece en üstte (id 26), alt kapak sadece en altta (id 25). Ortada kapak/raf YOKTUR.
+  // Kenarlar 3 piksellik orantılı UV ile çizilir (esneme veya bozulma olmaz).
   const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
-  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1, woodRect = null) {
-    const edgeRect = woodRect || rect;
+  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1, isTop = false, isBottom = false) {
     const n = DOOR_N[face & 3] || DOOR_N[0];
     const t = [-n[2], 0, n[0]]; // panel teğeti
     const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
+    const hh = 0.09375; // 3/32 blok (toplam 3/16 = 0.1875 kalınlık)
+    const du = (rect.u1 - rect.u0) * (3 / 16);
+    const dv = (rect.v1 - rect.v0) * (3 / 16);
     const quads = [];
-    const hh = 0.09375; // 3/32 blok kalınlık (toplam 3/16 panel kalınlığı)
 
     if (!open) {
-      // KAPALI: Tam dikey dikdörtgen panel (y..y+1).
+      // KAPALI: Tam dikey dikdörtgen panel
       const cx = wx + 0.5, cz = wz + 0.5;
-      // Ön yüz (+n) - kapı dokusu
+      const C00 = [cx - t[0] * 0.5 - n[0] * hh, y, cz - t[2] * 0.5 - n[2] * hh];
+      const C10 = [cx + t[0] * 0.5 - n[0] * hh, y, cz + t[2] * 0.5 - n[2] * hh];
+      const C11 = [cx + t[0] * 0.5 + n[0] * hh, y, cz + t[2] * 0.5 + n[2] * hh];
+      const C01 = [cx - t[0] * 0.5 + n[0] * hh, y, cz - t[2] * 0.5 + n[2] * hh];
+      const T00 = [C00[0], y + 1, C00[2]];
+      const T10 = [C10[0], y + 1, C10[2]];
+      const T11 = [C11[0], y + 1, C11[2]];
+      const T01 = [C01[0], y + 1, C01[2]];
+
+      // Ön yüz (+n)
       quads.push({
-        p: [
-          [cx - t[0] * 0.5 + n[0] * hh, y,     cz - t[2] * 0.5 + n[2] * hh],
-          [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
-          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
-          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh + n[2] * hh * 2], // t[2]
-        ],
+        p: [C01, C11, T11, T01],
         n: [n[0], 0, n[2]],
-        r: rect,
+        uv: [[rect.u0, rect.v0], [rect.u1, rect.v0], [rect.u1, rect.v1], [rect.u0, rect.v1]],
       });
-      // Arka yüz (-n) - kapı dokusu
+      // Arka yüz (-n)
       quads.push({
-        p: [
-          [cx + t[0] * 0.5 - n[0] * hh, y,     cz + t[2] * 0.5 - n[2] * hh],
-          [cx - t[0] * 0.5 - n[0] * hh, y,     cz - t[2] * 0.5 - n[2] * hh],
-          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
-          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
-        ],
+        p: [C10, C00, T00, T10],
         n: [-n[0], 0, -n[2]],
-        r: rect,
+        uv: [[rect.u1, rect.v0], [rect.u0, rect.v0], [rect.u0, rect.v1], [rect.u1, rect.v1]],
       });
-      // Yan kenar 1 (-t) - ahşap kenar dokusu
+      // Sol kenar (-t)
       quads.push({
-        p: [
-          [cx - t[0] * 0.5 - n[0] * hh, y,     cz - t[2] * 0.5 - n[2] * hh],
-          [cx - t[0] * 0.5 + n[0] * hh, y,     cz - t[2] * 0.5 + n[2] * hh],
-          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
-          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
-        ],
+        p: [C00, C01, T01, T00],
         n: [-t[0], 0, -t[2]],
-        r: edgeRect,
+        uv: [[rect.u0, rect.v0], [rect.u0 + du, rect.v0], [rect.u0 + du, rect.v1], [rect.u0, rect.v1]],
       });
-      // Yan kenar 2 (+t) - ahşap kenar dokusu
+      // Sağ kenar (+t)
       quads.push({
-        p: [
-          [cx + t[0] * 0.5 + n[0] * hh, y,     cz + t[2] * 0.5 + n[2] * hh],
-          [cx + t[0] * 0.5 - n[0] * hh, y,     cz + t[2] * 0.5 - n[2] * hh],
-          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
-          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
-        ],
+        p: [C11, C10, T10, T11],
         n: [t[0], 0, t[2]],
-        r: edgeRect,
+        uv: [[rect.u1 - du, rect.v0], [rect.u1, rect.v0], [rect.u1, rect.v1], [rect.u1 - du, rect.v1]],
       });
-      // Üst kapak (+y)
-      quads.push({
-        p: [
-          [cx - t[0] * 0.5 - n[0] * hh, y + 1, cz - t[2] * 0.5 - n[2] * hh],
-          [cx + t[0] * 0.5 - n[0] * hh, y + 1, cz + t[2] * 0.5 - n[2] * hh],
-          [cx + t[0] * 0.5 + n[0] * hh, y + 1, cz + t[2] * 0.5 + n[2] * hh],
-          [cx - t[0] * 0.5 + n[0] * hh, y + 1, cz - t[2] * 0.5 + n[2] * hh],
-        ],
-        n: [0, 1, 0],
-        r: edgeRect,
-      });
-      // Alt kapak (-y)
-      quads.push({
-        p: [
-          [cx - t[0] * 0.5 + n[0] * hh, y, cz - t[2] * 0.5 + n[2] * hh],
-          [cx + t[0] * 0.5 + n[0] * hh, y, cz + t[2] * 0.5 + n[2] * hh],
-          [cx + t[0] * 0.5 - n[0] * hh, y, cz + t[2] * 0.5 - n[2] * hh],
-          [cx - t[0] * 0.5 - n[0] * hh, y, cz - t[2] * 0.5 - n[2] * hh],
-        ],
-        n: [0, -1, 0],
-        r: edgeRect,
-      });
+      // Üst kapak (+y) - SADECE üst yarıda (id 26)
+      if (isTop) {
+        quads.push({
+          p: [T00, T01, T11, T10],
+          n: [0, 1, 0],
+          uv: [[rect.u0, rect.v0], [rect.u0, rect.v0 + dv], [rect.u1, rect.v0 + dv], [rect.u1, rect.v0]],
+        });
+      }
+      // Alt kapak (-y) - SADECE alt yarıda (id 25)
+      if (isBottom) {
+        quads.push({
+          p: [C01, C00, C10, C11],
+          n: [0, -1, 0],
+          uv: [[rect.u0, rect.v0], [rect.u0, rect.v0 + dv], [rect.u1, rect.v0 + dv], [rect.u1, rect.v0]],
+        });
+      }
     } else {
-      // AÇIK: Menteşeden 90° duvara doğru dönmüş tam dikey panel.
-      const hs = (hinge < 0 ? -1 : 1);
+      // AÇIK: Menteşeden 90° duvara doğru dönmüş panel
+      const hs = hinge < 0 ? -1 : 1;
       const hx = wx + 0.5 + t[0] * 0.5 * hs, hz = wz + 0.5 + t[2] * 0.5 * hs;
       const dx = -n[0], dz = -n[2];
-      // Yan yüz 1 (-t) - kapı dokusu
+      const th = [t[0], 0, t[2]];
+
+      const C00 = [hx - th[0] * hh, y, hz - th[2] * hh];
+      const C01 = [hx + th[0] * hh, y, hz + th[2] * hh];
+      const C11 = [hx + dx + th[0] * hh, y, hz + dz + th[2] * hh];
+      const C10 = [hx + dx - th[0] * hh, y, hz + dz - th[2] * hh];
+      const T00 = [C00[0], y + 1, C00[2]];
+      const T01 = [C01[0], y + 1, C01[2]];
+      const T11 = [C11[0], y + 1, C11[2]];
+      const T10 = [C10[0], y + 1, C10[2]];
+
+      // Yan yüz 1 (+th)
       quads.push({
-        p: [
-          [hx - t[0] * hh,           y,     hz - t[2] * hh],
-          [hx + dx - t[0] * hh,      y,     hz + dz - t[2] * hh],
-          [hx + dx - t[0] * hh,      y + 1, hz + dz - t[2] * hh],
-          [hx - t[0] * hh,           y + 1, hz - t[2] * hh],
-        ],
-        n: [-t[0], 0, -t[2]],
-        r: rect,
+        p: [C01, C11, T11, T01],
+        n: [th[0], 0, th[2]],
+        uv: [[rect.u0, rect.v0], [rect.u1, rect.v0], [rect.u1, rect.v1], [rect.u0, rect.v1]],
       });
-      // Yan yüz 2 (+t) - kapı dokusu
+      // Yan yüz 2 (-th)
       quads.push({
-        p: [
-          [hx + dx + t[0] * hh,      y,     hz + dz + t[2] * hh],
-          [hx + t[0] * hh,           y,     hz + t[2] * hh],
-          [hx + t[0] * hh,           y + 1, hz + t[2] * hh],
-          [hx + dx + t[0] * hh,      y + 1, hz + dz + t[2] * hh],
-        ],
-        n: [t[0], 0, t[2]],
-        r: rect,
+        p: [C10, C00, T00, T10],
+        n: [-th[0], 0, -th[2]],
+        uv: [[rect.u1, rect.v0], [rect.u0, rect.v0], [rect.u0, rect.v1], [rect.u1, rect.v1]],
       });
-      // Panel ucu kenarı - ahşap kenar dokusu
+      // Menteşe kenarı (-dx, -dz)
       quads.push({
-        p: [
-          [hx + dx - t[0] * hh,      y,     hz + dz - t[2] * hh],
-          [hx + dx + t[0] * hh,      y,     hz + dz + t[2] * hh],
-          [hx + dx + t[0] * hh,      y + 1, hz + dz + t[2] * hh],
-          [hx + dx - t[0] * hh,      y + 1, hz + dz - t[2] * hh],
-        ],
-        n: [dx, 0, dz],
-        r: edgeRect,
-      });
-      // Menteşe kenarı - ahşap kenar dokusu
-      quads.push({
-        p: [
-          [hx + t[0] * hh,           y,     hz + t[2] * hh],
-          [hx - t[0] * hh,           y,     hz - t[2] * hh],
-          [hx - t[0] * hh,           y + 1, hz - t[2] * hh],
-          [hx + t[0] * hh,           y + 1, hz + t[2] * hh],
-        ],
+        p: [C00, C01, T01, T00],
         n: [-dx, 0, -dz],
-        r: edgeRect,
+        uv: [[rect.u0, rect.v0], [rect.u0 + du, rect.v0], [rect.u0 + du, rect.v1], [rect.u0, rect.v1]],
       });
-      // Üst kapak (+y)
+      // Panel ucu kenarı (+dx, +dz)
       quads.push({
-        p: [
-          [hx - t[0] * hh,      y + 1, hz - t[2] * hh],
-          [hx + dx - t[0] * hh, y + 1, hz + dz - t[2] * hh],
-          [hx + dx + t[0] * hh, y + 1, hz + dz + t[2] * hh],
-          [hx + t[0] * hh,      y + 1, hz + t[2] * hh],
-        ],
-        n: [0, 1, 0],
-        r: edgeRect,
+        p: [C11, C10, T10, T11],
+        n: [dx, 0, dz],
+        uv: [[rect.u1 - du, rect.v0], [rect.u1, rect.v0], [rect.u1, rect.v1], [rect.u1 - du, rect.v1]],
       });
-      // Alt kapak (-y)
-      quads.push({
-        p: [
-          [hx - t[0] * hh,      y, hz - t[2] * hh],
-          [hx + t[0] * hh,      y, hz + t[2] * hh],
-          [hx + dx + t[0] * hh, y, hz + dz + t[2] * hh],
-          [hx + dx - t[0] * hh, y, hz + dz - t[2] * hh],
-        ],
-        n: [0, -1, 0],
-        r: edgeRect,
-      });
+      // Üst kapak (+y) - SADECE üst yarıda (id 26)
+      if (isTop) {
+        quads.push({
+          p: [T00, T01, T11, T10],
+          n: [0, 1, 0],
+          uv: [[rect.u0, rect.v0], [rect.u0, rect.v0 + dv], [rect.u1, rect.v0 + dv], [rect.u1, rect.v0]],
+        });
+      }
+      // Alt kapak (-y) - SADECE alt yarıda (id 25)
+      if (isBottom) {
+        quads.push({
+          p: [C01, C00, C10, C11],
+          n: [0, -1, 0],
+          uv: [[rect.u0, rect.v0], [rect.u0, rect.v0 + dv], [rect.u1, rect.v0 + dv], [rect.u1, rect.v0]],
+        });
+      }
     }
     for (const q of quads) {
       const base = bucket.pos.length / 3;
       const len = Math.hypot(q.n[0], q.n[1], q.n[2]) || 1;
       const nn = [q.n[0] / len, q.n[1] / len, q.n[2] / len];
-      const qr = q.r || rect;
       q.p.forEach((v, i) => {
         bucket.pos.push(v[0], v[1], v[2]);
         bucket.nor.push(...nn);
-        const [fu, fv] = FACE_UV[i];
-        bucket.uv.push(qr.u0 + (qr.u1 - qr.u0) * fu, qr.v0 + (qr.v1 - qr.v0) * fv);
+        const [u, vCoord] = q.uv[i];
+        bucket.uv.push(u, vCoord);
         bucket.col.push(shade, shade, shade);
       });
       bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
@@ -278,8 +247,9 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           const dir = DIRS[face] || 'pz';
           const tex = faceTextureName(id, dir, face, 0);
           const rect = uvMap[tex] || uvMap['stone'];
-          const woodRect = uvMap['oak_planks'] || rect;
-          addDoor(op, wx0, y, wz0, rect, face, open, hinge, woodRect);
+          const isTop = id === 26;
+          const isBottom = id === 25;
+          addDoor(op, wx0, y, wz0, rect, face, open, hinge, isTop, isBottom);
           continue;
         }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)

@@ -703,7 +703,7 @@ body.at-border::after {
 /* ---- XP Barı ---- */
 #xpContainer {
   position: fixed;
-  bottom: 74px;
+  bottom: 84px; /* Hotbar ile arasında MC 1.21.1 gibi temiz boşluk */
   left: 50%;
   transform: translateX(-50%);
   width: 560px;
@@ -732,7 +732,7 @@ body.at-border::after {
 }
 #xpLevel {
   position: absolute;
-  top: -12px;
+  top: -14px;
   font-family: 'Press Start 2P', monospace;
   font-size: 12px;
   font-weight: bold;
@@ -744,7 +744,7 @@ body.at-border::after {
 /* ---- Can (MC piksel kalpler) ---- */
 #hearts {
   position: fixed;
-  bottom: 84px; /* XP bar ve hotbar üstü */
+  bottom: 96px; /* XP barı ve hotbar üstü */
   left: 50%;
   transform: translateX(-283px); /* hotbar soluyla hizalı, MC gibi */
   z-index: 10;
@@ -764,7 +764,7 @@ body.at-border::after {
 /* ---- Oksijen Balonları (MC Su Altı) ---- */
 #bubbles {
   position: fixed;
-  bottom: 84px;
+  bottom: 96px; /* XP barı ve hotbar üstü */
   left: 50%;
   transform: translateX(85px);
   z-index: 10;

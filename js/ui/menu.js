@@ -475,11 +475,32 @@ async function init() {
 
   const btnOpenCreate = $('btnOpenCreate');
   if (btnOpenCreate) {
-    btnOpenCreate.onclick = () => {
+    btnOpenCreate.onclick = async () => {
+      // Dünyaların adını kontrol edip "Yeni Dünya 1, 2, 3..." sıralı isim ver
+      const worlds = await dbWorlds.list();
+      const existingNames = new Set(worlds.map((w) => (w.name || '').trim().toLowerCase()));
+      let num = 1;
+      while (existingNames.has(`yeni dünya ${num}`.toLowerCase()) || (num === 1 && existingNames.has('yeni dünya'))) {
+        num++;
+      }
       const wn = $('worldName');
-      if (wn) wn.value = 'Yeni Dünya ' + (Math.floor(Math.random() * 90) + 10);
+      if (wn) wn.value = `Yeni Dünya ${num}`;
       const ws = $('worldSeed');
       if (ws) ws.value = '';
+
+      // Varsayılan Oyun Modu: Hayatta Kalma
+      const worldMode = $('worldMode');
+      const btnToggleMode = $('btnToggleMode');
+      const modeDescription = $('modeDescription');
+      if (worldMode) worldMode.value = 'survival';
+      if (btnToggleMode) btnToggleMode.textContent = 'Oyun Modu: Hayatta Kalma';
+      if (modeDescription) {
+        modeDescription.innerHTML = `
+          <span class="mode-desc-title">Hayatta Kalma Modu</span>
+          <span class="mode-desc-text">Kaynak topla, alet üret, seviye kazan, can ve açlık yönet.</span>
+        `;
+      }
+
       showScreen('menuCreateWorld');
     };
   }
@@ -585,7 +606,7 @@ async function init() {
       const wm = $('worldMode');
       const name = (wn ? wn.value.trim() : '') || 'Yeni Dünya';
       const seed = (ws ? ws.value.trim() : '') || randomSeed();
-      const gamemode = (wm ? wm.value : 'creative') === 'survival' ? 'survival' : 'creative';
+      const gamemode = (wm ? wm.value : 'survival') === 'creative' ? 'creative' : 'survival';
       const id = 'w-' + Date.now().toString(36);
       await dbWorlds.put({
         id,

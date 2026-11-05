@@ -222,6 +222,7 @@ function spawnPos() {
 }
 
 function getBlock(x, y, z) { return chunkManager ? chunkManager.getBlock(x, y, z) : 0; }
+function isDoorBlock(id) { return id === 25 || id === 26; }
 function solidAt(x, y, z) {
   const id = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
   if (!id) return false;
@@ -232,9 +233,9 @@ function solidAt(x, y, z) {
     try {
       const st = doorMgr.map.get(bx + ',' + by + ',' + bz);
       if (st && st.open) return false;
-      // Oyuncu kapının hücresindeyse içinden geçebilir / yukarı fırlatılmaz
+      // Kapı kapalı: Oyuncu bu kapının içindeyse/yakınındaysa içinden geçebilir / yukarı fırlatılmaz
       if (typeof player !== 'undefined' && player && player.pos) {
-        if (Math.floor(player.pos.x) === bx && Math.floor(player.pos.z) === bz) {
+        if (Math.abs(player.pos.x - (bx + 0.5)) < 0.85 && Math.abs(player.pos.z - (bz + 0.5)) < 0.85) {
           const py = Math.floor(player.pos.y);
           if (py === by || py === by + 1) return false;
         }
@@ -335,16 +336,22 @@ function movePlayer(dt) {
   player.onGround = false;
   if (collides(player.pos.x, ny, player.pos.z)) {
     if (player.vel.y <= 0) {
-      player.pos.y = Math.floor(ny) + 1;
-      let guard = 0;
-      while (collides(player.pos.x, player.pos.y, player.pos.z) && guard++ < 8) {
-        const by = Math.floor(player.pos.y);
-        const b = getBlock(Math.floor(player.pos.x), by, Math.floor(player.pos.z));
-        if (b === 25 || b === 26) break;
-        player.pos.y = by + 1;
+      const underId = getBlock(Math.floor(player.pos.x), Math.floor(ny), Math.floor(player.pos.z));
+      if (!isDoorBlock(underId) && underId !== 0 && underId !== 16 && underId !== 21) {
+        player.pos.y = Math.floor(ny) + 1;
+        player.onGround = true;
+      } else {
+        // Kapı içindeyken dikeyde yukarı itilme: altımızdaki gerçek zemine otur
+        const currentFloor = Math.floor(player.pos.y);
+        const belowFloor = getBlock(Math.floor(player.pos.x), currentFloor - 1, Math.floor(player.pos.z));
+        if (belowFloor && !isDoorBlock(belowFloor) && belowFloor !== 16 && belowFloor !== 21) {
+          player.pos.y = currentFloor;
+          player.onGround = true;
+        } else {
+          player.pos.y = ny;
+        }
       }
-      player.onGround = true;
-      // düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
+      // Düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
       const drop = player.fallStart - player.pos.y;
       player.fallStart = player.pos.y;
       if (drop > 3 && GAMEMODE === 'survival' && !player.dead && !inWater(player.pos.x, player.pos.y, player.pos.z)) {
