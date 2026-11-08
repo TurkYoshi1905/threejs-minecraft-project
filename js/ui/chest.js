@@ -205,8 +205,13 @@ export class ChestUI {
         d.appendChild(bar);
       }
     }
-    // Tık (eski davranış) + sürükle-bırak (MC gibi)
-    d.onpointerdown = (e) => { e.preventDefault(); this.clickSlot(vi, e); };
+    // Tek tık/sürükle modeli (ana envanterle aynı): basışta inv drag başlar,
+    // küçük harekette pointerup -> dragEnd -> inventory.clickSlot -> chest.clickSlot.
+    d.onpointerdown = (e) => {
+      e.preventDefault();
+      const inv = this.inventory;
+      if (inv) inv.dragStart('chest', vi, e);
+    };
     d.onpointermove = (e) => {
       if (e.buttons === 1 || e.buttons === 2) {
         const inv = this.inventory;

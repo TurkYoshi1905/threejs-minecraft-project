@@ -197,6 +197,7 @@ export class CraftUI {
   }
   slotEl(content, index, onclick = () => {}) {
     const d = document.createElement('div');
+    const isOut = index === -1; // üretim çıktı hücresi: sürüklenemez, tık = craft
     d.className = 'inv-slot craft-slot';
     d.dataset.area = 'craft';
     d.dataset.index = index;
@@ -215,14 +216,22 @@ export class CraftUI {
         d.appendChild(c);
       }
     }
-    // Tık (craft clickCell)
-    d.onpointerdown = (e) => { e.preventDefault(); onclick(e); };
-    // Sürükle-bırak başlat
+    // Tek tık/sürükle modeli (ana envanterle aynı): basışta drag başlar,
+    // 5-6px'ten az harekette pointerup'ta clickSlot -> clickCell çağrılır.
+    // Çıktı hücresi (-1) sürüklenmez; tık = craft (yerinde pointerdown).
+    const panelId = this.el.panel.id;
+    d.onpointerdown = (e) => {
+      e.preventDefault();
+      if (isOut) { onclick(e); return; }
+      if (this.inventory) this.inventory.dragStart('craft', index, e, panelId);
+    };
+    // Sürükle-bırak devamı (panel kimliğiyle birlikte)
     d.onpointermove = (e) => {
+      if (isOut) return;
       if ((e.buttons === 1 || e.buttons === 2) && this.inventory) {
         const inv = this.inventory;
         if (!inv.drag) {
-          inv.dragStart('craft', +d.dataset.index, e);
+          inv.dragStart('craft', +d.dataset.index, e, panelId);
         }
         inv.dragMove(e);
       }

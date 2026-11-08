@@ -333,9 +333,15 @@ export class InventoryUI {
     return d;
   }
 
-  stackAt(area, index) {
+  stackAt(area, index, craftPanel = null) {
     if (area === 'hot') return this.hotbar[index] || null;
     if (area === 'main') return this.main[index] || null;
+    if (area === 'craft') {
+      if (index < 0) return null; // sonuç/çıktı hücresi sürüklenemez
+      const c = this.craftUIs[craftPanel];
+      return (c && c.grid && c.grid[index]) || null;
+    }
+    if (area === 'chest') return this._chestGet(index);
     const list = this.filteredGrid();
     const id = list[index];
     if (id == null) return null;
@@ -361,13 +367,59 @@ export class InventoryUI {
     return String(Math.max(1, c.count)); // tekli de sayiyla goster (geri bildirim)
   }
 
-  dragStart(area, index, e) {
+  // Ana eşya dizisini çöz: main/hot envanter, craft = ilgili panelin grid'i
+  _arrFor(area, craftPanel = null) {
+    if (area === 'hot') return this.hotbar;
+    if (area === 'main') return this.main;
+    if (area === 'craft') {
+      const c = this.craftUIs[craftPanel];
+      return (c && c.grid) ? c.grid : null;
+    }
+    return null; // chest için flat dizi yok (yarılar ayrı) — _chestGet/_chestSet kullanılmalı
+  }
+
+  // ---- Sandık erişimi (görünüm indeksi 0..53: iki yarı yan yana) ----
+  _chestGet(vi) {
+    try {
+      const cu = window.chestUI;
+      if (!cu || !cu.isOpen) return null;
+      const sl = cu.viewSlot(vi);
+      return sl ? (sl.half.st.slots[sl.i] || null) : null;
+    } catch { return null; }
+  }
+  _chestSet(vi, value) {
+    try {
+      const cu = window.chestUI;
+      if (!cu || !cu.isOpen) return;
+      const sl = cu.viewSlot(vi);
+      if (!sl) return;
+      sl.half.st.slots[sl.i] = value;
+      cu.renderAll();
+    } catch {}
+  }
+  // Alan-bağımsız slot yazma (main/hot/craft grid/chest)
+  _setSlot(area, index, value, craftPanel = null) {
+    if (area === 'hot') { this.hotbar[index] = value; return; }
+    if (area === 'main') { this.main[index] = value; return; }
+    if (area === 'chest') { this._chestSet(index, value); return; }
+    if (area === 'craft') {
+      const c = this.craftUIs[craftPanel];
+      if (c && c.grid && index >= 0) c.grid[index] = value;
+      if (c) c.refresh();
+    }
+  }
+
+  dragStart(area, index, e, craftPanel = null) {
     const isRight = e.button === 2;
     this.rightDragVisited.clear();
+    // craftPanel'i parametre yoksa olaydan çıkar (craft hücreleri data-craft-panel taşır)
+    if (area === 'craft' && !craftPanel) {
+      try { craftPanel = e.target?.closest?.('.inv-slot')?.dataset?.craftPanel || null; } catch {}
+    }
 
     // Sağ tıkla sürükleme: elinde eşya yoksa slottaki eşyanın yarısını ele al
     if (isRight && !this.cursor && area !== 'grid') {
-      const cur = this.stackAt(area, index);
+      const cur = this.stackAt(area, index, craftPanel);
       if (cur) {
         const curKind = cur.kind || kindOf(cur.id);
         const isTool = curKind === 'item' && ITEMS[cur.id]?.tool;
@@ -376,26 +428,24 @@ export class InventoryUI {
           this.cursor = { kind: curKind, id: cur.id, count: half };
           cur.count -= half;
           if (cur.count <= 0) {
-            const arr = area === 'hot' ? this.hotbar : this.main;
-            arr[index] = null;
+            this._setSlot(area, index, null, craftPanel);
           }
           this.renderMain(); this.renderHot();
           this.onChange();
-          const startKey = `${area}::${index}`;
+          const startKey = `${area}:${craftPanel || ''}:${index}`;
           this.rightDragVisited.add(startKey);
         }
       }
     } else if (isRight && this.cursor) {
       // Elde eşya varken sağ tıklandığında başlangıç slotuna 1 tane bırak
-      const craftPanel = e.target?.closest?.('.inv-slot')?.dataset?.craftPanel || null;
       const startKey = `${area}:${craftPanel || ''}:${index}`;
       this.rightDragVisited.add(startKey);
       this.distributeOneTo({ area, index, craftPanel });
     }
 
-    const s = this.stackAt(area, index);
+    const s = this.stackAt(area, index, craftPanel);
     this.drag = {
-      area, index, button: e.button, shift: e.shiftKey,
+      area, index, button: e.button, shift: e.shiftKey, craftPanel,
       x0: e.clientX, y0: e.clientY, moved: false,
       id: s ? s.id : (this.cursor ? this.cursor.id : 0),
       kind: s ? (s.kind || kindOf(s.id)) : (this.cursor ? (this.cursor.kind || kindOf(this.cursor.id)) : null),
@@ -595,7 +645,9 @@ export class InventoryUI {
     this.rightDragVisited.clear();
     if (!dr || !this.isAnyPanelOpen()) { this.hideGhost(); return; }
 
-    // Sağ tık sürüklemesi bittiğinde: eşyalar sürükleme esnasında slota 1'er 1'er bırakılmıştır
+    // Sağ tık sürüklemesi bittiğinde: eşyalar sürükleme esnasında slota 1'er 1'er bırakılmıştır.
+    // ÖNEMLİ: sağ tık asla clickSlot'a düşmez — pointerdown'da dağıtılan 1 adet yeterlidir
+    // (eskiden çift işlem yapıyordu: başlangıç slotu 2 alıyordu).
     if (dr.button === 2) {
       if (this.cursor && e && typeof e.clientX === 'number') {
         this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
@@ -608,7 +660,7 @@ export class InventoryUI {
     // Hareket yoksa = klasik tık (boş slot dahil: eldeki stack'i yerleştir)
     if (!dr.moved) {
       this.hideGhost();
-      this.clickSlot(dr.area, dr.index, { button: dr.button, shiftKey: dr.shift });
+      this.clickSlot(dr.area, dr.index, { button: dr.button, shiftKey: dr.shift }, dr.craftPanel || null);
       if (this.cursor && e && typeof e.clientX === 'number') {
         this.showGhost(this.cursor.id, this.cursor.count, e.clientX, e.clientY, this.cursor.kind);
       }
@@ -639,50 +691,45 @@ export class InventoryUI {
 
     const toArea = hov.area;
     const toIndex = hov.index;
+    const toPanel = hov.craftPanel || null;
 
-    // Aynı slota geri bırakıldı: hiçbir şey yapma
-    if (dr.area === toArea && dr.index === toIndex) return;
+    // Aynı slota geri bırakıldı: hiçbir şey yapma (craft paneli de dahil)
+    if (dr.area === toArea && dr.index === toIndex && (dr.craftPanel || null) === toPanel) return;
 
-    // Gerçek slot-to-slot taşıma
-    this.dropMove(dr.area, dr.index, toArea, toIndex, dr.button === 2, hov.craftPanel);
+    // Gerçek slot-to-slot taşıma (kaynak craft paneli sürükleyenden gelir)
+    this.dropMove(dr.area, dr.index, toArea, toIndex, dr.button === 2, toPanel, dr.craftPanel || null);
   }
 
   // Sürükle-bırak yerleştirme (kaynak slottan hedef slota) — MC mantığı
-  // craftPanel: hedef craft panelinin ID'si (toArea === 'craft' olduğunda)
-  dropMove(fromArea, fromIndex, toArea, toIndex, right, craftPanel = null) {
-    // Craft grid'i çözümle
+  // toCraftPanel: hedef craft panelinin ID'si (toArea === 'craft' olduğunda)
+  // fromCraftPanel: kaynak craft panelinin ID'si (fromArea === 'craft' olduğunda)
+  dropMove(fromArea, fromIndex, toArea, toIndex, right, craftPanel = null, fromCraftPanel = null) {
+    // Alan-bağımsız slot okuyucu: main/hot/craft grid/chest
     const getCraftGrid = (panelId) => {
       const c = this.craftUIs[panelId];
       return c ? c.grid : null;
     };
-    const craftGrid = craftPanel ? getCraftGrid(craftPanel) : null;
+    const getSlot = (area, panel, i) => {
+      if (i < 0) return null;
+      if (area === 'chest') return this._chestGet(i);
+      if (area === 'craft') { const g = getCraftGrid(panel); return g ? g[i] : null; }
+      if (area === 'hot') return this.hotbar[i] || null;
+      return this.main[i] || null;
+    };
+    const setSlot = (area, panel, i, v) => this._setSlot(area, i, v, panel);
+    const clearFrom = () => setSlot(fromArea, fromCraftPanel, fromIndex, null);
 
-    // Kaynak verisini al (craft grid'ten veya envanterden)
-    let src;
-    if (fromArea === 'craft') {
-      if (!craftGrid) return;
-      src = craftGrid[fromIndex];
-    } else {
-      const fromArr = fromArea === 'hot' ? this.hotbar : this.main;
-      src = fromArr[fromIndex];
-    }
+    // Kaynak verisini al (craft grid'ten, sandıktan veya envanterden)
+    const src = getSlot(fromArea, fromCraftPanel, fromIndex);
     if (!src) return;
 
     const skind = src.kind || kindOf(src.id);
-    const smax = maxOf(skind, src.id);
 
-    // Hedef verisini al (craft grid'ten veya envanterden)
-    let dst;
-    if (toArea === 'craft') {
-      if (!craftGrid) return;
-      dst = craftGrid[toIndex];
-    } else {
-      const toArr = toArea === 'hot' ? this.hotbar : this.main;
-      dst = toArr[toIndex];
-    }
+    // Hedef verisini al
+    const dst = getSlot(toArea, craftPanel, toIndex);
 
     // Aynı slota geri bırakıldı: hiçbir şey yapma
-    if (fromArea === toArea && fromIndex === toIndex) return;
+    if (fromArea === toArea && fromIndex === toIndex && (fromCraftPanel || null) === (craftPanel || null)) return;
 
     // ---- Yaratıcı paletten kopyala (izgara -> envanter veya craft) ----
     if (fromArea === 'grid') {
@@ -691,17 +738,13 @@ export class InventoryUI {
       if (id == null) return;
       const kind = kindOf(id);
       if (kind === 'item' && ITEMS[id]?.tool) {
-        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: 1, dur: ITEMS[id].maxDur }; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: 1, dur: ITEMS[id].maxDur }; }
+        setSlot(toArea, craftPanel, toIndex, { kind, id, count: 1, dur: ITEMS[id].maxDur });
       } else if (right) {
-        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: 1 }; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: 1 }; }
+        setSlot(toArea, craftPanel, toIndex, { kind, id, count: 1 });
       } else {
-        if (toArea === 'craft') { craftGrid[toIndex] = { kind, id, count: maxOf(kind, id) }; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind, id, count: maxOf(kind, id) }; }
+        setSlot(toArea, craftPanel, toIndex, { kind, id, count: maxOf(kind, id) });
       }
       if (toArea === 'hot') this.sel = toIndex;
-      if (toArea === 'craft' && craftGrid) { const c = this.craftUIs[craftPanel]; if (c) c.refresh(); }
       this.renderMain(); this.renderHot();
       this.onChange();
       return;
@@ -710,34 +753,27 @@ export class InventoryUI {
     // Kaynak nesnesinin kopyasını oluştur (referans ataması YAPMA — MC'deki stack ayırması mantığı)
     const cloneSrc = () => ({ kind: src.kind, id: src.id, count: src.count, dur: src.dur });
 
-    // ---- Envanter/craft slotından hedefe taşı ----
+    // ---- Envanter/craft/sandık slotundan hedefe taşı ----
     // Aletler birleşmez, sadece taşınır/takas edilir
     if (skind === 'item' && ITEMS[src.id]?.tool) {
       if (!dst && !right) {
-        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
-        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
-        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
+        setSlot(toArea, craftPanel, toIndex, cloneSrc());
+        clearFrom();
       }
       else if (dst && !right) {
-        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
-        if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
-        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
+        setSlot(toArea, craftPanel, toIndex, cloneSrc());
+        setSlot(fromArea, fromCraftPanel, fromIndex, dst);
       }
       // sağ+tık + dolu slot = işlem yok (MC)
     }
     else if (!dst) {
       // Hedef boş
       if (right && src.count > 1) {
-        if (toArea === 'craft') { craftGrid[toIndex] = { kind: skind, id: src.id, count: 1 }; }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = { kind: skind, id: src.id, count: 1 }; }
+        setSlot(toArea, craftPanel, toIndex, { kind: skind, id: src.id, count: 1 });
         src.count--;
       } else {
-        if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
-        else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
-        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
-        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
+        setSlot(toArea, craftPanel, toIndex, cloneSrc());
+        clearFrom();
       }
     }
     else if ((dst.kind || kindOf(dst.id)) === skind && dst.id === src.id) {
@@ -747,29 +783,16 @@ export class InventoryUI {
       const real = Math.min(take, src.count, Math.max(0, dmax - dst.count));
       dst.count += real;
       src.count -= real;
-      if (src.count <= 0) {
-        if (fromArea === 'craft') { craftGrid[fromIndex] = null; }
-        else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = null; }
-      }
+      if (src.count <= 0) clearFrom();
+      // Referansı geri yaz (main/hot/craft/chest: chest renderAll, craft refresh tetiklenir)
+      setSlot(toArea, craftPanel, toIndex, dst);
     }
     else if (!right) {
       // Farklı eşya + sol tık = takas
-      if (fromArea === 'craft') { craftGrid[fromIndex] = dst; }
-      else { const fromArr = fromArea === 'hot' ? this.hotbar : this.main; fromArr[fromIndex] = dst; }
-      if (toArea === 'craft') { craftGrid[toIndex] = cloneSrc(); }
-      else { const toArr = toArea === 'hot' ? this.hotbar : this.main; toArr[toIndex] = cloneSrc(); }
+      setSlot(fromArea, fromCraftPanel, fromIndex, dst);
+      setSlot(toArea, craftPanel, toIndex, cloneSrc());
     }
     // sağ+tık + farklı eşya = işlem yok (MC)
-
-    // Craft grid'i yeniden render et
-    if (toArea === 'craft' && craftGrid) {
-      const c = this.craftUIs[craftPanel];
-      if (c) c.refresh();
-    }
-    if (fromArea === 'craft' && craftGrid) {
-      const c = this.craftUIs[craftPanel];
-      if (c) c.refresh();
-    }
 
     if (toArea === 'hot' || fromArea === 'hot') {
       this.sel = toArea === 'hot' ? toIndex : this.sel;
@@ -779,10 +802,27 @@ export class InventoryUI {
   }
 
   invDbg(...a) { try { if (new URLSearchParams(location.search).get('debug') === 'inv') console.log('[inv]', ...a); } catch {} }
-  clickSlot(area, index, e) {
-    this.invDbg('slot', area, index, 'btn=' + (e && e.button));
+  clickSlot(area, index, e, craftPanel = null) {
+    this.invDbg('slot', area, index, 'btn=' + (e && e.button), 'panel=' + craftPanel);
     const right = e.button === 2;
     const shift = e.shiftKey;
+    // Craft hücresi tıklaması: ilgili CraftUI'nin clickCell'ine delege et (tek doğru yol).
+    // Faz 1 öncesi bu yol area==='main'e düşüp aynı indisli çanta slotunu bozuyordu (bug A).
+    if (area === 'craft') {
+      if (!craftPanel) craftPanel = e?.target?.closest?.('.inv-slot')?.dataset?.craftPanel || null;
+      if (!craftPanel) return;
+      const c = this.craftUIs[craftPanel];
+      if (c && typeof c.clickCell === 'function' && index >= 0) c.clickCell(index, e || {});
+      return;
+    }
+    // Sandık hücresi tıklaması: sandığın kendi clickSlot'una delege et (yarılar 0..53 görünüm indeksi).
+    if (area === 'chest') {
+      try {
+        const cu = window.chestUI;
+        if (cu && typeof cu.clickSlot === 'function') cu.clickSlot(index, e || {});
+      } catch {}
+      return;
+    }
     // Palet: elde taşınırken tıklama yaratıcı envantere bırakır ve yok eder (MC Creative çöp kutusu/silme).
     // Elde eşya yoksa yaratıcı paletten eşyayı alır.
     if (area === 'grid') {
@@ -938,6 +978,7 @@ export class InventoryUI {
   }
 
   quickMove(area, index) {
+    if (area === 'chest') return; // sandık Shift+tık'ı chest.clickSlot kendi içinde çözer
     const from = area === 'hot' ? this.hotbar : this.main;
     const s = from[index];
     if (!s) return;

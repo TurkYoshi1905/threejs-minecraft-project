@@ -1889,6 +1889,7 @@ async function enterWorld(id) {
         onClose: () => closeChest(),
       });
       window.chestUI = chestUI;
+      window.__inv = inventory; // debug/test tutamacı (konsoldan erişim)
       try { document.getElementById('chestClose').onclick = () => closeChest(); } catch {}
     } else {
       inventory.setMode(GAMEMODE);
