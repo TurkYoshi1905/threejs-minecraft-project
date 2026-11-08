@@ -16,6 +16,9 @@ function collectTextureNames() {
     if (b.front) names.add(b.front);
     if (b.frontL) names.add(b.frontL);
     if (b.frontR) names.add(b.frontR);
+    if (b.topL) names.add(b.topL);
+    if (b.topR) names.add(b.topR);
+    if (b.bottom) names.add(b.bottom);
   }
   names.add('furnace_front_on'); // yanık fırın ağzı
   return [...names];
@@ -235,7 +238,7 @@ export function faceTextureName(id, dir, facing = 0, code = 0) {
   if (b.chest) {
     const face = code % 4, dbl = Math.floor(code / 4) % 3;
     const FDIR = ['pz', 'nz', 'px', 'nx'];
-    if (dir === 'py') return b.top;
+    if (dir === 'py') return dbl === 1 ? (b.topL || b.top) : dbl === 2 ? (b.topR || b.top) : b.top;
     if (dir === 'ny') return b.bottom;
     if (dir === (FDIR[face] || 'pz')) return dbl === 1 ? (b.frontL || b.front) : dbl === 2 ? (b.frontR || b.front) : b.front;
     return b.side;

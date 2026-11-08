@@ -43,30 +43,28 @@ export class TNTSim {
   serialize() {
     return this.list.map((t) => ({ x: t.x, y: t.y, z: t.z, fuse: t.fuse }));
   }
-  load(arr, tileMaterialFn, scene) {
+  load(arr, scene, faceMaterialFn) {
     this.clear();
     if (!Array.isArray(arr)) return;
     this._scene = scene;
     for (const d of arr) {
       if (!d || typeof d.x !== 'number' || typeof d.y !== 'number' || typeof d.z !== 'number') continue;
-      this._spawn(d.x, d.y, d.z, typeof d.fuse === 'number' ? Math.max(0.1, d.fuse) : 1.0, tileMaterialFn, scene);
+      this._spawn(d.x, d.y, d.z, typeof d.fuse === 'number' ? Math.max(0.1, d.fuse) : 1.0, null, faceMaterialFn, scene);
     }
   }
-  // Asıl spawn: main.js env'i (scene + tileMaterial) ile çağırır
-  spawn(x, y, z, scene, tileMaterialFn, fuse = FUSE_IGNITE_S) {
+  // Asıl spawn: main.js env'i (scene + tileMaterial/faceMaterial) ile çağırır
+  spawn(x, y, z, scene, tileMaterialFn, faceMaterialFn, fuse = FUSE_IGNITE_S) {
     this._scene = scene;
-    this._spawn(x, y, z, fuse, tileMaterialFn, scene);
+    this._spawn(x, y, z, fuse, tileMaterialFn, faceMaterialFn, scene);
   }
-  _spawn(x, y, z, fuse, tileMaterialFn, scene) {
+  _spawn(x, y, z, fuse, tileMaterialFn, faceMaterialFn, scene) {
     const geo = new THREE.BoxGeometry(0.98, 0.98, 0.98);
-    // TNT dokulu, beyaz yanıp sönebilen MATERYAL (paylaşılan önbellek değil)
-    const base = tileMaterialFn(64);
-    const mat = new THREE.MeshLambertMaterial({
-      map: base.map,
-      emissive: 0xffffff,
-      emissiveIntensity: 0,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
+    // TNT 6 yüzü de kendi doğru dokusuyla görünür (üst=tnt_top, alt=tnt_bottom, yan=tnt_side)
+    const face = typeof faceMaterialFn === 'function' ? faceMaterialFn : ((id, dir) => tileMaterialFn(id));
+    const sideMat = face(64, 'pz');
+    const topMat = face(64, 'py');
+    const bottomMat = face(64, 'ny');
+    const mesh = new THREE.Mesh(geo, [sideMat, sideMat, topMat, bottomMat, sideMat, sideMat]);
     mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
     mesh.castShadow = false;
     mesh.receiveShadow = false;
@@ -80,6 +78,7 @@ export class TNTSim {
       fuse,
       mesh,
       blink: 0,
+      mats: [sideMat, topMat, bottomMat],
     });
   }
 
@@ -92,7 +91,7 @@ export class TNTSim {
       t.blink += dt;
       // yanıp sönme: beyaz -> normal -> beyaz (MC hissi)
       const on = Math.floor(t.blink / BLINK_MS) % 2 === 0;
-      if (t.mesh?.material) t.mesh.material.emissiveIntensity = on ? 0.85 : 0.05;
+      if (t.mats) for (const m of t.mats) m.emissiveIntensity = on ? 0.85 : 0.05;
 
       // fizik (basit): yerçekimi + katı zemine iniş
       if (env.isLoaded && !env.isLoaded(Math.floor(t.x), Math.floor(t.y), Math.floor(t.z))) {

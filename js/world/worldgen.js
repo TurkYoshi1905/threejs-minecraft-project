@@ -21,16 +21,19 @@ function noises(seedStr) {
 
 export function heightAt(x, z, seedStr) {
   const { cont, hill, river } = noises(seedStr);
-  const c = cont.fbm(x / 220, z / 220, 4);      // -1..1 kıta (daha geniş kara)
+  // Kıyılar: domain warp — blobby/yuvarlak kıyılar yerine kıvrımlı doğal kıyılar (2. mertebe warp)
+  const warpX = cont.fbm(x / 250 + 13.7, z / 250 - 8.1, 3) * 24;
+  const warpZ = cont.fbm(x / 250 - 4.2, z / 250 + 18.3, 3) * 24;
+  const X = x + warpX, Z = z + warpZ;
+  const c = cont.fbm(X / 210, Z / 210, 4);      // -1..1 kıta
   const h = hill.fbm(x / 38, z / 38, 3);        // -1..1 tepe (3 octave daha dişli)
   const r = river.fbm(x / 160, z / 160, 2);     // nehir maskesi (~0 = nehir)
-  let y = 73 + c * 16 + h * 8;
-  // okyanus sadece belirgin çukurda / dağ sadece belirgin tepede
-  if (c < -0.45) y -= 14;
-  else if (c < -0.3) y -= 6;
-  if (c > 0.45) y += 6 + h * 5; // plato basamakları yumuşak (dikey duvar yok)
-  // nehir yatağı: dar + yumuşak çökertme (max 3 blok, kenara smoothstep).
-  // Eski sert min() krater + uçurum yapıyordu.
+  let y = 74 + c * 17 + h * 8;
+  // Okyanus sadece belirgin çukurda / dağ sadece belirgin tepede
+  if (c < -0.42) y -= 15;
+  else if (c < -0.28) y -= 6;
+  if (c > 0.42) y += 4 + Math.max(0, h) * 8; // yüksek platolar daha belirgin
+  // Nehir yatağı: dar + yumuşak çökertme (max 3 blok, kenara smoothstep).
   const ar = Math.abs(r);
   if (ar < 0.08 && y > SEA_LEVEL - 4) {
     const t = Math.max(0, 1 - ar / 0.08); // 0 kenar -> 1 merkez
@@ -97,7 +100,10 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
       const h = heightAt(wx, wz, seedStr);
       const { moist } = noises(seedStr);
       const m = moist.fbm(wx / 90, wz / 90, 2); // -1..1 nem (kumsal/kil yamaları)
-      const sandy = h <= SEA_LEVEL + 2 || (m > 0.45 && h < SEA_LEVEL + 6);
+      // Sahil kum bandı gürültüyle daralır/yamar: dev kum levhaları yerine organik kıyı
+      const beachM = moist.fbm(wx / 55 + 7.7, wz / 55 - 13.3, 2);
+      const nearShore = h >= SEA_LEVEL - 2 && h <= SEA_LEVEL + 1;
+      const sandy = (nearShore && beachM > -0.3) || (m > 0.5 && h < SEA_LEVEL + 6) || (h === SEA_LEVEL + 1 && beachM > 0.15);
       const gravelPatch = m < -0.5 && h <= SEA_LEVEL + 3;
       const snowy = h >= 105;
       for (let y = MIN_Y; y <= h; y++) {
@@ -155,28 +161,40 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     }
   }
 
-  // Ağaçlar: orman biyomunda sık, kumsalda yok (chunk içine sığanlar)
+  // Ağaçlar: orman biyomunda sık, kumsalda yok. Yüksek kesimlerde ladin,
+  // nemli ormanda huş karışımı, gerisi meşe (MC biyomları: plains/taiga/birch forest)
   const rng = rngForChunk(seedNum, cx, cz);
   const { moist: moistN } = noises(seedStr);
   const forest = moistN.fbm(cx * 16 / 120, cz * 16 / 120, 2);
-  const treeBase = forest > 0.15 ? 3 : 1;
+  const treeBase = forest > 0.15 ? 4 : (forest > -0.1 ? 2 : 1);
   const treeCount = treeBase + Math.floor(rng() * 3);
+  const placedTrees = []; // ağaçlar yan yana olmasın (Manhattan mesafe >= 3)
   for (let t = 0; t < treeCount; t++) {
     const lx = 2 + Math.floor(rng() * 12);
     const lz = 2 + Math.floor(rng() * 12);
+    // Bu chunk içindeki ağaçlarla minimum mesafe
+    let tooClose = false;
+    for (const [px, pz] of placedTrees) {
+      if (Math.abs(px - lx) + Math.abs(pz - lz) < 3) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     const h = heightAt(wx, wz, seedStr);
-    // Yüksek kesimlerde (karlı/taiga hissi) ladin, nemli ormanda huş karışımı, gerisi meşe
-    const isSpruce = h >= 100;
+    // Yüksek kesimlerde ladin (taiga hissi), nemli ormanda huş karışımı, gerisi meşe
+    const isSpruce = h >= 88;
     if (h <= SEA_LEVEL + 1 || h > MAX_Y - 8) continue;
     if (!isSpruce && h >= 150) continue;
     const topId = blocks[(h - MIN_Y) * 256 + lz * 16 + lx];
     if (topId !== 1 && topId !== 18) continue; // çim veya karlı çim üstüne
-    if (rng() < (forest > 0.15 ? 0.2 : 0.45)) continue; // ormanda seyreltme az
-    const isBirch = !isSpruce && forest > 0.3 && rng() < 0.4;
-    const trunkId = isSpruce ? 68 : isBirch ? 65 : 5;
-    const leafId = isSpruce ? 70 : isBirch ? 67 : 6;
-    const trunk = 4 + Math.floor(rng() * 3) + (isSpruce ? 1 : 0); // ladin biraz daha uzun
+    if (rng() < (forest > 0.15 ? 0.15 : 0.4)) continue; // ormanda seyreltme az
+    // Ağaç türü: yüksekte %85 ladin, ormanda %45 huş, gerisi meşe
+    const treeRoll = rng();
+    const spruceHere = isSpruce && treeRoll < 0.85;
+    const birchHere = !spruceHere && forest > -0.05 && treeRoll < 0.45;
+    placedTrees.push([lx, lz]);
+    const trunkId = spruceHere ? 68 : birchHere ? 65 : 5;
+    const leafId = spruceHere ? 70 : birchHere ? 67 : 6;
+    const trunk = 4 + Math.floor(rng() * 3) + (spruceHere ? 2 : 0); // ladin daha uzun
     for (let y = 1; y <= trunk; y++) set(lx, h + y, lz, trunkId);
     for (let dy = trunk - 2; dy <= trunk + 1; dy++) {
       const r = dy >= trunk ? 1 : 2;

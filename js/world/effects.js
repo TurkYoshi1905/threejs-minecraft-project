@@ -29,8 +29,14 @@ function tileAvg(atlas, texName) {
       r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++;
     }
     if (!n) return (tileAvg._c[key] = new THREE.Color(0x888888));
-    // biyom tint'i (üst, yan şeritle aynı yeşil: #BBF66D)
-    const T = { grass_block_top: [145 / 255, 189 / 255, 89 / 255], oak_leaves: [0.3, 0.68, 0.18], water_still: [0.24, 0.45, 0.95] }[texName];
+    // biyom tint'i — MC 1.21.1 doğrulanmış değerler
+    const T = {
+      grass_block_top: [145 / 255, 189 / 255, 89 / 255],  // #91BD59
+      oak_leaves: [119 / 255, 171 / 255, 47 / 255],       // #77AB2F
+      birch_leaves: [128 / 255, 167 / 255, 85 / 255],     // #80A755
+      spruce_leaves: [97 / 255, 153 / 255, 97 / 255],     // #619961
+      water_still: [63 / 255, 118 / 255, 228 / 255],      // #3F76E4
+    }[texName];
     const col = new THREE.Color((r / n / 255) * (T?.[0] ?? 1), (gg / n / 255) * (T?.[1] ?? 1), (b / n / 255) * (T?.[2] ?? 1));
     return (tileAvg._c[key] = col);
   } catch { return (tileAvg._c[key] = new THREE.Color(0x888888)); }
@@ -148,8 +154,8 @@ export class Effects {
         const src = this.atlas.canvas;
         g.drawImage(src, rect.u0 * src.width, (1 - rect.v1) * src.height,
           (rect.u1 - rect.u0) * src.width, (rect.v1 - rect.v0) * src.height, 0, 0, 16, 16);
-        // biyom tint'i (üst, yan şeritle aynı yeşil)
-        const T = { grass_block_top: '#91BD59', oak_leaves: '#4daf2e', water_still: '#3d6fe0' }[texName];
+        // biyom tint'i (üst, yan şeritle aynı yeşil) — MC 1.21.1 doğrulanmış değerler
+        const T = { grass_block_top: '#91BD59', oak_leaves: '#77AB2F', birch_leaves: '#80A755', spruce_leaves: '#619961', water_still: '#3F76E4' }[texName];
         if (T) {
           const tmp = document.createElement('canvas'); tmp.width = tmp.height = 16;
           tmp.getContext('2d').drawImage(c, 0, 0);
@@ -175,8 +181,7 @@ export class Effects {
     const flat = k === 'item'; // MC: eşyalar yerde yatan düz sprite, bloklar mini küp
     const m = flat ? this.dropItemMesh(id) : new THREE.Mesh(this.dropGeo, this.dropMats(id, k));
     m.position.set(x + 0.5, y + 0.6, z + 0.5);
-    if (flat) m.rotation.z = Math.random() * Math.PI; // yatık düzlemde rastgele yön
-    else m.rotation.y = Math.random() * Math.PI;
+    m.rotation.y = Math.random() * Math.PI * 2; // rastgele yaw (MC)
     this.scene.add(m);
     this.drops.push({
       m, id, kind: k, dur: dur, flat, age: 0,
@@ -186,7 +191,7 @@ export class Effects {
     this.dbg(`spawn #${id} @${x},${y},${z}`);
   }
 
-  // MC tarzı düz eşya: yere yatık tek quad, Y'de döner
+  // MC tarzı dik eşya: yere dikey, rastgele yaw ile döner (billboard değil)
   itemTexCache = {};
   itemTex(id) {
     if (!this.itemTexCache[id]) {
@@ -207,7 +212,8 @@ export class Effects {
       });
     }
     const m = new THREE.Mesh(this.dropItemGeo, this.dropItemMatCache[id]);
-    m.rotation.x = -Math.PI / 2; // yere yatık
+    // Dikey dur: düzlem X/Z düzleminde değil, Y ekseninde ayakta
+    m.rotation.set(0, Math.random() * Math.PI * 2, 0);
     return m;
   }
 
@@ -256,16 +262,16 @@ export class Effects {
           // chunk yüklenmemiş: void'e düşürme, havada bekle
           d.vel.multiplyScalar(0.9);
         } else if (below && d.vel.y <= 0) {
-          d.m.position.set(nx, Math.floor(ny - 0.2) + 1 + (d.flat ? 0.06 : 0.14), nz);
+          d.m.position.set(nx, Math.floor(ny - 0.2) + 1 + (d.flat ? 0.19 : 0.14), nz); // dik eşya yarı boyda oturur
           d.vel.set(0, 0, 0);
         } else {
           d.m.position.set(nx, ny, nz);
           if (d.m.position.y < -80) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.voided++; this.dbg(`boşluğa-düştü #${d.id}`); continue; }
         }
       }
-      if (d.flat) d.m.rotation.z += dt * 2; // yatık eşya Y'de döner
+      if (d.flat) d.m.rotation.y += dt * 1.6; // dik eşya yavaşça Y'de döner
       else d.m.rotation.y += dt * 2;
-      d.m.position.y += Math.sin(d.age * 4) * 0.002;
+      d.m.position.y += Math.sin(d.age * 2.2) * 0.0035; // hafif yukarı süzülme (MC bob)
     }
   }
 }

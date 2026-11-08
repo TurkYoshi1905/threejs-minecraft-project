@@ -30,7 +30,7 @@ export const BLOCKS = {
   24: { ad: 'Yanık Fırın', top: 'furnace_top', side: 'furnace_side', front: 'furnace_front_on', bottom: 'furnace_top', furnace: true, lit: true, blast: 3.5 },
   25: { ad: 'Meşe Kapı', all: 'oak_door_bottom', door: true, saydam: true, blast: 3 },
   26: { ad: 'Kapı Üstü', all: 'oak_door_top', door: true, gizli: true, saydam: true, blast: 3 },
-  27: { ad: 'Sandık', top: 'chest_top', side: 'chest_side', bottom: 'oak_planks',
+  27: { ad: 'Sandık', top: 'chest_top', topL: 'chest_top_l', topR: 'chest_top_r', side: 'chest_side', bottom: 'chest_bottom',
         front: 'chest_front', frontL: 'chest_front_l', frontR: 'chest_front_r', chest: true, blast: 2.5 },
   // --- Renkli Yünler (16 renk, Faithful 1.21.1) ---
   28: { ad: 'Beyaz Yün', all: 'white_wool', blast: 0.8 },

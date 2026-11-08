@@ -15,13 +15,16 @@ const FACES = [
 ];
 const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];
 
-// Biyom/tint renkleri (0..1). Minecraft 1.21.1 vanilla uyumlu.
-// Üst doku: biyom rengine göre değişir, varsayılan (plains) #85BA6B ≈ RGB(133,186,107).
+// Biyom/tint renkleri (0..1). Minecraft 1.21.1 Java doğrulanmış değerler:
+// çimen Üst (plains grass_block_top) #91BD59, meşe yaprak #77AB2F,
+// huş yaprak #80A755 (biyomdan bağımsız), ladin yaprak #619961 (biyomdan bağımsız), su #3F76E4
 const TINTS = {
   grass_block_top: [145 / 255, 189 / 255, 89 / 255], // vanilla 1.21.1 Plains çimen üstü (#91BD59)
   grass_block_snow: [0.85, 0.9, 0.9],
-  oak_leaves: [0.30, 0.68, 0.18],
-  water_still: [0.24, 0.45, 0.95],
+  oak_leaves: [119 / 255, 171 / 255, 47 / 255],   // #77AB2F (Plains foliage)
+  birch_leaves: [128 / 255, 167 / 255, 85 / 255], // #80A755 (huş, sabit)
+  spruce_leaves: [97 / 255, 153 / 255, 97 / 255], // #619961 (ladin, sabit)
+  water_still: [63 / 255, 118 / 255, 228 / 255],  // #3F76E4
 };
 
 function chestCode(st) { if (!st) return 0; return (((st.dbl | 0) % 3) * 4) + ((st.face | 0) & 3); }
