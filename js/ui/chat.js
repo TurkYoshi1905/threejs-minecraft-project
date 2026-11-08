@@ -38,6 +38,10 @@ export function resolveBlock(query) {
     'mossy_stone_bricks': 63,
     'tnt': 64, 'birch_log': 65, 'birch_planks': 66, 'birch_leaves': 67,
     'spruce_log': 68, 'spruce_planks': 69, 'spruce_leaves': 70,
+    'coal_block': 71, 'iron_block': 72, 'gold_block': 73, 'diamond_block': 74,
+    'lapis_ore': 75, 'lapis_block': 76, 'redstone_ore': 77, 'redstone_block': 78,
+    'emerald_ore': 79, 'emerald_block': 80, 'copper_ore': 81, 'copper_block': 82,
+    'raw_iron_block': 83, 'raw_gold_block': 84, 'raw_copper_block': 85,
   };
   if (EN_BLOCKS[q]) return EN_BLOCKS[q];
 
@@ -71,6 +75,8 @@ export function resolveItem(query) {
     'iron_pickaxe': 112,
     'golden_pickaxe': 113, 'gold_pickaxe': 113,
     'diamond_pickaxe': 114, 'flint': 130, 'flint_and_steel': 131, 'gunpowder': 132,
+    'lapis_lazuli': 133, 'lapis': 133, 'redstone': 134, 'emerald': 135,
+    'copper_ingot': 136, 'copper': 136, 'raw_copper': 137,
     'wooden_shovel': 115, 'wood_shovel': 115,
     'stone_shovel': 116,
     'iron_shovel': 117,

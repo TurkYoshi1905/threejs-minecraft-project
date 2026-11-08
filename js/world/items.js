@@ -35,6 +35,12 @@ export const ITEMS = {
   130: { ad: 'Çakmak', tex: 'flint', max: 64 },
   131: { ad: 'Çakmak ve Çelik', tex: 'flint_and_steel', tool: 'flintsteel', tier: 0, speed: 1, maxDur: 64, max: 1, neverWornByMining: true },
   132: { ad: 'Barut', tex: 'gunpowder', max: 64 },
+  // --- Maden/gem eşyaları (MC 1.21.1) ---
+  133: { ad: 'Lapis Lazuli', tex: 'lapis_lazuli', max: 64 },
+  134: { ad: 'Redstone', tex: 'redstone', max: 64 },
+  135: { ad: 'Zümrüt', tex: 'emerald', max: 64 },
+  136: { ad: 'Bakır Külçe', tex: 'copper_ingot', max: 64 },
+  137: { ad: 'Ham Bakır', tex: 'raw_copper', max: 64 },
 };
 
 export function isTool(id) {
@@ -58,6 +64,11 @@ export const HARVEST = {
   12: { tool: 'pickaxe', minTier: 2, dropItem: 105 }, // demir cevheri -> ham demir (fırında külçeye pişer)
   13: { tool: 'pickaxe', minTier: 3, dropItem: 104 }, // elmas cevheri -> elmas
   23: { tool: 'pickaxe', minTier: 3, dropItem: 106 }, // altın cevheri -> ham altın (fırında külçeye pişer)
+  // Yeni cevherler: lapis taş kazma, redstone/zümrüt demir kazma, bakır taş kazma (MC)
+  75: { tool: 'pickaxe', minTier: 2, dropItem: 133 }, // lapis lazuli cevheri -> lapis
+  77: { tool: 'pickaxe', minTier: 3, dropItem: 134 }, // redstone cevheri -> redstone
+  79: { tool: 'pickaxe', minTier: 3, dropItem: 135 }, // zümrüt cevheri -> zümrüt
+  81: { tool: 'pickaxe', minTier: 2, dropItem: 137 }, // bakır cevheri -> ham bakır
   14: { tool: 'pickaxe', minTier: 1 },
   15: { tool: 'shovel', minTier: 1, soft: true }, // çakıl
   17: { tool: 'pickaxe', minTier: 1 }, // derin kayrak
@@ -118,10 +129,12 @@ export const SMELT = {
   5:  { out: 101, time: 10 }, // kütük -> kömür (odun kömürü)
   4:  { out: 3, outKind: 'block', time: 10 }, // kırık taş -> taş (MC)
   8:  { out: 9, outKind: 'block', time: 10 }, // kum -> cam
+  81: { out: 137, time: 10 }, // bakır cevheri -> ham bakır
 };
 
 // Eritme tarifleri (eşya girdiler): ham -> külçe (MC)
 export const SMELT_ITEM = {
   105: { out: 102, time: 10 }, // ham demir -> demir külçe
   106: { out: 103, time: 10 }, // ham altın -> altın külçe
+  137: { out: 136, time: 10 }, // ham bakır -> bakır külçe
 };

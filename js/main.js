@@ -1215,6 +1215,10 @@ function dropBlockLoot(realId, x, y, z, tool = heldToolId()) {
   else if (realId === 12) effects?.spawnDrop(105, x, y, z, null, 'item'); // ham demir
   else if (realId === 23) effects?.spawnDrop(106, x, y, z, null, 'item'); // ham altın
   else if (realId === 13) effects?.spawnDrop(104, x, y, z, null, 'item'); // elmas
+  else if (realId === 75) { for (let i = 0; i < 4 + Math.floor(Math.random() * 2); i++) effects?.spawnDrop(133, x, y, z, null, 'item'); } // lapis: 4-5 (MC: 4-9, sadeleştirme 4-5)
+  else if (realId === 77) { for (let i = 0; i < 4 + Math.floor(Math.random() * 2); i++) effects?.spawnDrop(134, x, y, z, null, 'item'); } // redstone: 4-5
+  else if (realId === 79) effects?.spawnDrop(135, x, y, z, null, 'item'); // zümrüt
+  else if (realId === 81) { for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) effects?.spawnDrop(137, x, y, z, null, 'item'); } // bakır cevheri: 2-3 ham bakır
   else if (realId === 24) effects?.spawnDrop(22, x, y, z); // yanık fırın -> sönmüş fırın
   else if (realId === 25 || realId === 26) { effects?.spawnDrop(25, x, y, z); effects?.spawnDrop(25, x, y, z); } // kapı: 2 eşya (ev kuralı)
   else if (realId === 15) { const flint = Math.random() < 0.1; effects?.spawnDrop(flint ? 130 : 15, x, y, z, null, flint ? 'item' : 'block'); }

@@ -79,6 +79,22 @@ export const BLOCKS = {
   68: { ad: 'Ladin Kütüğü', top: 'spruce_log_top', side: 'spruce_log', bottom: 'spruce_log_top', blast: 2 },
   69: { ad: 'Ladin Tahtası', all: 'spruce_planks', blast: 2 },
   70: { ad: 'Ladin Yaprağı', all: 'spruce_leaves', saydam: true, cutout: true, blast: 0.2 },
+  // --- Maden Blokları ve Cevherler (Faithful 1.21.1) ---
+  71: { ad: 'Kömür Bloğu', all: 'coal_block', blast: 2.5 },
+  72: { ad: 'Demir Bloğu', all: 'iron_block', blast: 6 },
+  73: { ad: 'Altın Bloğu', all: 'gold_block', blast: 6 },
+  74: { ad: 'Elmas Bloğu', all: 'diamond_block', blast: 6 },
+  75: { ad: 'Lapis Lazuli Cevheri', all: 'lapis_ore', blast: 3 },
+  76: { ad: 'Lapis Lazuli Bloğu', all: 'lapis_block', blast: 3 },
+  77: { ad: 'Redstone Cevheri', all: 'redstone_ore', blast: 3 },
+  78: { ad: 'Redstone Bloğu', all: 'redstone_block', blast: 6 },
+  79: { ad: 'Zümrüt Cevheri', all: 'emerald_ore', blast: 3 },
+  80: { ad: 'Zümrüt Bloğu', all: 'emerald_block', blast: 6 },
+  81: { ad: 'Bakır Cevheri', all: 'copper_ore', blast: 3 },
+  82: { ad: 'Bakır Bloğu', all: 'copper_block', blast: 6 },
+  83: { ad: 'Ham Demir Bloğu', all: 'raw_iron_block', blast: 6 },
+  84: { ad: 'Ham Altın Bloğu', all: 'raw_gold_block', blast: 6 },
+  85: { ad: 'Ham Bakır Bloğu', all: 'raw_copper_block', blast: 6 },
 };
 
 export const HOTBAR_DEFAULT = [1, 2, 3, 4, 7, 5, 6, 8, 9, 14];
@@ -107,4 +123,8 @@ export const BREAK_TIME = {
   61: 0.9, 62: 1.5, 63: 1.5,
   // TNT (MC: sıfır sertlik, elle anında kırılır) + Huş/Ladin seti
   64: 0, 65: 3.0, 66: 3.0, 67: 0.3, 68: 3.0, 69: 3.0, 70: 0.3,
+  // Maden blokları ve cevherler
+  71: 7.5, 72: 7.5, 73: 4.5, 74: 7.5,
+  75: 4.5, 76: 4.5, 77: 4.5, 78: 7.5, 79: 4.5, 80: 7.5, 81: 4.5, 82: 4.5,
+  83: 4.5, 84: 4.5, 85: 4.5,
 };

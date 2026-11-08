@@ -64,6 +64,26 @@ function oreAt(x, y, z, seedNum) {
   if (y <= 20 && r > 0.986 && triangleProb(y, -64, -24, 20) > 0.35) return 12;
   // demir üst: 20..110 tepe 60
   if (y > 16 && y <= 110 && r < 0.012 * triangleProb(y, 20, 60, 110)) return 12;
+  // bakır: -64..96 tepe 48 (dağ kesimi, nadir)
+  if (y >= -64 && y <= 96) {
+    const rc = hash3(x, y, z, seedNum ^ 0x2c1bf76d);
+    if (rc < 0.0015 * triangleProb(y, -64, 48, 96)) return 81;
+  }
+  // lapis lazuli: -64..64 tepe 0 (derinliğe indikçe artar, nadir)
+  if (y >= -64 && y <= 64) {
+    const rl = hash3(x, y, z, seedNum ^ 0x6a09e667);
+    if (rl < 0.001 * triangleProb(y, -64, 0, 64)) return 75;
+  }
+  // redstone: -64..16 tepe -58 (kendi hash'i — diamond ile çakışmaz)
+  if (y >= -64 && y <= 16) {
+    const rr = hash3(x, y, z, seedNum ^ 0x1b873593);
+    if (rr < 0.012 * triangleProb(y, -64, -58, 16)) return 77;
+  }
+  // zümrüt: sadece yüksek tepelerde, çok nadir
+  if (y >= -16 && y <= 150) {
+    const re = hash3(x, y, z, seedNum ^ 0x55f0e11d);
+    if (re < 0.00015 * triangleProb(y, -16, 130, 150)) return 79;
+  }
   // kömür: 50..319 (dağlarda daha sık)
   if (y >= 50 && r < 0.016 * triangleProb(y, 50, 110, 319)) return 11;
   // çakıl cebi
@@ -146,7 +166,7 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
   // Damar genişletme (2. geçiş, sadece cevher merkezlerinden)
   for (let i = 0; i < blocks.length; i++) {
     const id = blocks[i];
-    if (id !== 11 && id !== 12 && id !== 13 && id !== 23) continue;
+    if (id !== 11 && id !== 12 && id !== 13 && id !== 23 && id !== 75 && id !== 77 && id !== 79 && id !== 81) continue;
     // her cevherin ~%60'ı damar merkezi olur (aşırı yayılmayı önler)
     const y = MIN_Y + Math.floor(i / 256);
     const lz = Math.floor((i % 256) / 16), lx = i % 16;

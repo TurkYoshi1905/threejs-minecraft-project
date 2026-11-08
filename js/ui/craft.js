@@ -42,6 +42,25 @@ export const RECIPES = [
   { out: { id: 64, count: 1 }, p: [[132, 8, 132], [8, 132, 8], [132, 8, 132]] },
 ];
 
+// Maden blokları: 9 malzeme -> blok, blok -> 9 malzeme (MC 1.21.1, çift yönlü)
+const COMPRESS_BLOCKS = [
+  [101, 71],  // 9 kömür -> kömür bloğu
+  [102, 72],  // 9 demir külçe -> demir bloğu
+  [103, 73],  // 9 altın külçe -> altın bloğu
+  [104, 74],  // 9 elmas -> elmas bloğu
+  [133, 76],  // 9 lapis lazuli -> lapis bloğu
+  [134, 78],  // 9 redstone -> redstone bloğu
+  [135, 80],  // 9 zümrüt -> zümrüt bloğu
+  [136, 82],  // 9 bakır külçe -> bakır bloğu
+  [105, 83],  // 9 ham demir -> ham demir bloğu
+  [106, 84],  // 9 ham altın -> ham altın bloğu
+  [137, 85],  // 9 ham bakır -> ham bakır bloğu
+];
+for (const [itemId, blockId] of COMPRESS_BLOCKS) {
+  RECIPES.push({ out: { id: blockId, count: 1 }, p: [[itemId, itemId, itemId], [itemId, itemId, itemId], [itemId, itemId, itemId]] });
+  RECIPES.push({ out: { id: itemId, count: 9 }, p: [[blockId]] });
+}
+
 function normalize(grid, size) {
   // grid: size*size, 0/boş veya id. Dolu alanı kırp, id listesi döndür.
   let minR = size, maxR = -1, minC = size, maxC = -1;
