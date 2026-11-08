@@ -1,0 +1,28 @@
+# NOTICE / Üçüncü Parti Atıflar
+
+Bu proje (Three.js Minecraft, MIT lisanslı kod) Minecraft ve Mojang Studios ile resmî olmayan bir hayran projesidir.
+
+## Dokular
+
+`textures/` altındaki dokular **Faithful 1.21.1** kaynaklarından alınmıştır:
+https://github.com/Faithful-Pack/Default-Java/tree/1.21.1
+
+Faithful topluluğuna ( faithfulpack.net ) ve Mojang Studios'a teşekkürler.
+Faithful dokuları kendi lisans şartlarına tabidir; bu depoya yeniden dağıtımı
+sadece eğitim/kişisel kullanım bağlamında, kaynak göstererek yapılmıştır.
+Ticari kullanım için Faithful ve Mojang lisanslarını ayrı ayrı kontrol edin.
+
+Mojang Studios'a ait tüm varlıklar ve isimler ("Minecraft", blokların ve
+mekaniklerin davranışları) Mojang Studios'un mülkiyetindedir.
+
+Bu proje, üçüncü taraf hak sahiplerinin haklarını ihlal etmeyi amaçlamaz.
+Hak ihlali gördüğünüz bir içerik varsa lütfen bildirin; kaldırılacaktır.
+
+## Logo
+
+`assets/logo.png` depodan kaldırılıp özgün bir logo ile değiştirilmelidir.
+Mevcut durum, taklit/IP açısından risklidir.
+
+## Three.js
+
+MIT lisansı — https://github.com/mrdoob/three.js

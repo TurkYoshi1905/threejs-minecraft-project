@@ -17,6 +17,8 @@ import { DoorManager } from './world/doors.js';
 import { ChestManager } from './world/chests.js';
 import { ChestUI } from './ui/chest.js';
 import { FallSim, WaterSim } from './world/sim.js';
+import { TNTSim } from './world/tnt.js';
+import { playIgnite, playExplode } from './core/audio.js';
 import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
@@ -135,6 +137,8 @@ const doorMgr = new DoorManager();
 const chestMgr = new ChestManager();
 const fallSim = new FallSim();
 const waterSim = new WaterSim();
+const tntSim = new TNTSim();
+const flashLights = []; // patlama flaş ışıkları (kısa ömürlü, fade-out)
 let waterTickAcc = 0;
 
 // Yaprak çürüme (leaf decay): odun kırıldığında yakındaki yapraklar işaretlenir,
@@ -690,6 +694,7 @@ async function saveAll() {
       doors: doorMgr ? doorMgr.serialize() : null,
       torches: (() => { try { const o = {}; for (const [k, f] of torchMap) o[k] = f; return o; } catch { return null; } })(),
       chests: chestMgr ? chestMgr.serialize() : null,
+      tnt: (() => { try { return tntSim.serialize(); } catch { return null; } })(),
     });
     const prev = await dbWorlds.get(WORLD_ID).catch(() => null);
     await dbWorlds.put({
@@ -755,6 +760,53 @@ function closeTable(returnItems = true) {
   craftTable.close(returnItems);
   renderHotbar();
   if (!player.dead) tryLock(); else refreshMenus();
+}
+// ============ TNT (çakmak ve çelikle ateşleme + patlama) ============
+function explosionEffect(x, y, z) {
+  try { playExplode(); } catch {}
+  // bölgesel patlama efekti: tonlarca taş/kıvılcım + sıcak flaş ışığı
+  try { effects?.burst(Math.floor(x), Math.floor(y), Math.floor(z), 64, 26); } catch {}
+  try { effects?.burst(Math.floor(x), Math.floor(y), Math.floor(z), 3, 14); } catch {}
+  const L = new THREE.PointLight(0xffc27a, 220, 34, 1.6);
+  L.position.set(x, y + 1, z);
+  scene.add(L);
+  flashLights.push({ L, life: 0.6 });
+}
+function igniteTNTAt(x, y, z) {
+  if (!chunkManager) return;
+  chunkManager.setBlock(x, y, z, 0); // blok silinir, primed TNT doğar (MC)
+  try { playIgnite(); } catch {}
+  try { tntSim.spawn(x, y, z, scene, fallTileMaterial, 5.0); } catch (e) { console.warn('TNT spawn hatası:', e); }
+  // Hayatta kalmada çeliğin dayanıklılığı 1 eksilir (MC: 64 kullanım); yaratıcortak eksilmez
+  if (GAMEMODE === 'survival' && inventory) {
+    const sel = inventory.selectedSlot();
+    if (sel && sel.id === 131) {
+      sel.dur = (typeof sel.dur === 'number' ? sel.dur : ITEMS[131].maxDur) - 1;
+      if (sel.dur <= 0) {
+        inventory.hotbar[inventory.sel] = null;
+        toast('Çakmak ve çeliğin bitti!');
+      }
+      try { inventory.renderHot(); inventory.onChange(); } catch {}
+    }
+  }
+  renderHotbar();
+}
+function tntHooks() {
+  return {
+    scene, player,
+    getBlock: simGet,
+    setBlock: (x, y, z, id) => chunkManager.setBlock(x, y, z, id),
+    isLoaded: (x, y, z) => {
+      try { return chunkManager.chunks.has(Math.floor(x / 16) + ',' + Math.floor(z / 16)); }
+      catch { return true; }
+    },
+    spawnDrop: (id, x, y, z) => effects?.spawnDrop(id, x, y, z),
+    dropLoot: (id, x, y, z) => dropBlockLoot(id, x, y, z),
+    damagePlayer: (n, reason) => damage(n, reason),
+    tileMaterial: fallTileMaterial,
+    onIgniteChain: (x, y, z, fuse) => { try { tntSim.spawn(x, y, z, scene, fallTileMaterial, fuse); } catch {} },
+    explosionEffect,
+  };
 }
 function toggleDoor(x, y, z) {
   const cur = chunkManager.getBlock(x, y, z);
@@ -1120,6 +1172,23 @@ function fallTileMaterial(id) {
   }
   return fallTileMatCache[id];
 }
+// MC düşüm tablosu — kırılma ve TNT patlaması paylaşır.
+// Çakıl: MC 1.21.1 — %10 çakmak, %90 çakılın kendisi (Silk Touch yok).
+function dropBlockLoot(realId, x, y, z, tool = heldToolId()) {
+  const info = breakInfo(realId, tool);
+  if (!info.drops) return;
+  if (realId === 1 || realId === 18) effects?.spawnDrop(2, x, y, z); // toprak
+  else if (realId === 3) effects?.spawnDrop(4, x, y, z); // kırık taş
+  else if (realId === 11) effects?.spawnDrop(101, x, y, z, null, 'item'); // kömür
+  else if (realId === 12) effects?.spawnDrop(105, x, y, z, null, 'item'); // ham demir
+  else if (realId === 23) effects?.spawnDrop(106, x, y, z, null, 'item'); // ham altın
+  else if (realId === 13) effects?.spawnDrop(104, x, y, z, null, 'item'); // elmas
+  else if (realId === 24) effects?.spawnDrop(22, x, y, z); // yanık fırın -> sönmüş fırın
+  else if (realId === 25 || realId === 26) { effects?.spawnDrop(25, x, y, z); effects?.spawnDrop(25, x, y, z); } // kapı: 2 eşya (ev kuralı)
+  else if (realId === 15) { const flint = Math.random() < 0.1; effects?.spawnDrop(flint ? 130 : 15, x, y, z, null, flint ? 'item' : 'block'); }
+  else effects?.spawnDrop(realId, x, y, z); // yerden toplanır
+}
+
 function breakInstant(hit) {
   // Yaratıcıda anakaya dahil her şey kırılır (MC). Hayatta kalmada asla.
   if (hit.id === 10 && GAMEMODE !== 'creative') { toast('Anakaya kırılmaz!'); return; }
@@ -1175,14 +1244,14 @@ function breakInstant(hit) {
     try { if (chestUI?.pos && ((chestUI.pos.x === hit.x && chestUI.pos.y === hit.y && chestUI.pos.z === hit.z) || (chestUI.halves().length > 1 && chestUI.halves()[1].key === hit.x + ',' + hit.y + ',' + hit.z))) chestUI.close(); } catch {}
   }
   // Odun kırıldığında yakındaki yaprakları çürüme listesine al (leaf decay)
-  if (realId === 5) {
+  if (realId === 5 || realId === 65 || realId === 68) {
     const now = Date.now();
     for (let dx = -LEAF_DECAY_RADIUS; dx <= LEAF_DECAY_RADIUS; dx++) {
       for (let dy = -LEAF_DECAY_RADIUS; dy <= LEAF_DECAY_RADIUS; dy++) {
         for (let dz = -LEAF_DECAY_RADIUS; dz <= LEAF_DECAY_RADIUS; dz++) {
           const bx = hit.x + dx, by = hit.y + dy, bz = hit.z + dz;
           const bid = chunkManager.getBlock(bx, by, bz);
-          if (bid === 6) { // yaprak
+          if (bid === 6 || bid === 67 || bid === 70) { // yaprak (meşe/huş/ladin)
             decayingLeaves.set(bx + ',' + by + ',' + bz, now + LEAF_DECAY_DELAY_MS);
           }
         }
@@ -1192,21 +1261,10 @@ function breakInstant(hit) {
   effects?.burst(hit.x, hit.y, hit.z, realId);
   if (GAMEMODE === 'survival' && realId !== 16 && BLOCKS[realId] && !BLOCKS[realId].secilemez) {
     const tool = heldToolId();
-    const info = breakInfo(realId, tool);
-    if (info.drops) {
-      // MC: çim/karlı çim -> toprak; taş -> kırık taş; cevherler eşya düşürür
-      if (realId === 1 || realId === 18) effects?.spawnDrop(2, hit.x, hit.y, hit.z); // toprak
-      else if (realId === 3) effects?.spawnDrop(4, hit.x, hit.y, hit.z); // kırık taş
-      else if (realId === 11) effects?.spawnDrop(101, hit.x, hit.y, hit.z, null, 'item'); // kömür
-      else if (realId === 12) effects?.spawnDrop(105, hit.x, hit.y, hit.z, null, 'item'); // ham demir
-      else if (realId === 23) effects?.spawnDrop(106, hit.x, hit.y, hit.z, null, 'item'); // ham altın
-      else if (realId === 13) effects?.spawnDrop(104, hit.x, hit.y, hit.z, null, 'item'); // elmas
-      else if (realId === 24) effects?.spawnDrop(22, hit.x, hit.y, hit.z); // yanık fırın -> sönmüş fırın
-      else if (realId === 25 || realId === 26) { effects?.spawnDrop(25, hit.x, hit.y, hit.z); effects?.spawnDrop(25, hit.x, hit.y, hit.z); } // kapı: 2 eşya (ev kuralı)
-      else effects?.spawnDrop(realId, hit.x, hit.y, hit.z); // yerden toplanır
-    }
-    // Alet yıpranması (sadece doğru/yanlış fark etmez, her kırışta 1)
-    if (tool) {
+    if (breakInfo(realId, tool).drops) dropBlockLoot(realId, hit.x, hit.y, hit.z, tool);
+    // Alet yıpranması (çakmak ve çelik madencilikle yıpranmaz; MC: ateş yakınca eksilir)
+    const itm = tool ? ITEMS[tool] : null;
+    if (tool && itm && !itm.neverWornByMining) {
       const broke = inventory.damageHeldTool(1);
       if (broke) toast('Aletin kırıldı!');
       renderHotbar();
@@ -1227,6 +1285,14 @@ function tryPlaceFromCross() {
   if (hit.id === 22 || hit.id === 24) { openFurnace(hit.x, hit.y, hit.z); return 'furnace'; } // fırın paneli
   if (hit.id === 25 || hit.id === 26) { toggleDoor(hit.x, hit.y, hit.z); return 'door'; } // kapı aç/kapa
   if (hit.id === 27) { openChest(hit.x, hit.y, hit.z); return 'chest'; } // sandık paneli
+  // TNT: elde çakmak ve çelik varken sağ tık -> ateşle (MC). Yoksa normal koyma davranışı.
+  if (hit.id === 64) {
+    const sel = inventory?.selectedSlot();
+    if (sel && (sel.kind || 'item') === 'item' && sel.id === 131) {
+      igniteTNTAt(hit.x, hit.y, hit.z);
+      return 'tnt';
+    }
+  }
   const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
   if (py < MIN_Y || py > MAX_Y) { toast('Yükseklik sınırı!'); return 'none'; }
   const cur = chunkManager.getBlock(px, py, pz);
@@ -1576,6 +1642,19 @@ function animate() {
   if (chunkManager && fallSim.size) {
     if (!paused) { try { fallSim.update(dt, simHooks()); } catch {} }
   }
+  // TNT: primed varlıklar (fitil + fizik) — patlama yıkımı blast dayanıklılığa göre
+  if (chunkManager && tntSim.size) {
+    if (!paused) { try { tntSim.update(dt, tntHooks()); } catch (e) { console.warn('TNT tick hatası:', e); } }
+  }
+  // Patlama flaş ışıkları: hızlı sönüm
+  if (flashLights.length) {
+    for (let i = flashLights.length - 1; i >= 0; i--) {
+      const f = flashLights[i];
+      f.life -= dt;
+      f.L.intensity = Math.max(0, f.life / 0.6) * 220;
+      if (f.life <= 0) { try { scene.remove(f.L); f.L.dispose?.(); } catch {} flashLights.splice(i, 1); }
+    }
+  }
   // Su dolgusu: 0.25sn tick, bütçeli (MC-lite)
   waterTickAcc += simDt;
   if (waterTickAcc > 0.25 && chunkManager && waterSim.size) {
@@ -1631,9 +1710,9 @@ function animate() {
         if (dist2 < 36) continue;
         if (Math.random() < LEAF_DECAY_CHANCE) {
           const bid = chunkManager.getBlock(bx, by, bz);
-          if (bid === 6) {
+          if (bid === 6 || bid === 67 || bid === 70) {
             chunkManager.setBlock(bx, by, bz, 0);
-            effects?.burst(bx, by, bz, 6, 4);
+            effects?.burst(bx, by, bz, bid, 4);
           }
         }
         decayingLeaves.delete(k);
@@ -1666,6 +1745,9 @@ function showLoading(t) {
 function hideLoading() { loadingEl?.classList.add('hidden'); }
 
 function disposeWorld() {
+  try { tntSim.clear(); } catch {}
+  for (const f of flashLights) { try { scene.remove(f.L); } catch {} }
+  flashLights.length = 0;
   if (!chunkManager) return;
   for (const c of chunkManager.chunks.values()) {
     if (c.meshOp) { scene.remove(c.meshOp); c.meshOp.geometry.dispose(); }
@@ -1904,6 +1986,7 @@ async function enterWorld(id) {
       try { doorMgr.clear(); if (saved?.doors) doorMgr.load(saved.doors); } catch {}
       try { torchMap.clear(); if (saved?.torches) { for (const [k, f] of Object.entries(saved.torches)) torchMap.set(k, (f | 0) % 5); } } catch {}
       try { chestMgr.clear(); if (saved?.chests) chestMgr.load(saved.chests); } catch {}
+      try { tntSim.clear(); if (saved?.tnt) tntSim.load(saved.tnt, fallTileMaterial, scene); } catch {}
       if (saved?.pos) {
         player.pos.set(saved.pos[0], saved.pos[1], saved.pos[2]);
         player.yaw = saved.yaw ?? player.yaw;
@@ -1923,6 +2006,7 @@ async function enterWorld(id) {
         try { doorMgr.clear(); } catch {}
         try { torchMap.clear(); } catch {}
         try { chestMgr.clear(); } catch {}
+        try { tntSim.clear(); } catch {}
       }
       selected = inventory.sel || 0;
     } catch {

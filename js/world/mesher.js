@@ -31,14 +31,14 @@ function tintFor(tex) {
 const WHITE = [1, 1, 1];
 
 // Hızlı opaklık tablosu (her yüzde BLOCKS[nid]?.saydam yapmamak için)
-const OPAQUE_LUT = new Uint8Array(64);
-for (let i = 0; i < 64; i++) {
+const OPAQUE_LUT = new Uint8Array(128);
+for (let i = 0; i < 128; i++) {
   const b = BLOCKS[i];
   OPAQUE_LUT[i] = (i !== 0 && b && !b.saydam) ? 1 : 0;
 }
-// 64 üstü id gelirse güvenli tarafta opak say
+// 128 üstü id gelirse güvenli tarafta opak say
 function isOpaqueFast(id) {
-  return id < 64 ? OPAQUE_LUT[id] === 1 : true;
+  return id < 128 ? OPAQUE_LUT[id] === 1 : true;
 }
 
 export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y, WORLD_HEIGHT, getTorch, getFurnace, getDoor, getChest) {

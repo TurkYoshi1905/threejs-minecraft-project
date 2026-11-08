@@ -166,12 +166,18 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     const lz = 2 + Math.floor(rng() * 12);
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     const h = heightAt(wx, wz, seedStr);
-    if (h <= SEA_LEVEL + 1 || h >= 100 || h > MAX_Y - 8) continue;
+    // Yüksek kesimlerde (karlı/taiga hissi) ladin, nemli ormanda huş karışımı, gerisi meşe
+    const isSpruce = h >= 100;
+    if (h <= SEA_LEVEL + 1 || h > MAX_Y - 8) continue;
+    if (!isSpruce && h >= 150) continue;
     const topId = blocks[(h - MIN_Y) * 256 + lz * 16 + lx];
-    if (topId !== 1) continue;
+    if (topId !== 1 && topId !== 18) continue; // çim veya karlı çim üstüne
     if (rng() < (forest > 0.15 ? 0.2 : 0.45)) continue; // ormanda seyreltme az
-    const trunk = 4 + Math.floor(rng() * 3); // 4-6 boy
-    for (let y = 1; y <= trunk; y++) set(lx, h + y, lz, 5);
+    const isBirch = !isSpruce && forest > 0.3 && rng() < 0.4;
+    const trunkId = isSpruce ? 68 : isBirch ? 65 : 5;
+    const leafId = isSpruce ? 70 : isBirch ? 67 : 6;
+    const trunk = 4 + Math.floor(rng() * 3) + (isSpruce ? 1 : 0); // ladin biraz daha uzun
+    for (let y = 1; y <= trunk; y++) set(lx, h + y, lz, trunkId);
     for (let dy = trunk - 2; dy <= trunk + 1; dy++) {
       const r = dy >= trunk ? 1 : 2;
       for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
@@ -180,7 +186,7 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
         const bx = lx + dx, by = h + dy, bz = lz + dz;
         if (bx < 0 || bx > 15 || bz < 0 || bz > 15) continue;
         const i = (by - MIN_Y) * 256 + bz * 16 + bx;
-        if (blocks[i] === 0) blocks[i] = 6;
+        if (blocks[i] === 0) blocks[i] = leafId;
       }
     }
   }

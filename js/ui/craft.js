@@ -31,8 +31,15 @@ export const RECIPES = [
   { out: { id: 127, count: 1 }, p: [[102], [102], [100]] },     // demir kılıç
   { out: { id: 128, count: 1 }, p: [[103], [103], [100]] },     // altın kılıç
   { out: { id: 129, count: 1 }, p: [[104], [104], [100]] },     // elmas kılıç
-  { out: { id: 22, count: 1 }, p: [[4, 4, 4], [4, 0, 4], [4, 4, 4]] },
-  { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 tahta -> 3 kapı (MC)        // 8 kırma taş -> fırın
+  { out: { id: 22, count: 1 }, p: [[4, 4, 4], [4, 0, 4], [4, 4, 4]] }, // 8 kırma taş -> fırın
+  { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 tahta -> 3 kapı (MC)
+  // Çakmak ve Çelik (MC 1.21.1): demir + çakmak, 2x2 diyagonal her yönde
+  { out: { id: 131, count: 1 }, p: [[102, 0], [0, 130]] },
+  { out: { id: 131, count: 1 }, p: [[0, 102], [130, 0]] },
+  { out: { id: 131, count: 1 }, p: [[130, 0], [0, 102]] },
+  { out: { id: 131, count: 1 }, p: [[0, 130], [102, 0]] },
+  // TNT (MC 1.21.1): 5 barut + 4 kum (haç deseni)
+  { out: { id: 64, count: 1 }, p: [[132, 8, 132], [8, 132, 8], [132, 8, 132]] },
 ];
 
 function normalize(grid, size) {

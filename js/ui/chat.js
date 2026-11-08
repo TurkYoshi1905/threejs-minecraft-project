@@ -35,7 +35,9 @@ export function resolveBlock(query) {
     'gray_terracotta': 52, 'light_gray_terracotta': 53, 'cyan_terracotta': 54, 'purple_terracotta': 55,
     'blue_terracotta': 56, 'brown_terracotta': 57, 'green_terracotta': 58, 'red_terracotta': 59,
     'black_terracotta': 60, 'white_concrete': 61, 'concrete': 61, 'stone_bricks': 62,
-    'mossy_stone_bricks': 63
+    'mossy_stone_bricks': 63,
+    'tnt': 64, 'birch_log': 65, 'birch_planks': 66, 'birch_leaves': 67,
+    'spruce_log': 68, 'spruce_planks': 69, 'spruce_leaves': 70,
   };
   if (EN_BLOCKS[q]) return EN_BLOCKS[q];
 
@@ -68,7 +70,7 @@ export function resolveItem(query) {
     'stone_pickaxe': 111,
     'iron_pickaxe': 112,
     'golden_pickaxe': 113, 'gold_pickaxe': 113,
-    'diamond_pickaxe': 114,
+    'diamond_pickaxe': 114, 'flint': 130, 'flint_and_steel': 131, 'gunpowder': 132,
     'wooden_shovel': 115, 'wood_shovel': 115,
     'stone_shovel': 116,
     'iron_shovel': 117,

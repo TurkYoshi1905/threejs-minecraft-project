@@ -6,7 +6,10 @@ import { faceTextureName } from '../core/atlas.js';
 // Kırılma çatlağı + blok partikülleri + yere düşen eşya entity'si.
 // Renkler atlas tile'larının ortalamasından alınır (doğru blok rengi).
 
-export const PICKUP_DELAY = 0.7; // yerden alma koruma süresi (sn, MC hissi)
+// MC 1.21.1 paritesi: düşen eşya 6000 tick (5 dk) sonra kaybolur, alma gecikmesi 10 tick
+export const PICKUP_DELAY = 0.5; // yerden alma koruma süresi (sn, MC hissi)
+export const DROP_CAP = 512;     // yere aynı anda bırakılabilecek eşya varlığı (MC'de pratikte yüksek; 60'tan 512'ye çıkarıldı)
+export const DROP_LIFETIME = 300; // eşyanın despawn süresi (sn) — MC 6000 tick
 
 function tileAvg(atlas, texName) {
   const key = 'avg:' + texName;
@@ -168,7 +171,7 @@ export class Effects {
 
   spawnDrop(id, x, y, z, vel = null, kind = null, dur = null) {
     const k = kind || (id >= 100 ? 'item' : 'block');
-    if (this.drops.length > 60) { const d = this.drops.shift(); this.scene.remove(d.m); this.dbg('drop-atıldı(eski)'); }
+    if (this.drops.length > DROP_CAP) { const d = this.drops.shift(); this.scene.remove(d.m); this.dbg('drop-atıldı(eski)'); }
     const flat = k === 'item'; // MC: eşyalar yerde yatan düz sprite, bloklar mini küp
     const m = flat ? this.dropItemMesh(id) : new THREE.Mesh(this.dropGeo, this.dropMats(id, k));
     m.position.set(x + 0.5, y + 0.6, z + 0.5);
@@ -230,7 +233,7 @@ export class Effects {
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       d.age += dt;
-      if (d.age > 90) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.expired++; this.dbg(`süre-doldu #${d.id}`); continue; }
+      if (d.age > DROP_LIFETIME) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.expired++; this.dbg(`süre-doldu #${d.id}`); continue; }
       const toPlayer = new THREE.Vector3().subVectors(playerPos, d.m.position);
       toPlayer.y += 1;
       const dist = toPlayer.length();

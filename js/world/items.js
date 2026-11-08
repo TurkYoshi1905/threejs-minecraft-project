@@ -31,6 +31,10 @@ export const ITEMS = {
   127: { ad: 'Demir Kılıç', tex: 'iron_sword', tool: 'sword', tier: 3, speed: 1.5, maxDur: 250, max: 1 },
   128: { ad: 'Altın Kılıç', tex: 'golden_sword', tool: 'sword', tier: 1, speed: 1.5, maxDur: 32, max: 1 },
   129: { ad: 'Elmas Kılıç', tex: 'diamond_sword', tool: 'sword', tier: 4, speed: 1.5, maxDur: 1561, max: 1 },
+  // --- Çakmak ve patlatma seti (MC 1.21.1) ---
+  130: { ad: 'Çakmak', tex: 'flint', max: 64 },
+  131: { ad: 'Çakmak ve Çelik', tex: 'flint_and_steel', tool: 'flintsteel', tier: 0, speed: 1, maxDur: 64, max: 1, neverWornByMining: true },
+  132: { ad: 'Barut', tex: 'gunpowder', max: 64 },
 };
 
 export function isTool(id) {
@@ -65,6 +69,14 @@ export const HARVEST = {
   7:  { tool: 'axe', minTier: 1, soft: true },
   25: { tool: 'axe', minTier: 1, soft: true }, // kapı alt
   26: { tool: 'axe', minTier: 1, soft: true }, // kapı üst
+  // TNT (64): hasar tablosunda yok -> her aletle/elle anında kırılır, kendisi düşer (MC)
+  // Huş/Ladin seti (meşe ile aynı kurallar)
+  65: { tool: 'axe', minTier: 1, soft: true },
+  66: { tool: 'axe', minTier: 1, soft: true },
+  67: { tool: 'sword', minTier: 1, neverDrop: true },
+  68: { tool: 'axe', minTier: 1, soft: true },
+  69: { tool: 'axe', minTier: 1, soft: true },
+  70: { tool: 'sword', minTier: 1, neverDrop: true },
 };
 
 // El ile kırınca 5x yavaş + drop yok (sert bloklarda). Doğru alet Tier yetmezse de drop yok.
@@ -92,6 +104,10 @@ export const FUEL_TIME = {
 export const FUEL_BLOCK_TIME = {
   5: 15, // kütük
   7: 15, // tahta
+  65: 15, // huş kütük
+  66: 15, // huş tahta
+  68: 15, // ladin kütük
+  69: 15, // ladin tahta
 };
 
 // Eritme tarifleri: girdi blok id -> {outItem, time}
