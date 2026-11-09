@@ -47,11 +47,14 @@ export class ChestManager {
     return { face: (st.face | 0) & 3, dbl };
   }
   // Yüze-duyarlı yarı seçimi (MC): sandığa bakanın SOL tarafındaki yarı = 1 (frontL/topL).
-  // face 0:+z → viewer-left +X · face 1:-z → viewer-left -X · face 2:+x → viewer-left -Z · face 3:-x → viewer-left +Z
+  // face 0 (+z, güney): viewer kuzeye bakar → sol = batı (−X) → LOW x  → sign -1
+  // face 1 (−z, kuzey): viewer güneye bakar → sol = doğu (+X) → HIGH x → sign +1
+  // face 2 (+x, doğu):  viewer batıya bakar → sol = güney (+Z) → HIGH z → sign +1
+  // face 3 (−x, batı):  viewer doğuya bakar → sol = kuzey (−Z) → LOW z → sign -1
   _viewerLeft(x, z, px, pz, face) {
     const f = (face | 0) & 3;
     const axisX = f === 0 || f === 1;
-    const sign = f === 0 ? 1 : f === 1 ? -1 : f === 2 ? -1 : 1;
+    const sign = [-1, 1, 1, -1][f]; // face 0:-1, face 1:+1, face 2:+1, face 3:-1
     const my = sign * (axisX ? x : z);
     const ot = sign * (axisX ? px : pz);
     return my > ot;

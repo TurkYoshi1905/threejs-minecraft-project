@@ -733,17 +733,6 @@ function anyOverlay() {
   const settingsOpen = !!(document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden'));
   return settingsOpen || (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen) || !deathHidden();
 }
-// Oyun panelleri açıkken oyuncu WASD ile yürüyebilir (MC hissi) — tam menülerden FARKLI.
-// Pause menüsü ve sohbet buraya dahil değil; orada girdiler menüye aittir.
-function anyGamePanel() {
-  return !!((inventory && inventory.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen));
-}
-function canControlPlayer() {
-  if (player.dead || !worldReady || !hasStarted) return false;
-  if (chat && chat.isOpen) return false;
-  if (locked) return true;
-  return anyGamePanel(); // envanter/masa/fırın/sandık açıkken yürüyüş devam eder
-}
 function dropOverflowAtPlayer(id, count, kind = null) {
   // çanta dolunca üretilenler yere düşer (blok+eşya)
   const k = kind || (id >= 100 ? 'item' : 'block');
@@ -808,7 +797,7 @@ function igniteTNTAt(x, y, z) {
   if (!chunkManager) return;
   chunkManager.setBlock(x, y, z, 0); // blok silinir, primed TNT doğar (MC)
   try { playIgnite(); } catch {}
-  try { tntSim.spawn(x, y, z, scene, fallTileMaterial, fallFaceMaterial, 5.0); } catch (e) { console.warn('TNT spawn hatası:', e); }
+  try { tntSim.spawn(x, y, z, scene, fallTileMaterial, fallFaceMaterial); } catch (e) { console.warn('TNT spawn hatası:', e); } // fitil: MC 1.21.1 = 4.0sn (tnt.js varsayılanı)
   consumeFlintSteelDurability();
   renderHotbar();
 }
@@ -1684,7 +1673,8 @@ function animate() {
   if (paused && !wasPaused) { try { saveAll(); } catch {} } // duraklatmada otomatik kayit (MC)
   wasPaused = paused;
   const simDt = paused ? 0 : dt;
-  if (canControlPlayer()) movePlayer(simDt);
+  // Paneller (envanter/masa/fırın/sandık/pause) açıkken WASD devre dışıdır — sadece kilitliyken yürünür
+  if (locked) movePlayer(simDt);
 
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);

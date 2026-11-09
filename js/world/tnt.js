@@ -6,20 +6,20 @@ import { BLOCKS } from './blocks.js';
 function isFloorSolidId(id) {
   if (!id) return false;
   if (id === 16 || id === 21) return false; // su + meşale katı değil
-  if (id === 25 || id === 26) return false; // kapı: basitçe geçirgen (fitil zaten 5sn)
+  if (id === 25 || id === 26) return false; // kapı: basitçe geçirgen (fitil zaten 4sn)
   return true;
 }
 
 // Primed TNT (MC 1.21.1 öykünmesi):
 // - Blok dünyadan silinir, raylı varlık doğar (yerçekimi, yere iniş)
 // - Fitil yanarken beyaz/kırmızı yanıp söner (MC'nin beyaz üst üste binme efekti)
-// - 5.0 sn sonra patlar: yarıçap 4, blok yıkımı blast dayanıklılığa göre
+// - 4.0 sn sonra patlar (80 tick): yarıçap 4, blok yıkımı blast dayanıklılığa göre
 //   f = (1 - d/yarıçap) * (0.7 + rand*0.6) * 100  ->  blastResistance < f ise yıkılır
 // - Su ve anakaya yıkılmaz; TNT komşuları zincir patlar (kısa rastgele fitil)
 // - Patlama oyuncuya hasar + itme uygular
 
 export const TNT_POWER = 4;
-const FUSE_IGNITE_S = 5.0;      // çakmak ve çelikle ateşleme (MC aslı 4sn; kullanıcı 5sn istedi)
+const FUSE_IGNITE_S = 4.0;      // MC 1.21.1: 80 tick = 4.0sn (çakmak ve çelikle / ateş)
 const FUSE_CHAIN_MIN = 0.5;     // zincir patlamada komşu TNT fitili (MC: 10-30 tick)
 const FUSE_CHAIN_MAX = 1.5;
 const GRAVITY = 22;
