@@ -1,5 +1,7 @@
 import { BLOCKS } from '../world/blocks.js';
 import { ITEMS } from '../world/items.js';
+import { t, getPlayerName } from '../core/i18n.js';
+import { blockName, itemName } from '../core/names.js';
 
 // Sohbet (T veya /) + komutlar. Minecraft fontu CSS'te.
 // api: {
@@ -46,10 +48,14 @@ export function resolveBlock(query) {
   if (EN_BLOCKS[q]) return EN_BLOCKS[q];
 
   for (const [id, b] of Object.entries(BLOCKS)) {
-    if ((b.ad || '').toLocaleLowerCase('tr') === q) return +id;
+    const trLow = (b.ad || '').toLocaleLowerCase('tr');
+    const enLow = (b.adEn || '').toLowerCase();
+    if (trLow === q || enLow === q) return +id;
   }
   for (const [id, b] of Object.entries(BLOCKS)) {
-    if ((b.ad || '').toLocaleLowerCase('tr').includes(q)) return +id;
+    const trLow = (b.ad || '').toLocaleLowerCase('tr');
+    const enLow = (b.adEn || '').toLowerCase();
+    if (trLow.includes(q) || enLow.includes(q)) return +id;
   }
   const tex = q.replace(/\s+/g, '_');
   for (const [id, b] of Object.entries(BLOCKS)) {
@@ -96,10 +102,14 @@ export function resolveItem(query) {
   if (EN_ITEMS[q]) return EN_ITEMS[q];
 
   for (const [id, b] of Object.entries(ITEMS)) {
-    if ((b.ad || '').toLocaleLowerCase('tr') === q) return +id;
+    const trLow = (b.ad || '').toLocaleLowerCase('tr');
+    const enLow = (b.adEn || '').toLowerCase();
+    if (trLow === q || enLow === q) return +id;
   }
   for (const [id, b] of Object.entries(ITEMS)) {
-    if ((b.ad || '').toLocaleLowerCase('tr').includes(q)) return +id;
+    const trLow = (b.ad || '').toLocaleLowerCase('tr');
+    const enLow = (b.adEn || '').toLowerCase();
+    if (trLow.includes(q) || enLow.includes(q)) return +id;
   }
   const tex = q.replace(/\s+/g, '_');
   for (const [id, b] of Object.entries(ITEMS)) {
@@ -188,14 +198,14 @@ export class ChatUI {
     return v;
   }
   dispatch(raw) {
-    if (!raw.startsWith('/')) { this.msg(`<Oyuncu> ${raw}`); return; }
+    if (!raw.startsWith('/')) { this.msg(`<${getPlayerName()}> ${raw}`); return; }
     const parts = raw.slice(1).trim().split(/\s+/);
     const cmd = (parts.shift() || '').toLowerCase();
     try {
       const out = this.exec(cmd, parts, raw);
       if (out) this.msg(out.text, out.cls || '');
     } catch (err) {
-      this.msg('Komut hatası: ' + err.message, 'err');
+      this.msg(t('chat.commandError', err.message), 'err');
     }
   }
   exec(cmd, a) {
@@ -203,18 +213,18 @@ export class ChatUI {
     switch (cmd) {
       case 'help': {
         const p = a[0] ? +a[0] : 1;
-        if (p === 1) return { text: 'Commands: /gamemode /give /setblock /tp /time /seed /clear /kill /spawn — /help 2', cls: 'sys' };
-        return { text: 'Examples: /give @p diamond 64 • /gamemode creative • /tp ~ ~10 ~ • /time set day • /setblock ~ ~-1 ~ stone', cls: 'sys' };
+        if (p === 1) return { text: t('chat.commands'), cls: 'sys' };
+        return { text: t('chat.commandsExamples'), cls: 'sys' };
       }
       case 'gamemode': {
         const m = (a[0] || '').toLowerCase();
         const mode = m.startsWith('c') || m === '1' ? 'creative' : m.startsWith('s') || m === '0' ? 'survival' : null;
-        if (!mode) return { text: 'Usage: /gamemode <survival|creative>', cls: 'err' };
+        if (!mode) return { text: t('chat.usageGamemode'), cls: 'err' };
         A.setGamemode(mode);
-        return { text: 'Game mode set to: ' + mode, cls: 'ok' };
+        return { text: t('chat.gamemodeSet', mode), cls: 'ok' };
       }
       case 'give': {
-        if (!a[0]) return { text: 'Usage: /give [player] <item> [count]', cls: 'err' };
+        if (!a[0]) return { text: t('chat.usageGive'), cls: 'err' };
         let parts = [...a];
         const first = parts[0].toLowerCase();
         if (['@p', '@s', '@a', '@e', 'player', 'oyuncu', 'steve', 'alex'].includes(first)) {
@@ -226,7 +236,7 @@ export class ChatUI {
             if (r2) parts.shift();
           }
         }
-        if (!parts.length) return { text: 'Usage: /give [player] <item> [count]', cls: 'err' };
+        if (!parts.length) return { text: t('chat.usageGive'), cls: 'err' };
         let count = 64;
         const last = parts[parts.length - 1];
         if (parts.length > 1 && /^-?\d+$/.test(last)) {
@@ -236,24 +246,24 @@ export class ChatUI {
         const q = parts.join(' ');
         const bid = resolveBlock(q);
         if (bid) {
-          if (bid === 16) return { text: 'Cannot give water block directly.', cls: 'err' };
+          if (bid === 16) return { text: t('chat.noWaterBlock'), cls: 'err' };
           const ok = A.give(bid, count, 'block');
           return ok
-            ? { text: `Gave ${count} [${BLOCKS[bid]?.ad || q}] to player`, cls: 'ok' }
-            : { text: 'Inventory is full!', cls: 'err' };
+            ? { text: `Gave ${count} [${blockName(bid)}] to player`, cls: 'ok' }
+            : { text: t('chat.inventoryFull2'), cls: 'err' };
         }
         const iid = resolveItem(q);
         if (iid) {
           const c = ITEMS[iid]?.tool ? 1 : count;
           const ok = A.give(iid, c, 'item');
           return ok
-            ? { text: `Gave ${c} [${ITEMS[iid]?.ad || q}] to player`, cls: 'ok' }
-            : { text: 'Inventory is full!', cls: 'err' };
+            ? { text: `Gave ${c} [${itemName(iid)}] to player`, cls: 'ok' }
+            : { text: t('chat.inventoryFull2'), cls: 'err' };
         }
-        return { text: `Unknown block or item: ${q}`, cls: 'err' };
+        return { text: t('chat.unknownBlock', q), cls: 'err' };
       }
       case 'setblock': {
-        if (a.length < 4) return { text: 'Usage: /setblock <x> <y> <z> <block>', cls: 'err' };
+        if (a.length < 4) return { text: t('chat.usageSetblock'), cls: 'err' };
         const p = A.pos();
         const xyz = [a[0], a[1], a[2]].map((v, i) => {
           const r = num(v, 0);
@@ -261,14 +271,14 @@ export class ChatUI {
           if (r === null) return null;
           return Math.floor(r);
         });
-        if (xyz.some((v) => v === null)) return { text: 'Invalid coordinates.', cls: 'err' };
+        if (xyz.some((v) => v === null)) return { text: t('chat.invalidCoords'), cls: 'err' };
         const id = resolveBlock(a.slice(3).join(' '));
-        if (!id && a[3] !== '0') return { text: 'Unknown block.', cls: 'err' };
+        if (!id && a[3] !== '0') return { text: t('chat.unknownBlockSimple'), cls: 'err' };
         const r = A.setBlock(xyz[0], xyz[1], xyz[2], id);
-        return r.ok ? { text: `Block placed at: ${xyz.join(' ')}`, cls: 'ok' } : { text: r.msg, cls: 'err' };
+        return r.ok ? { text: t('chat.blockPlaced', xyz.join(' ')), cls: 'ok' } : { text: r.msg, cls: 'err' };
       }
       case 'tp': {
-        if (a.length < 3) return { text: 'Usage: /tp <x> <y> <z>', cls: 'err' };
+        if (a.length < 3) return { text: t('chat.usageTp'), cls: 'err' };
         const p = A.pos();
         const xyz = [a[0], a[1], a[2]].map((v, i) => {
           const r = num(v, 0);
@@ -276,26 +286,26 @@ export class ChatUI {
           if (r === null) return null;
           return r;
         });
-        if (xyz.some((v) => v === null)) return { text: 'Invalid coordinates.', cls: 'err' };
+        if (xyz.some((v) => v === null)) return { text: t('chat.invalidCoords'), cls: 'err' };
         const r = A.tp(xyz[0], xyz[1], xyz[2]);
-        return r.ok ? { text: `Teleported to: ${xyz.map((v) => v.toFixed(1)).join(' ')}`, cls: 'ok' } : { text: r.msg, cls: 'err' };
+        return r.ok ? { text: t('chat.teleported', xyz.map((v) => v.toFixed(1)).join(' ')), cls: 'ok' } : { text: r.msg, cls: 'err' };
       }
       case 'time': {
         if (a[0] === 'set' && a[1] !== undefined) {
           const v = a[1].toLowerCase();
           const map = { day: 1000, noon: 6000, sunset: 12000, night: 18000, midnight: 18000, sunrise: 0 };
           const t = map[v] !== undefined ? map[v] : (+v >= 0 && +v < 24000 ? +v : null);
-          if (t === null) return { text: 'Usage: /time set <day|noon|night|midnight|0-23999>', cls: 'err' };
+          if (t === null) return { text: t('chat.usageTime'), cls: 'err' };
           A.setTime(t);
-          return { text: 'Time set to: ' + t, cls: 'ok' };
+          return { text: t('chat.timeSet', t), cls: 'ok' };
         }
-        return { text: 'Current time: ' + A.getTime(), cls: 'sys' };
+        return { text: t('chat.currentTime', A.getTime()), cls: 'sys' };
       }
-      case 'seed': return { text: 'Seed: ' + A.seed(), cls: 'sys' };
-      case 'clear': A.clearInv(); return { text: 'Inventory cleared.', cls: 'ok' };
-      case 'kill': A.kill(); return { text: 'Killed player.', cls: 'sys' };
-      case 'spawn': { const r = A.tp(null, null, null, true); return r.ok ? { text: 'Teleported to world spawn.', cls: 'ok' } : { text: r.msg, cls: 'err' }; }
-      default: return { text: `Unknown command: /${cmd} — type /help`, cls: 'err' };
+      case 'seed': return { text: t('chat.seed', A.seed()), cls: 'sys' };
+      case 'clear': A.clearInv(); return { text: t('chat.inventoryCleared'), cls: 'ok' };
+      case 'kill': A.kill(); return { text: t('chat.killed'), cls: 'sys' };
+      case 'spawn': { const r = A.tp(null, null, null, true); return r.ok ? { text: t('chat.teleportedSpawn'), cls: 'ok' } : { text: r.msg, cls: 'err' }; }
+      default: return { text: t('chat.unknownCommand', cmd), cls: 'err' };
     }
   }
 }

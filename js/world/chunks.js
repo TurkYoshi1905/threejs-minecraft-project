@@ -185,7 +185,8 @@ export class ChunkManager {
       this.torchFacing || null,
       this.furnaceFacing || null,
       this.doorState || null,
-      this.chestState || null
+      this.chestState || null,
+      this.torchListFn || null
     );
     if (c.meshOp) { this.scene.remove(c.meshOp); c.meshOp.geometry.dispose(); c.meshOp = null; }
     if (c.meshTr) { this.scene.remove(c.meshTr); c.meshTr.geometry.dispose(); c.meshTr = null; }

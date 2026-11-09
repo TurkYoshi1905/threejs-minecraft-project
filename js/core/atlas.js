@@ -143,10 +143,7 @@ function proceduralTile(name) {
 }
 
 async function loadImage(name) {
-  // Sıra: prosedürel öncelik (torch) -> gerçek dosya -> prosedürel fallback -> placeholder.
-  // Faithful 1.21.1 dokuları textures/ altında vendor edildi.
-  // NOT: block/torch.png repoda alevsiz bozuk geldiği için dosya okunmaz, çizim kullanılır.
-  if (name === 'torch') return { image: proceduralTile('torch'), usedName: name };
+  // Sıra: gerçek dosya (Faithful 1.21.1) -> prosedürel fallback -> placeholder.
   const tryNames = [name];
   for (const n of tryNames) {
     try {

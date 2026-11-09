@@ -1,5 +1,7 @@
 import { BLOCKS } from '../world/blocks.js';
 import { ITEMS, FUEL_TIME, FUEL_BLOCK_TIME, SMELT, SMELT_ITEM } from '../world/items.js';
+import { nameOf } from '../core/names.js';
+import { t } from '../core/i18n.js';
 
 // Fırın yöneticisi + arayüzü (MC basitleştirmesi).
 // Her fırın konumu: {input, fuel, output, prog, burn, burnTotal}
@@ -211,7 +213,7 @@ export class FurnaceUI {
       const kind = content.kind || kindOf(content.id);
       const img = document.createElement('img');
       img.src = this.getIcon(content.id, kind);
-      img.alt = kind === 'item' ? (ITEMS[content.id]?.ad || '') : (BLOCKS[content.id]?.ad || '');
+      img.alt = nameOf(kind, content.id);
       img.title = img.alt;
       img.draggable = false;
       d.appendChild(img);

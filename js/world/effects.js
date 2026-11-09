@@ -5,6 +5,7 @@ import { faceTextureName } from '../core/atlas.js';
 
 // Kırılma çatlağı + blok partikülleri + yere düşen eşya entity'si.
 // Renkler atlas tile'larının ortalamasından alınır (doğru blok rengi).
+// Ayrıca yanan ateş (fire) blokları: 2'şer çapraz quad + animasyonlu canvas doku.
 
 // MC 1.21.1 paritesi: düşen eşya 6000 tick (5 dk) sonra kaybolur, alma gecikmesi 10 tick
 export const PICKUP_DELAY = 0.5; // yerden alma koruma süresi (sn, MC hissi)
@@ -84,7 +85,11 @@ export class Effects {
     this.getBlock = getBlock;
     this.parts = [];   // {m, vel, life}
     this.drops = [];   // {m, id, vel, age}
+    this.fires = [];   // {m, x, y, z, age, sub} — Effects-managed fire meshes
     this.dropMatCache = {};
+    this._fireTex = null; // paylaşılan alev kanvası dokusu (frame döngülü)
+    this._fireFrame = 0;
+    this._fireTick = 0;
     const cg = new THREE.BoxGeometry(1.004, 1.004, 1.004);
     this.crackMesh = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({
       map: crackTexture(0), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
@@ -110,9 +115,65 @@ export class Effects {
     try {
       for (const p of this.parts) { this.scene.remove(p.m); try { p.m.material.dispose(); } catch {} }
       for (const d of this.drops) { this.scene.remove(d.m); }
+      this.clearAllFire();
     } catch {}
     this.parts = []; this.drops = [];
     this.hideCrack();
+  }
+
+  // Yabancın animasyonlu alev dokusu (MC tarzı): tek canvas, 32 kare, her 0.13sn'de ilerler
+  _fireTexture() {
+    if (this._fireTex) return this._fireTex;
+    try {
+      const img = new Image();
+      img.src = 'textures/fire_0.png';
+      img.onload = () => { this._fireImg = img; this._fireReady = true; };
+    } catch {}
+    const c = document.createElement('canvas'); c.width = c.height = 16;
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
+    this._fireTex = t;
+    // İlk dolgu (yüklenene kadar kızıl)
+    const g = c.getContext('2d');
+    g.fillStyle = '#ff7a1a'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#ffd23c'; g.fillRect(6, 2, 4, 5);
+    return t;
+  }
+  attachFire(x, y, z) {
+    // tek hücrelik ateş: 2 çapraz quad (X) + hafif dikey salınım
+    if (this.fires.some((f) => f.x === x && f.y === y && f.z === z)) return;
+    const tex = this._fireTexture();
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const geo = new THREE.PlaneGeometry(0.85, 0.85);
+    const g = new THREE.Group();
+    for (let i = 0; i < 2; i++) {
+      const p = new THREE.Mesh(geo, mat);
+      p.rotation.y = (i * Math.PI) / 2 + Math.PI / 4;
+      g.add(p);
+    }
+    g.position.set(x + 0.5, y + 0.42, z + 0.5);
+    this.scene.add(g);
+    this.fires.push({ m: g, x, y, z, age: 0, sub: Math.random() * 0.2 });
+  }
+  detachFire(x, y, z) {
+    for (let i = this.fires.length - 1; i >= 0; i--) {
+      const f = this.fires[i];
+      if (f.x === x && f.y === y && f.z === z) {
+        this.scene.remove(f.m);
+        for (const child of f.m.children) { child.geometry.dispose(); child.material?.dispose?.(); }
+        this.fires.splice(i, 1);
+      }
+    }
+  }
+  fireAt(x, y, z) {
+    return this.fires.some((f) => f.x === x && f.y === y && f.z === z);
+  }
+  clearAllFire() {
+    for (const f of this.fires) { this.scene.remove(f.m); for (const c of f.m.children) { c.geometry?.dispose?.(); } }
+    this.fires = [];
   }
 
   burst(x, y, z, id, n = 14) {
@@ -226,6 +287,27 @@ export class Effects {
   }
 
   update(dt, playerPos, canPickup, onPickup) {
+    // Ateş animasyonu: 0.13sn'de bir kare ilerlet + ufak dikey salınım
+    this._fireTick += dt;
+    if (this._fireTick >= 0.13 && this.fires.length) {
+      this._fireTick = 0;
+      try {
+        if (this._fireReady && this._fireImg && this._fireTex) {
+          this._fireFrame = (this._fireFrame + 1 + Math.floor(Math.random() * 6)) % 32;
+          const c = this._fireTex.image;
+          const g = c.getContext('2d');
+          g.imageSmoothingEnabled = false;
+          g.clearRect(0, 0, 16, 16);
+          g.drawImage(this._fireImg, 0, this._fireFrame * 16, 16, 16, 0, 0, 16, 16);
+          this._fireTex.needsUpdate = true;
+        }
+      } catch {}
+      for (const f of this.fires) {
+        f.age += 0.13;
+        f.m.position.y = f.y + 0.42 + Math.sin(f.age * 9) * 0.03;
+        f.m.scale.setScalar(0.92 + 0.12 * Math.abs(Math.sin(f.age * 7)));
+      }
+    }
     // partiküller
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i];
@@ -239,6 +321,14 @@ export class Effects {
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       d.age += dt;
+      // Ateş içindeki eşya alev alır ve küle döner (MC)
+      const fbx = Math.floor(d.m.position.x), fby = Math.floor(d.m.position.y), fbz = Math.floor(d.m.position.z);
+      if (this.getBlock && (this.getBlock(fbx, fby, fbz) === 86 || this.fireAt(fbx, fby, fbz))) {
+        this.burst(fbx, fby, fbz, 3, 6); // duman-kıvılcım
+        this.scene.remove(d.m); this.drops.splice(i, 1);
+        this.stat.expired++; this.dbg(`ateş-yanı #${d.id}`);
+        continue;
+      }
       if (d.age > DROP_LIFETIME) { this.scene.remove(d.m); this.drops.splice(i, 1); this.stat.expired++; this.dbg(`süre-doldu #${d.id}`); continue; }
       const toPlayer = new THREE.Vector3().subVectors(playerPos, d.m.position);
       toPlayer.y += 1;

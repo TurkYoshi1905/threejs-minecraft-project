@@ -1,5 +1,7 @@
 import { BLOCKS } from '../world/blocks.js';
 import { ITEMS } from '../world/items.js';
+import { nameOf } from '../core/names.js';
+import { t } from '../core/i18n.js';
 
 // MC tarzı envanter: Yaratıcı sekmeli+arama, Hayatta Kalma çanta+hotbar.
 // Slot: null | {kind:'block'|'item', id, count, dur?}
@@ -10,10 +12,7 @@ function maxOf(kind, id) {
   if (kind === 'item') return ITEMS[id]?.max ?? 64;
   return 64;
 }
-function nameOf(kind, id) {
-  if (kind === 'item') return ITEMS[id]?.ad || 'Eşya';
-  return BLOCKS[id]?.ad || 'Blok';
-}
+
 
 const GRID_ALL = [
   ...Object.keys(BLOCKS).map(Number).filter((id) => id !== 16 && id !== 24 && id !== 26),
@@ -139,7 +138,7 @@ export class InventoryUI {
     this.el.tabs.classList.toggle('hidden', !creative);
     this.el.grid.style.display = creative ? '' : 'none';
     // MC benzetmesi: "creative" kelimesi arayüzde geçmez
-    this.el.mode.textContent = creative ? '(Yaratıcı Envanter)' : '(Hayatta Kalma)';
+    this.el.mode.textContent = creative ? t('inv.creative') : t('inv.survival');
     // Eski ∞ kayıtlarını 64'e migrate et, yeni sonsuz üretilmez
     for (const s of [...this.hotbar, ...this.main]) {
       if (!s) continue;
@@ -1043,7 +1042,7 @@ export class InventoryUI {
     });
     if (!this.el.grid.children.length) {
       const p = document.createElement('div');
-      p.textContent = 'Sonuç yok'; p.style.cssText = 'grid-column:1/-1;text-align:center;opacity:.6;padding:8px';
+      p.textContent = t('inv.noResults'); p.style.cssText = 'grid-column:1/-1;text-align:center;opacity:.6;padding:8px';
       this.el.grid.appendChild(p);
     }
   }

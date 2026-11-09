@@ -35,8 +35,8 @@ class Queue {
   clear() { this.list = []; this.set.clear(); }
 }
 
-// Kum/çakıl içinden geçebildiği bloklar: hava, su, meşale
-function fallThrough(id) { return id === 0 || id === 16 || id === 21; }
+// Kum/çakıl içinden geçebildiği bloklar: hava, su, meşale, ateş (MC)
+function fallThrough(id) { return id === 0 || id === 16 || id === 21 || id === 86; }
 
 export class FallSim {
   constructor() { this.q = new Queue(); this.fallers = []; this.geo = null; this._scene = null; }

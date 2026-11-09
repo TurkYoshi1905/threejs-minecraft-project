@@ -44,7 +44,7 @@ function isOpaqueFast(id) {
   return id < 128 ? OPAQUE_LUT[id] === 1 : true;
 }
 
-export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y, WORLD_HEIGHT, getTorch, getFurnace, getDoor, getChest) {
+export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y, WORLD_HEIGHT, getTorch, getFurnace, getDoor, getChest, getTorchList) {
   const op = { pos: [], nor: [], uv: [], col: [], idx: [] };
   const tr = { pos: [], nor: [], uv: [], col: [], idx: [] };
   const em = { pos: [], nor: [], uv: [], col: [], idx: [] }; // ışık yayanlar (meşale)
@@ -54,6 +54,36 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
     if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16) return blocks[(y - MIN_Y) * 256 + lz * 16 + lx];
     return getBlockGlobal(cx * 16 + lx, y, cz * 16 + lz);
   };
+
+  // ===== IŞIK: sütun başına gökyüzü tıkanması (MC 1.21.1 benzeri ambient occlusion) =====
+  // Her (lx,lz) sütunu için, y bloktaki yüzün TAMAMEN gölgede mi yoksa açıkta mı olduğunu önceden hesapla.
+  // Yapraklar/cam saydam: gölge düşürmezler. Opak blok üst yüzdeki ışık yolunu keser -> caves/iç mekanlar karanlık.
+  const colBlocked = new Uint8Array(16 * 16 * WORLD_HEIGHT);
+  {
+    for (let lz = 0; lz < 16; lz++) {
+      for (let lx = 0; lx < 16; lx++) {
+        let solidAbove = 0;
+        for (let y = MIN_Y + WORLD_HEIGHT - 1; y >= MIN_Y; y--) {
+          colBlocked[(lz * 16 + lx) * WORLD_HEIGHT + (y - MIN_Y)] = solidAbove > 0 ? 1 : 0;
+          if (isOpaqueFast(blocks[(y - MIN_Y) * 256 + lz * 16 + lx])) solidAbove++;
+        }
+      }
+    }
+  }
+  // ===== Işık: meşaleler (seviye 14, her blok -1 taxicab) =====
+  const torchList = (typeof getTorchList === 'function') ? (getTorchList(cx, cz) || []) : [];
+  function torchLightAt(wx, y, wz) {
+    let best = 0;
+    for (let i = 0; i < torchList.length; i++) {
+      const t = torchList[i];
+      const d = Math.abs(t[0] - wx) + Math.abs(t[1] - y) + Math.abs(t[2] - wz);
+      const l = 14 - d;
+      if (l > best) best = l;
+    }
+    if (best <= 0) return 0;
+    // Hafif eğri: yüksek seviyeler daha parlak, 0'a doğru hızla düşer (MC'ye yakın)
+    return Math.pow(best / 15, 2.3);
+  }
 
   // MC meşale: ince direk, altta ortalı, X cross 2 quad. Tam küp değil.
   function addTorch(bucket, wx, y, wz, rect, facing = 0) {
@@ -97,7 +127,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
   // Üst kapak sadece en üstte (id 26), alt kapak sadece en altta (id 25). Ortada kapak/raf YOKTUR.
   // Kenarlar 3 piksellik orantılı UV ile çizilir (esneme veya bozulma olmaz).
   const DOOR_N = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]];
-  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1, isTop = false, isBottom = false) {
+  function addDoor(bucket, wx, y, wz, rect, face, open, hinge = 1, isTop = false, isBottom = false, light = 1) {
     const n = DOOR_N[face & 3] || DOOR_N[0];
     const t = [-n[2], 0, n[0]]; // panel teğeti
     const shade = Math.abs(n[0]) > 0 ? 0.8 : 0.7;
@@ -224,7 +254,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
         bucket.nor.push(...nn);
         const [u, vCoord] = q.uv[i];
         bucket.uv.push(u, vCoord);
-        bucket.col.push(shade, shade, shade);
+        bucket.col.push(shade * light, shade * light, shade * light);
       });
       bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
     }
@@ -237,6 +267,13 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
         const id = blocks[yBase + lz * 16 + lx];
         if (!id) continue;
         const b = BLOCKS[id];
+        if (id === 86) continue; // ateş: chunk mesh'te çizilmez, effects'in animasyonlu quad'ları kullanılır
+        // Yüz ışık çarpanı: gökyüzü tıkanması (ambient 0.03) veya meşale ışığı (MC seviye 1'er)
+        const wx = cx * 16 + lx, wz = cz * 16 + lz;
+        const colKey = (lz * 16 + lx) * WORLD_HEIGHT + (y - MIN_Y);
+        const blocked = colBlocked[colKey];
+        const torchF = torchLightAt(wx, y, wz);
+        const faceLight = Math.max(blocked ? 0.03 : 1.0, torchF * 0.97 + 0.03);
         // Kapı yarıları: ince panel, alt/üst doku ayrı
         if (id === 25 || id === 26) {
           const by = id === 25 ? y : y - 1;
@@ -252,7 +289,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           const rect = uvMap[tex] || uvMap['stone'];
           const isTop = id === 26;
           const isBottom = id === 25;
-          addDoor(op, wx0, y, wz0, rect, face, open, hinge, isTop, isBottom);
+          addDoor(op, wx0, y, wz0, rect, face, open, hinge, isTop, isBottom, faceLight);
           continue;
         }
         // Meşale özel: komşuya bakmadan her zaman cross çiz (desteksiz küçük model)
@@ -293,7 +330,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
               rect.u0 + (rect.u1 - rect.u0) * fu,
               rect.v0 + (rect.v1 - rect.v0) * fv
             );
-            bucket.col.push(tint[0] * f.shade, tint[1] * f.shade, tint[2] * f.shade);
+            bucket.col.push(tint[0] * f.shade * faceLight, tint[1] * f.shade * faceLight, tint[2] * f.shade * faceLight);
           });
           bucket.idx.push(base, base + 1, base + 2, base + 2, base + 3, base);
         }

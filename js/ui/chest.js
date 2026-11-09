@@ -1,5 +1,7 @@
 import { BLOCKS } from '../world/blocks.js';
 import { ITEMS } from '../world/items.js';
+import { nameOf } from '../core/names.js';
+import { t } from '../core/i18n.js';
 
 // Sandık paneli (MC): tek 27 / çift 54 slot + çanta aynası.
 // Yarılar ayrı 27'lik depolar; çift görünümde yan yana birleşir.
@@ -186,7 +188,7 @@ export class ChestUI {
       const kind = content.kind || kindOf(content.id);
       const img = document.createElement('img');
       img.src = this.getIcon(content.id, kind);
-      img.alt = kind === 'item' ? (ITEMS[content.id]?.ad || '') : (BLOCKS[content.id]?.ad || '');
+      img.alt = nameOf(kind, content.id);
       img.title = img.alt;
       img.draggable = false;
       d.appendChild(img);
@@ -241,7 +243,7 @@ export class ChestUI {
   renderAll() {
     if (!this.el.grid) return;
     const hs = this.halves();
-    if (this.el.title) this.el.title.textContent = hs.length > 1 ? 'Büyük Sandık' : 'Sandık';
+    if (this.el.title) this.el.title.textContent = hs.length > 1 ? t('chest.double') : t('chest.single');
     this.el.grid.innerHTML = '';
     // CSS id seçicisi #chestGrid kullandığı için className değil classList ile double ekle/kaldır
     if (hs.length > 1) {

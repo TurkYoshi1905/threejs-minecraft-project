@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Minecraft Three.js Projesi⛏️</title>
+  <title>Three.js Minecraft ⛏️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>" />
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,7 +12,7 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+        "three": "./vendor/three.module.js"
       }
     }
   </script>
@@ -20,14 +20,34 @@
 <body>
   <canvas id="game"></canvas>
 
+  <!-- ============ İLK GİRİŞ MODALI (bir kez gösterilir) ============ -->
+  <div id="firstRunModal" class="fr-modal" style="display:none">
+    <div class="fr-backdrop"></div>
+    <div class="fr-panel">
+      <img class="fr-logo" src="assets/logo.png" alt="Three.js Minecraft" onerror="this.style.display='none'" />
+      <div class="fr-eyebrow" data-i18n="firstRun.eyebrow">THIRD PERSON</div>
+      <h1 class="fr-title" data-i18n="firstRun.title">Three.js Minecraft'a Hoş Geldin</h1>
+      <p class="fr-desc" data-i18n="firstRun.desc">Maceraya başlamadan önce kendini tanıt.</p>
+      <label class="fr-label" for="frName" data-i18n="firstRun.nameLabel">Oyuncu Adı</label>
+      <input id="frName" class="fr-input" maxlength="16" autocomplete="off" spellcheck="false" data-i18n-placeholder="firstRun.namePlaceholder" placeholder="Steve" />
+      <div class="fr-label" data-i18n="firstRun.langLabel">Oyun Dili</div>
+      <div class="fr-lang-row">
+        <button id="frLangTr" class="fr-lang-btn active" type="button">Türkçe</button>
+        <button id="frLangEn" class="fr-lang-btn" type="button">English</button>
+      </div>
+      <button id="frStart" class="fr-start" type="button" data-i18n="firstRun.start">Oyuna Başla ⛏️</button>
+      <div class="fr-error" id="frError"></div>
+    </div>
+  </div>
+
   <!-- Crosshair -->
   <div id="crosshair">+</div>
 
   <!-- Üst bilgi -->
   <div id="info">
     <div><b>Three.js Minecraft</b> | <span id="fps">60</span> FPS | XYZ: <span id="coords">0, 0, 0</span></div>
-    <div id="seedInfo">Seed yükleniyor...</div>
-    <div id="help-hint">WASD yürü • Sol basılı-kır • Sağ koy • 1-0 seç • E envanter • T sohbet</div>
+    <div id="seedInfo" data-i18n="hud.seed">Seed yükleniyor...</div>
+    <div id="help-hint" data-i18n="hud.help">WASD yürü • Sol basılı-kır • Sağ koy • 1-0 seç • E envanter • T sohbet</div>
   </div>
 
   <!-- Açılış splash: her girişte tam ekran logo, sonra menüye geçiş -->
@@ -45,31 +65,31 @@
     </div>
 
     <p class="mc-sub">
-      Sonsuz Chunk • <span id="menuSeed"></span>
+      <span data-i18n="menu.subtitle">Sonsuz Chunk</span> • <span id="menuSeed"></span>
     </p>
 
     <!-- Ana ekran -->
     <div id="menuMain" class="mc-screen">
-      <button id="btnSingle" class="mc-btn big">🗺️ Tek Oyunculu</button>
-      <button id="btnSettings" class="mc-btn big">⚙️ Ayarlar</button>
-      <button id="btnHelpMenu" class="mc-btn big">❓ Nasıl Oynanır</button>
-      <div class="mc-footer">Three.js Minecraft v2.1 • MC 1.21.1 Uyumlu (Y: -64..319) • <span id="worldCount"></span> Dünya</div>
+      <button id="btnSingle" class="mc-btn big" data-i18n="menu.single">🗺️ Tek Oyunculu</button>
+      <button id="btnSettings" class="mc-btn big" data-i18n="menu.settings">⚙️ Ayarlar</button>
+      <button id="btnHelpMenu" class="mc-btn big" data-i18n="menu.howto">❓ Nasıl Oynanır</button>
+      <div class="mc-footer"><span id="menuFooterText" data-i18n="brand.footer">Three.js Minecraft v2.1 • MC 1.21.1 Uyumlu (Y: -64..319)</span></div>
     </div>
 
     <!-- Tek oyunculu / Dünya seçimi (Minecraft 1.21 Tarzı Geniş Liste) -->
     <div id="menuSingle" class="mc-screen mc-screen-full hidden">
       <div class="mc-screen-header">
-        <h2>🌍 Dünya Seç</h2>
+        <h2 data-i18n="menu.worldSelect">🌍 Dünya Seç</h2>
       </div>
       <div id="worldPanel" class="world-panel-full">
-        <div id="worldList"><div class="world-empty">Dünyalar yükleniyor...</div></div>
+        <div id="worldList"><div class="world-empty" data-i18n="menu.worldsLoading">Dünyalar yükleniyor...</div></div>
       </div>
       <div class="mc-screen-footer">
         <div class="btn-grid-2">
-          <button id="playBtn" class="mc-btn green">▶ Seçili Dünyada Oyna</button>
-          <button id="btnOpenCreate" class="mc-btn">+ Yeni Dünya Oluştur</button>
-          <button id="btnDeleteSelected" class="mc-btn red">🗑️ Dünyayı Sil</button>
-          <button id="btnBackMain" class="mc-btn">← Ana Menü</button>
+          <button id="playBtn" class="mc-btn green" data-i18n="menu.playSelected">▶ Seçili Dünyada Oyna</button>
+          <button id="btnOpenCreate" class="mc-btn" data-i18n="menu.newWorld">+ Yeni Dünya Oluştur</button>
+          <button id="btnDeleteSelected" class="mc-btn red" data-i18n="menu.deleteWorld">🗑️ Dünyayı Sil</button>
+          <button id="btnBackMain" class="mc-btn" data-i18n="common.back">← Ana Menü</button>
         </div>
       </div>
     </div>
@@ -77,10 +97,10 @@
     <!-- Yeni Dünya Oluşturma Ekranı (Minecraft 1.21 Tarzı Ayrı Bölmeler) -->
     <div id="menuCreateWorld" class="mc-screen mc-screen-full hidden">
       <div class="mc-screen-header">
-        <h2>✨ Yeni Dünya Oluştur</h2>
+        <h2 data-i18n="create.title">✨ Yeni Dünya Oluştur</h2>
         <div class="create-tabs">
-          <button id="tabBtnGame" class="create-tab-btn active" type="button">🎮 Oyun</button>
-          <button id="tabBtnWorld" class="create-tab-btn" type="button">🌍 Dünya</button>
+          <button id="tabBtnGame" class="create-tab-btn active" type="button" data-i18n="create.tabGame">🎮 Oyun</button>
+          <button id="tabBtnWorld" class="create-tab-btn" type="button" data-i18n="create.tabWorld">🌍 Dünya</button>
         </div>
       </div>
 
@@ -88,18 +108,18 @@
         <!-- Bölme 1: Oyun Ayarları -->
         <div id="tabPaneGame" class="create-tab-pane">
           <div class="create-group">
-            <label for="worldName" class="create-label">Dünya Adı</label>
-            <input id="worldName" class="mc-input big" maxlength="32" placeholder="Yeni Dünya" value="Yeni Dünya" />
-            <span class="create-hint">Kayıt listenizde görünecek isim</span>
+            <label for="worldName" class="create-label" data-i18n="create.worldName">Dünya Adı</label>
+            <input id="worldName" class="mc-input big" maxlength="32" data-i18n-placeholder="create.worldNameHint" data-i18n-value="create.worldNameHint" value="Yeni Dünya" />
+            <span class="create-hint" data-i18n="create.worldNameHint">Kayıt listenizde görünecek isim</span>
           </div>
 
           <div class="create-group">
-            <label class="create-label">Oyun Modu</label>
-            <button id="btnToggleMode" class="mc-btn mode-toggle-btn" type="button">Oyun Modu: Hayatta Kalma</button>
+            <label class="create-label" data-i18n="create.gameMode">Oyun Modu</label>
+            <button id="btnToggleMode" class="mc-btn mode-toggle-btn" type="button" data-i18n="create.gameModeSurvival">Oyun Modu: Hayatta Kalma</button>
             <input id="worldMode" type="hidden" value="survival" />
             <div id="modeDescription" class="create-desc-box">
-              <span class="mode-desc-title">Hayatta Kalma Modu</span>
-              <span class="mode-desc-text">Kaynak topla, alet üret, seviye kazan, can ve açlık yönet.</span>
+              <span class="mode-desc-title" data-i18n="create.modeSurvivalTitle">Hayatta Kalma Modu</span>
+              <span class="mode-desc-text" data-i18n="create.modeSurvivalDesc">Kaynak topla, alet üret, seviye kazan, can ve açlık yönet.</span>
             </div>
           </div>
         </div>
@@ -107,62 +127,60 @@
         <!-- Bölme 2: Dünya Ayarları -->
         <div id="tabPaneWorld" class="create-tab-pane hidden">
           <div class="create-group">
-            <label for="worldSeed" class="create-label">Dünya Tohumu (Seed)</label>
+            <label for="worldSeed" class="create-label" data-i18n="create.seed">Dünya Tohumu (Seed)</label>
             <div class="seed-row">
-              <input id="worldSeed" class="mc-input" maxlength="64" placeholder="Boş bırakırsanız rastgele oluşturulur" />
-              <button id="randomSeedBtn" class="mc-btn" type="button" title="Rastgele Seed">🎲 Rastgele</button>
+              <input id="worldSeed" class="mc-input" maxlength="64" data-i18n-placeholder="create.seedPlaceholder" />
+              <button id="randomSeedBtn" class="mc-btn" type="button" data-i18n="create.random" data-i18n-title="create.random">🎲 Rastgele</button>
             </div>
-            <span class="create-hint">Aynı seed her zaman aynı araziyi ve biyomları üretir</span>
+            <span class="create-hint" data-i18n="create.seedHint">Aynı seed her zaman aynı araziyi ve biyomları üretir</span>
           </div>
 
           <div class="create-group">
-            <label class="create-label">Dünya Tipi</label>
-            <div class="static-badge-btn">Varsayılan (1.21.1 Sonsuz Voksel)</div>
-            <span class="create-hint">Y: -64..319 yükseklik sınırları, derin kayrak ve mağaralar</span>
+            <label class="create-label" data-i18n="create.worldType">Dünya Tipi</label>
+            <div class="static-badge-btn" data-i18n="create.worldTypeDefault">Varsayılan (1.21.1 Sonsuz Voksel)</div>
+            <span class="create-hint" data-i18n="create.worldTypeHint">Y: -64..319 yükseklik sınırları, derin kayrak ve mağaralar</span>
           </div>
         </div>
       </div>
 
       <div class="mc-screen-footer">
         <div class="btn-grid-2">
-          <button id="createBtn" class="mc-btn green" type="button">✔ Dünyayı Oluştur</button>
-          <button id="btnCancelCreate" class="mc-btn" type="button">← İptal</button>
+          <button id="createBtn" class="mc-btn green" type="button" data-i18n="create.create">✔ Dünyayı Oluştur</button>
+          <button id="btnCancelCreate" class="mc-btn" type="button" data-i18n="common.cancel">← İptal</button>
         </div>
       </div>
     </div>
 
     <!-- Ayarlar Menüsü -->
     <div id="menuSettings" class="mc-screen hidden">
-      <h3>⚙️ Ayarlar</h3>
+      <h3 data-i18n="settings.title">⚙️ Ayarlar</h3>
       <div id="settingsList"></div>
-      <button id="btnBackSettings" class="mc-btn">← Geri</button>
+      <button id="btnBackSettings" class="mc-btn" data-i18n="common.back2">← Geri</button>
     </div>
 
     <!-- Yardım / Kontrol Ekranı -->
     <div id="menuHelp" class="mc-screen hidden">
-      <div class="controls-info">
+      <div class="controls-info" data-i18n="help.controls" data-i18n-html>
         <p><b>W A S D</b> - Hareket | <b>Mouse</b> - Etrafına bak</p>
         <p><b>Space</b> - Zıpla / Yüz / Uç | <b>Çift-Space</b> - Uçma (Yaratıcı)</p>
-        <p><b>Sol Shift</b> - Sürün (Kenardan düşme yok) | <b>Çift-W</b> - Koş</p>
-        <p><b>Sol Tık (basılı tut)</b> - Blok Kır | <b>Sağ Tık (basılı tut)</b> - Blok Koy</p>
-        <p><b>1-0 / Tekerlek</b> - Blok Seç | <b>E</b> - Envanter | <b>T</b> - Sohbet / Komut | <b>Q</b> - Eşya At</p>
-        <p><b>/gamemode /give /setblock /tp /time /seed</b> - Sohbete yaz</p>
-        <p>Y: -64..319 • Dünya Sınırı: ±250.000 • Fırın: Sağ tıkla aç</p>
+        <p><b>Sol Shift</b> - Sürün | <b>Çift-W</b> - Koş</p>
+        <p><b>Sol Tık</b> - Blok Kır | <b>Sağ Tık</b> - Blok Koy</p>
+        <p><b>1-0</b> - Blok Seç | <b>E</b> - Envanter | <b>T</b> - Sohbet | <b>Q</b> - Eşya At</p>
       </div>
-      <button id="btnBackMain2" class="mc-btn">← Geri</button>
+      <button id="btnBackMain2" class="mc-btn" data-i18n="common.back2">← Geri</button>
     </div>
   </div>
 
   <!-- ================= DURAKLATMA MENÜSÜ (Esc) ================= -->
   <div id="pauseMenu" class="hidden">
     <div class="pause-box">
-      <h2>⏸️ Duraklatıldı</h2>
-      <button id="resumeBtn" class="mc-btn green big">▶ Oyuna Dön</button>
-      <button id="pauseSettingsBtn" class="mc-btn big">⚙️ Ayarlar</button>
-      <button id="respawnBtn2" class="mc-btn">🔄 Doğma Noktasına Git</button>
-      <button id="toMainBtn" class="mc-btn">🗺️ Ana Menü (Dünyalar)</button>
+      <h2 data-i18n="pause.title">⏸️ Duraklatıldı</h2>
+      <button id="resumeBtn" class="mc-btn green big" data-i18n="pause.resume">▶ Oyuna Dön</button>
+      <button id="pauseSettingsBtn" class="mc-btn big" data-i18n="pause.settings">⚙️ Ayarlar</button>
+      <button id="respawnBtn2" class="mc-btn" data-i18n="pause.respawn">🔄 Doğma Noktasına Git</button>
+      <button id="toMainBtn" class="mc-btn" data-i18n="pause.toMenu">🗺️ Ana Menü (Dünyalar)</button>
     </div>
-    <small>İpucu: E envanter • T sohbet • H yardım</small>
+    <small data-i18n="pause.hint">İpucu: E envanter • T sohbet • H yardım</small>
   </div>
 
   <!-- ================= AYARLAR PANELİ (Oyun İçi / Menü) ================= -->
@@ -171,15 +189,28 @@
       <div class="settings-box-inner">
         <div class="settings-header">
           <div class="settings-icon">⚙️</div>
-          <div class="settings-title" id="settingsTitle">Ayarlar<small>Three.js Minecraft</small></div>
+          <div class="settings-title" id="settingsTitle" data-i18n-html="settings.titleHtml">Ayarlar<small>Three.js Minecraft</small></div>
         </div>
         <div class="settings-controls">
-          <button id="btnAddCustomSetting" class="settings-btn-add" type="button">+ Özel Ayar Ekle</button>
-          <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;">↺ Sıfırla</button>
+          <button id="btnAddCustomSetting" class="settings-btn-add" type="button" data-i18n="settings.addCustom">+ Özel Ayar Ekle</button>
+          <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;" data-i18n="settings.reset">↺ Sıfırla</button>
+        </div>
+        <div class="setting-row setting-row-wide">
+          <span class="setting-icon-row">👤</span>
+          <span class="setting-label" data-i18n="settings.playerName">Oyuncu Adı</span>
+          <input id="playerNameInput" class="mc-input" maxlength="16" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="setting-row">
+          <span class="setting-icon-row">🌐</span>
+          <span class="setting-label" data-i18n="settings.language">Oyun Dili</span>
+          <div class="setting-slider-wrap">
+            <button id="langTrBtn" class="setting-value" type="button">Türkçe</button>
+            <button id="langEnBtn" class="setting-value" type="button">English</button>
+          </div>
         </div>
         <div id="settingsContent"></div>
         <div class="settings-footer">
-          <button id="settingsDoneBtn" class="settings-btn-done">Bitti</button>
+          <button id="settingsDoneBtn" class="settings-btn-done" data-i18n="settings.done">Bitti</button>
         </div>
       </div>
     </div>
@@ -187,32 +218,32 @@
 
   <!-- Yardım paneli (H ile açılır) -->
   <div id="helpPanel" class="hidden">
-    <h2>Nasıl Oynanır?</h2>
+    <h2 data-i18n="help.title">Nasıl Oynanır?</h2>
     <ul>
-      <li>🖱️ Başlamak için ekrana tıkla (pointer lock).</li>
-      <li>🧱 Sol tık: blok kır, Sağ tık: seçili bloğu koy.</li>
-      <li>🔢 1-0 tuşları veya mouse tekerleği ile blok seç.</li>
-      <li>🌍 Chunklar ilerledikçe üretilir, değişenler IndexedDB'ye kaydedilir.</li>
-      <li>🧱 Y sınırları: -64 (bedrock) ile 319 arası. Sınır ±250k'da kırmızı duvar.</li>
-      <li>💾 Texture'lar: Faithful Default-Java 1.21.1 (atlas)</li>
+      <li data-i18n="help.line1">🖱️ Başlamak için ekrana tıkla (pointer lock).</li>
+      <li data-i18n="help.line2">🧱 Sol tık: blok kır, Sağ tık: seçili bloğu koy.</li>
+      <li data-i18n="help.line3">🔢 1-0 tuşları veya mouse tekerleği ile blok seç.</li>
+      <li data-i18n="help.line4">🌍 Chunklar ilerledikçe üretilir, değişenler IndexedDB'ye kaydedilir.</li>
+      <li data-i18n="help.line5">🧱 Y sınırları: -64 (bedrock) ile 319 arası. Sınır ±250k'da kırmızı duvar.</li>
+      <li data-i18n="help.line6">💾 Texture'lar: Faithful Default-Java 1.21.1 (atlas)</li>
     </ul>
-    <button id="closeHelp">Kapat (E)</button>
+    <button id="closeHelp" data-i18n="help.close">Kapat (E)</button>
   </div>
 
   <!-- Border uyarısı -->
-  <div id="borderWarn" class="hidden">⚠ DÜNYA SINIRI ⚠</div>
+  <div id="borderWarn" class="hidden" data-i18n="hud.border">⚠ DÜNYA SINIRI ⚠</div>
 
   <!-- Su altı perdesi -->
   <div id="waterOverlay" class="hidden"></div>
 
   <!-- Yükleme ekranı -->
-  <div id="loading" class="hidden"><div class="load-box"><div class="load-title">⛏️ Dünya üretiliyor...</div><div id="loadingText">Başlatılıyor</div></div></div>
+  <div id="loading" class="hidden"><div class="load-box"><div class="load-title" data-i18n="hud.loading">⛏️ Dünya üretiliyor...</div><div id="loadingText" data-i18n="hud.loadingStart">Başlatılıyor</div></div></div>
 
   <!-- WebGL hatası (context oluşturulamazsa) -->
   <div id="webglError" class="hidden">
     <div class="load-box">
-      <div class="load-title">⚠️ WebGL açılamadı</div>
-      <p>Tarayıcı grafik bağlamını engelledi (çok fazla sekme/yenileme sonrası olur).</p>
+      <div class="load-title" data-i18n="webgl.title">⚠️ WebGL açılamadı</div>
+      <p data-i18n="webgl.desc">Tarayıcı grafik bağlamını engelledi (çok fazla sekme/yenileme sonrası olur).</p>
       <ol>
         <li>Diğer sekmeleri kapat, özellikle bu oyunun açık olduğu diğer sekmeleri.</li>
         <li>Tarayıcıyı tamamen kapatıp yeniden aç.</li>
@@ -237,28 +268,28 @@
   <!-- Envanter (E) -->
   <div id="invPanel" class="hidden">
     <div class="inv-box">
-      <div class="inv-title">Envanter <span id="invMode"></span><button id="invClose">✕ Kapat (E)</button></div>
+      <div class="inv-title"><span data-i18n="inv.title">Envanter</span> <span id="invMode"></span><button id="invClose" data-i18n="common.close.e">✕ Kapat (E)</button></div>
       <div id="invTabs" class="hidden">
-        <button data-tab="all" class="active">🧱 Tümü</button>
-        <button data-tab="dogal">🌿 Doğal</button>
-        <button data-tab="yapi">🏠 Yapı</button>
-        <button data-tab="degerli">💎 Değerli</button>
-        <button data-tab="alet">⛏️ Aletler</button>
-        <input id="invSearch" placeholder="🔍 Ara... (örn: taş)" />
+        <button data-tab="all" class="active" data-i18n="inv.tabsAll">🧱 Tümü</button>
+        <button data-tab="dogal" data-i18n="inv.tabNatural">🌿 Doğal</button>
+        <button data-tab="yapi" data-i18n="inv.tabBuilding">🏠 Yapı</button>
+        <button data-tab="degerli" data-i18n="inv.tabValuable">💎 Değerli</button>
+        <button data-tab="alet" data-i18n="inv.tabTools">⛏️ Aletler</button>
+        <input id="invSearch" data-i18n-placeholder="inv.searchPlaceholder" placeholder="🔍 Ara... (örn: taş)" />
       </div>
-      <div id="invCursorInfo">Sol: al/bırak • Sağ: yarısını al / 1 tane koy • Çift-tık: topla • Shift+tık: hızlı taşı</div>
+      <div id="invCursorInfo" data-i18n="inv.cursorHint">Sol: al/bırak • Sağ: yarısını al / 1 tane koy • Çift-tık: topla • Shift+tık: hızlı taşı</div>
       <div id="invGrid"></div>
       <div id="craft2Wrap">
-        <div class="inv-sub">Üretim (2x2)</div>
+        <div class="inv-sub" data-i18n="inv.crafting">Üretim (2x2)</div>
         <div class="craft-row">
           <div id="craft2Grid"></div>
           <div class="craft-arrow">➜</div>
           <div id="craft2Out"></div>
         </div>
       </div>
-      <div class="inv-sub">Çanta (27)</div>
+      <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
       <div id="invMain"></div>
-      <div class="inv-sub">Hotbar (1-0)</div>
+      <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
       <div id="invHot"></div>
     </div>
   </div>
@@ -266,16 +297,16 @@
   <!-- Çalışma Masası (3x3) -->
   <div id="tablePanel" class="hidden">
     <div class="inv-box">
-      <div class="inv-title">🔨 Çalışma Masası <button id="tableClose">✕ Kapat (E)</button></div>
-      <div id="tableHint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın • Demir+çakmak→çakmak ve çelik • 5 barut+4 kum→TNT • 9 malzeme↔1 maden bloğu (demir/altın/elmas/kömür/bakır/lapis/redstone/zümrüt)</div>
+      <div class="inv-title"><span data-i18n="table.title">🔨 Çalışma Masası</span> <button id="tableClose" data-i18n="common.close.e">✕ Kapat (E)</button></div>
+      <div id="tableHint" data-i18n="table.hint">Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın • Demir+çakmak→çakmak ve çelik • 5 barut+4 kum→TNT • 9 malzeme↔1 maden bloğu</div>
       <div class="craft-row big">
         <div id="craft3Grid"></div>
         <div class="craft-arrow">➜</div>
         <div id="craft3Out"></div>
       </div>
-      <div class="inv-sub">Çanta (27)</div>
+      <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
       <div id="tableMain"></div>
-      <div class="inv-sub">Hotbar (1-0)</div>
+      <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
       <div id="tableHot"></div>
     </div>
   </div>
@@ -283,13 +314,13 @@
   <!-- Fırın -->
   <div id="furnacePanel" class="hidden">
     <div class="inv-box">
-      <div class="inv-title">🔥 Fırın <button id="furnaceClose">✕ Kapat (E)</button></div>
-      <div id="furnHint">Üste eritilecek (cevher/kum/kütük) • Alta yakıt (kömür/odun/tahta/çubuk) • Sağ tık: 1 tane koy</div>
+      <div class="inv-title"><span data-i18n="furnace.title">🔥 Fırın</span> <button id="furnaceClose" data-i18n="common.close.e">✕ Kapat (E)</button></div>
+      <div id="furnHint" data-i18n="furnace.hint">Üste eritilecek (cevher/kum/kütük) • Alta yakıt</div>
       <div class="furn-row">
         <div class="furn-col">
-          <div class="inv-sub">Eritilecek</div>
+          <div class="inv-sub" data-i18n="furnace.input">Eritilecek</div>
           <div id="furnIn"></div>
-          <div class="inv-sub">Yakıt</div>
+          <div class="inv-sub" data-i18n="furnace.fuel">Yakıt</div>
           <div id="furnFuel"></div>
         </div>
         <div class="furn-mid">
@@ -298,13 +329,13 @@
           <div id="furnProgWrap"><div id="furnProgFill"></div></div>
         </div>
         <div class="furn-col">
-          <div class="inv-sub">Sonuç</div>
+          <div class="inv-sub" data-i18n="furnace.result">Sonuç</div>
           <div id="furnOut"></div>
         </div>
       </div>
-      <div class="inv-sub">Çanta (27)</div>
+      <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
       <div id="furnMain"></div>
-      <div class="inv-sub">Hotbar (1-0)</div>
+      <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
       <div id="furnHot"></div>
     </div>
   </div>
@@ -312,11 +343,11 @@
   <!-- Sandık Paneli -->
   <div id="chestPanel" class="hidden">
     <div class="inv-box">
-      <div class="inv-title">📦 Sandık <span id="chestTitle">Tek Sandık</span><button id="chestClose">✕ Kapat (E)</button></div>
+      <div class="inv-title"><span data-i18n="chest.title">📦 Sandık</span> <span id="chestTitle">Tek Sandık</span><button id="chestClose" data-i18n="common.close.e">✕ Kapat (E)</button></div>
       <div id="chestGrid"></div>
-      <div class="inv-sub">Çanta (27)</div>
+      <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
       <div id="chestMain"></div>
-      <div class="inv-sub">Hotbar (1-0)</div>
+      <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
       <div id="chestHot"></div>
     </div>
   </div>
@@ -324,15 +355,15 @@
 
   <!-- Ölüm ekranı -->
   <div id="deathScreen" class="hidden">
-    <h1>💀 Öldün!</h1>
+    <h1 data-i18n="death.title">💀 Öldün!</h1>
     <p id="deathMsg">Yüksekten düştün</p>
-    <button id="respawnBtn" class="mc-btn green big">Yeniden Doğ</button>
+    <button id="respawnBtn" class="mc-btn green big" data-i18n="death.respawnBtn">Yeniden Doğ</button>
   </div>
 
   <!-- Sohbet + komut (T) -->
   <div id="chatLog"></div>
   <div id="chatBox" class="hidden">
-    <input id="chatInput" maxlength="256" placeholder="Mesaj yaz veya /komut..." autocomplete="off" />
+    <input id="chatInput" maxlength="256" data-i18n-placeholder="chat.placeholder" placeholder="Mesaj yaz veya /komut..." autocomplete="off" />
   </div>
 
   <!-- Menü arka planı: döngü halinden kayan blok doku -->

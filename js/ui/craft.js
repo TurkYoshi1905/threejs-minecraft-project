@@ -1,5 +1,7 @@
 import { BLOCKS } from '../world/blocks.js';
 import { ITEMS } from '../world/items.js';
+import { nameOf } from '../core/names.js';
+import { t } from '../core/i18n.js';
 
 // Tarifler (şekilli, kırpılarak eşleşir). Çıktı blok veya eşya olabilir.
 // ID <100 blok, >=100 eşya. MC basitleştirmesi.
@@ -232,7 +234,7 @@ export class CraftUI {
       const kind = content.kind || (content.id >= 100 ? 'item' : 'block');
       const img = document.createElement('img');
       img.src = this.getIcon(content.id, kind);
-      const nm = kind === 'item' ? (ITEMS[content.id]?.ad || '') : (BLOCKS[content.id]?.ad || '');
+      const nm = nameOf(kind, content.id);
       img.alt = nm;
       img.title = nm;
       img.draggable = false;
