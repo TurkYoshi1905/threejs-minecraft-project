@@ -158,97 +158,80 @@ function showScreen(name) {
   }
 }
 
-// Settings panelini yoksa dinamik olarak oluşturur (düzgün karanlık modal)
-function ensureSettingsPanel() {
-  let panel = document.getElementById('settingsPanel');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'settingsPanel';
-    panel.className = 'hidden';
-    panel.innerHTML = `
-      <div class="settings-box">
-        <div class="settings-box-inner">
-          <div class="settings-header">
-            <div class="settings-icon">⚙️</div>
-            <div class="settings-title" id="settingsTitle">Ayarlar<small>Three.js Minecraft</small></div>
-          </div>
-          <div class="settings-controls">
-            <button id="btnAddCustomSetting" class="settings-btn-add" type="button">+ Özel Ayar Ekle</button>
-            <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;">↺ Sıfırla</button>
-          </div>
-          <div id="settingsContent"></div>
-          <div class="settings-footer">
-            <button id="settingsDoneBtn" class="settings-btn-done">Bitti</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(panel);
-  }
+// ============ AYARLAR PANELİ (kategorili, neredeyse tam ekran) ============
+// Sidebar'lı tam-ekran modal: Oyun & Görüntü / Kontroller / Ses & Altyazı / Oyuncu & Dil / Özel / Hakkında.
+const SETTINGS_CATS = [
+  { id: 'game', icon: '🎮', key: 'settings.catGame' },
+  { id: 'controls', icon: '🖱️', key: 'settings.catControls' },
+  { id: 'audio', icon: '🔊', key: 'settings.catAudio' },
+  { id: 'player', icon: '👤', key: 'settings.catPlayer' },
+  { id: 'custom', icon: '🛠️', key: 'settings.catCustom' },
+  { id: 'about', icon: 'ℹ️', key: 'settings.catAbout' },
+];
+let settingsTab = 'game';
+// Sekme metninden baştaki emojiyi at (ikon ayrı gösteriliyor; yoksa çift görünür)
+const LEADING_EMOJI = /^(\p{Extended_Pictographic}(\uFE0F|\u200D\p{Extended_Pictographic})*\s*)+/u;
+const cleanLabel = (s) => String(s).replace(LEADING_EMOJI, '');
 
-  const btnAdd = document.getElementById('btnAddCustomSetting');
-  if (btnAdd) {
-    btnAdd.onclick = () => {
-      const name = prompt('Özel ayar adı (örn: FOV, Ses, Mavi):');
-      if (!name || !name.trim()) return;
-      const key = name.trim().replace(/\s+/g, '_').toLowerCase();
-      if (window.customSettings[key]) {
-        alert('Bu isimde bir ayar zaten var!');
-        return;
-      }
-      const value = prompt('Ayar değeri (örn: 90, açık, yüksek):');
-      if (value === null) return;
-      window.customSettings[key] = value.trim() || '1';
-      saveCustomSettings();
-      renderSettings();
-    };
-  }
-
-  const btnReset = document.getElementById('btnResetCustomSetting');
-  if (btnReset) {
-    btnReset.onclick = () => {
-      if (!confirm('Tüm özel ayarları silmek istediğinize emin misiniz?')) return;
-      window.customSettings = {};
-      saveCustomSettings();
-      renderSettings();
-    };
-  }
-
-  const doneBtn = document.getElementById('settingsDoneBtn');
-  if (doneBtn) {
-    doneBtn.onclick = () => {
-      panel.classList.add('hidden');
-      if (typeof window.closePauseSettings === 'function') window.closePauseSettings();
-    };
-  }
-
-  return panel;
+function closeSettingsPanel() {
+  const p = document.getElementById('settingsPanel');
+  if (p) p.classList.add('hidden');
 }
 
-function renderSettings() {
-  const panel = ensureSettingsPanel();
-  const box = document.getElementById('settingsContent');
-  if (!box) {
-    console.warn('[menu] #settingsContent elementi oluşturulamadı');
-    return;
-  }
+function sectionLabel(text) {
+  const d = document.createElement('div');
+  d.className = 'setting-section-label';
+  d.textContent = text;
+  return d;
+}
+function iconSpan(icon) {
+  const s = document.createElement('span');
+  s.className = 'setting-icon-row';
+  s.textContent = icon;
+  return s;
+}
+function labelSpan(text) {
+  const s = document.createElement('span');
+  s.className = 'setting-label';
+  s.textContent = text;
+  return s;
+}
+function enumRow({ icon, label, values, get, set }) {
+  const row = document.createElement('div');
+  row.className = 'setting-row';
+  row.appendChild(iconSpan(icon));
+  row.appendChild(labelSpan(label));
+  const value = document.createElement('button');
+  value.type = 'button';
+  value.className = 'setting-value';
+  value.textContent = get();
+  value.onclick = () => {
+    const vals = values;
+    let idx = vals.indexOf(get());
+    if (idx < 0) idx = 0;
+    const next = vals[(idx + 1) % vals.length];
+    set(next);
+    value.textContent = next;
+    saveGameSettings();
+  };
+  row.appendChild(value);
+  return row;
+}
+function fovRow() {
   const gs = window.gameSettings;
-  box.innerHTML = '';
-
-  // FOV Ayarı (Slider + Sayı Girişi - MC 1.21.1: 30 - 110)
-  const fovRow = document.createElement('div');
-  fovRow.className = 'setting-row';
+  const row = document.createElement('div');
+  row.className = 'setting-row';
   const curFov = typeof gs.fov === 'number' ? gs.fov : 70;
-  fovRow.innerHTML = `
-    <span class="setting-icon-row" style="font-size: 17px; min-width: 28px; text-align: center;">👁️</span>
+  row.innerHTML = `
+    <span class="setting-icon-row">👁️</span>
     <span class="setting-label">${t('settings.fov')}</span>
     <div class="setting-slider-wrap">
-      <input type="range" class="setting-range" min="30" max="110" step="1" value="${curFov}">
-      <input type="number" class="setting-num" min="30" max="110" step="1" value="${curFov}">
+      <input type="range" class="setting-range" min="30" max="110" step="1" value="${curFov}" aria-label="FOV range">
+      <input type="number" class="setting-num" min="30" max="110" step="1" value="${curFov}" aria-label="FOV">
     </div>
   `;
-  const rangeInput = fovRow.querySelector('.setting-range');
-  const numInput = fovRow.querySelector('.setting-num');
+  const rangeInput = row.querySelector('.setting-range');
+  const numInput = row.querySelector('.setting-num');
   const updateFov = (val) => {
     let n = Math.round(Number(val));
     if (isNaN(n)) n = 70;
@@ -260,157 +243,167 @@ function renderSettings() {
   };
   rangeInput.oninput = (e) => updateFov(e.target.value);
   numInput.onchange = (e) => updateFov(e.target.value);
-  box.appendChild(fovRow);
+  return row;
+}
 
-  const rows = [
-    {
-      key: 'renderDistance',
-      label: t('settings.renderDist'),
-      icon: '🔭',
-      values: [2, 4, 6, 8, 10, 12],
-      get: () => gs.renderDistance,
-      set: (v) => { gs.renderDistance = +v; },
-    },
-    {
-      key: 'graphics',
-      label: t('settings.graphics'),
-      icon: '🖥️',
-      values: [t('settings.fast'), t('settings.fancy')],
-      get: () => gs.graphics === 'güzel' ? t('settings.fancy') : t('settings.fast'),
-      set: (v) => { gs.graphics = v === t('settings.fancy') ? 'güzel' : 'hizli'; },
-    },
-    {
-      key: 'particles',
-      label: t('settings.particles'),
-      icon: '✨',
-      values: [t('settings.particlesFull'), t('settings.particlesReduced'), t('settings.particlesOff')],
-      get: () => gs.particles === 'azaltilmis' ? t('settings.particlesReduced') : (gs.particles === 'kapali' ? t('settings.particlesOff') : t('settings.particlesFull')),
-      set: (v) => {
-        gs.particles = v === t('settings.particlesFull') ? 'tam' : (v === t('settings.particlesReduced') ? 'azaltilmis' : 'kapali');
-      },
-    },
-    {
-      key: 'invertMouse',
-      label: t('settings.invertMouse'),
-      icon: '🖱️',
-      values: [t('settings.off'), t('settings.on')],
-      get: () => gs.invertMouse ? t('settings.on') : t('settings.off'),
-      set: (v) => { gs.invertMouse = v === t('settings.on'); },
-    },
-    {
-      key: 'mouseSensitivity',
-      label: t('settings.mouseSens'),
-      icon: '⚡',
-      values: ['%50', '%75', '%100', '%125', '%150'],
-      get: () => Math.round(gs.mouseSensitivity) + '%',
-      set: (v) => { gs.mouseSensitivity = +v.replace('%', ''); },
-    },
-    {
-      key: 'subtitles',
-      label: t('settings.subtitles'),
-      icon: '💬',
-      values: [t('settings.off'), t('settings.on')],
-      get: () => gs.subtitles ? t('settings.on') : t('settings.off'),
-      set: (v) => { gs.subtitles = v === t('settings.on'); },
-    },
-    {
-      key: 'volume',
-      label: t('settings.volume'),
-      icon: '🔊',
-      values: ['%0', '%25', '%50', '%75', '%100'],
-      get: () => Math.round(gs.volume) + '%',
-      set: (v) => { gs.volume = +v.replace('%', ''); },
-    },
-  ];
-
-  // Sistem ayar satırları
-  for (const row of rows) {
-    const container = document.createElement('div');
-    container.className = 'setting-row';
-
-    const icon = document.createElement('span');
-    icon.className = 'setting-icon-row';
-    icon.textContent = row.icon;
-    icon.style.cssText = 'font-size: 17px; min-width: 28px; text-align: center;';
-
-    const label = document.createElement('span');
-    label.className = 'setting-label';
-    label.textContent = row.label;
-
-    const value = document.createElement('button');
-    value.className = 'setting-value';
-    value.textContent = row.get();
-    value.onclick = () => {
-      const vals = row.values;
-      const cur = row.get();
-      let idx = vals.indexOf(cur);
-      if (idx < 0) idx = 0;
-      const next = vals[(idx + 1) % vals.length];
-      value.textContent = next;
-      row.set(next);
-      saveGameSettings();
-    };
-
-    container.appendChild(icon);
-    container.appendChild(label);
-    container.appendChild(value);
-    box.appendChild(container);
-  }
-
-  // Özel ayarlar bölümü
-  const customKeys = Object.keys(window.customSettings);
-  if (customKeys.length > 0) {
-    const customLabel = document.createElement('div');
-    customLabel.style.cssText = 'font-size: 11px; color: #6fcf47; text-shadow: 1px 1px 0 #000; margin-top: 8px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;';
-    customLabel.textContent = t('settings.customTitle');
-    box.appendChild(customLabel);
-
-    for (const key of customKeys) {
-      const value = window.customSettings[key];
-      const container = document.createElement('div');
-      container.className = 'setting-row custom-setting-row';
-
-      const icon = document.createElement('span');
-      icon.className = 'setting-icon-row';
-      icon.textContent = '🛠️';
-      icon.style.cssText = 'font-size: 17px; min-width: 28px; text-align: center;';
-
-      const label = document.createElement('span');
-      label.className = 'setting-label';
-      label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-      const valueBtn = document.createElement('button');
-      valueBtn.className = 'setting-value';
-      valueBtn.textContent = value;
-      valueBtn.onclick = () => {
-        const newValue = prompt(t('settings.customPrompt', label.textContent), value);
-        if (newValue !== null) {
-          window.customSettings[key] = newValue.trim() || value;
-          saveCustomSettings();
-          renderSettings();
-        }
-      };
-
-      const delBtn = document.createElement('button');
-      delBtn.textContent = '🗑️';
-      delBtn.style.cssText = 'font-size: 14px; background: #333; border: 2px solid #555; border-radius: 3px; color: #fff; cursor: pointer; padding: 4px 8px; box-shadow: 0 2px 0 #000;';
-      delBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (confirm(t('settings.customDelete', label.textContent))) {
-          delete window.customSettings[key];
-          saveCustomSettings();
-          renderSettings();
-        }
-      };
-
-      container.appendChild(icon);
-      container.appendChild(label);
-      container.appendChild(valueBtn);
-      container.appendChild(delBtn);
-      box.appendChild(container);
+function renderSettings() {
+  const panel = document.getElementById('settingsPanel');
+  if (!panel) { console.warn('[menu] #settingsPanel bulunamadı'); return; }
+  const tabs = panel.querySelector('#settingsTabs');
+  if (tabs) {
+    tabs.innerHTML = '';
+    for (const cat of SETTINGS_CATS) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'settings-tab' + (cat.id === settingsTab ? ' active' : '');
+      btn.innerHTML = `<span class="tab-ic">${cat.icon}</span><span>${cleanLabel(t(cat.key))}</span>`;
+      btn.onclick = () => { settingsTab = cat.id; renderSettings(); };
+      tabs.appendChild(btn);
     }
   }
+  const cat = SETTINGS_CATS.find((c) => c.id === settingsTab) || SETTINGS_CATS[0];
+  const ci = panel.querySelector('#settingsCatIcon'); if (ci) ci.textContent = cat.icon;
+  const ct = panel.querySelector('#settingsCatTitle'); if (ct) ct.textContent = cleanLabel(t(cat.key));
+  const box = panel.querySelector('#settingsContent');
+  if (!box) return;
+  box.innerHTML = '';
+  const gs = window.gameSettings;
 
+  if (settingsTab === 'game') {
+    box.appendChild(sectionLabel(cleanLabel(t('settings.catGame'))));
+    box.appendChild(fovRow());
+    box.appendChild(enumRow({ icon: '🔭', label: t('settings.renderDist'), values: [2, 4, 6, 8, 10, 12], get: () => gs.renderDistance, set: (v) => { gs.renderDistance = +v; } }));
+    box.appendChild(enumRow({ icon: '🖥️', label: t('settings.graphics'), values: [t('settings.fast'), t('settings.fancy')], get: () => gs.graphics === 'güzel' ? t('settings.fancy') : t('settings.fast'), set: (v) => { gs.graphics = v === t('settings.fancy') ? 'güzel' : 'hizli'; } }));
+    box.appendChild(enumRow({ icon: '✨', label: t('settings.particles'), values: [t('settings.particlesFull'), t('settings.particlesReduced'), t('settings.particlesOff')], get: () => gs.particles === 'azaltilmis' ? t('settings.particlesReduced') : (gs.particles === 'kapali' ? t('settings.particlesOff') : t('settings.particlesFull')), set: (v) => { gs.particles = v === t('settings.particlesFull') ? 'tam' : (v === t('settings.particlesReduced') ? 'azaltilmis' : 'kapali'); } }));
+  } else if (settingsTab === 'controls') {
+    box.appendChild(sectionLabel(cleanLabel(t('settings.catControls'))));
+    box.appendChild(enumRow({ icon: '🖱️', label: t('settings.invertMouse'), values: [t('settings.off'), t('settings.on')], get: () => gs.invertMouse ? t('settings.on') : t('settings.off'), set: (v) => { gs.invertMouse = v === t('settings.on'); } }));
+    box.appendChild(enumRow({ icon: '⚡', label: t('settings.mouseSens'), values: ['%50', '%75', '%100', '%125', '%150'], get: () => Math.round(gs.mouseSensitivity) + '%', set: (v) => { gs.mouseSensitivity = +v.replace('%', ''); } }));
+  } else if (settingsTab === 'audio') {
+    box.appendChild(sectionLabel(cleanLabel(t('settings.catAudio'))));
+    box.appendChild(enumRow({ icon: '🔊', label: t('settings.volume'), values: ['%0', '%25', '%50', '%75', '%100'], get: () => Math.round(gs.volume) + '%', set: (v) => { gs.volume = +v.replace('%', ''); } }));
+    box.appendChild(enumRow({ icon: '💬', label: t('settings.subtitles'), values: [t('settings.off'), t('settings.on')], get: () => gs.subtitles ? t('settings.on') : t('settings.off'), set: (v) => { gs.subtitles = v === t('settings.on'); } }));
+  } else if (settingsTab === 'player') {
+    box.appendChild(sectionLabel(cleanLabel(t('settings.catPlayer'))));
+    const nameRow = document.createElement('div');
+    nameRow.className = 'setting-row';
+    nameRow.appendChild(iconSpan('👤'));
+    nameRow.appendChild(labelSpan(t('settings.playerName')));
+    const nameInput = document.createElement('input');
+    nameInput.className = 'mc-input';
+    nameInput.id = 'playerNameInput';
+    nameInput.maxLength = 16;
+    nameInput.autocomplete = 'off';
+    nameInput.spellcheck = false;
+    nameInput.value = getPlayerName();
+    nameInput.addEventListener('change', () => { setPlayerName(nameInput.value); nameInput.value = getPlayerName(); });
+    nameRow.appendChild(nameInput);
+    box.appendChild(nameRow);
+    const langRow = document.createElement('div');
+    langRow.className = 'setting-row';
+    langRow.appendChild(iconSpan('🌐'));
+    langRow.appendChild(labelSpan(t('settings.language')));
+    const wrap = document.createElement('div');
+    wrap.className = 'setting-slider-wrap';
+    for (const [lang, label] of [['tr', 'Türkçe'], ['en', 'English']]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'setting-value' + (getLang() === lang ? ' active' : '');
+      b.textContent = label;
+      b.onclick = () => { setLang(lang); applyI18n(); renderSettings(); };
+      wrap.appendChild(b);
+    }
+    langRow.appendChild(wrap);
+    box.appendChild(langRow);
+    const hint = document.createElement('div');
+    hint.className = 'setting-section-label';
+    hint.textContent = t('settings.playerNameHint');
+    box.appendChild(hint);
+  } else if (settingsTab === 'custom') {
+    const controls = document.createElement('div');
+    controls.className = 'settings-controls';
+    const btnAdd = document.createElement('button');
+    btnAdd.type = 'button';
+    btnAdd.className = 'settings-btn-add';
+    btnAdd.textContent = t('settings.addCustom');
+    btnAdd.onclick = () => {
+      const name = prompt(t('settings.customNamePrompt'));
+      if (!name || !name.trim()) return;
+      const key = name.trim().replace(/\s+/g, '_').toLowerCase();
+      if (window.customSettings[key]) { alert(t('settings.customExists')); return; }
+      const value = prompt(t('settings.customValuePrompt'));
+      if (value === null) return;
+      window.customSettings[key] = value.trim() || '1';
+      saveCustomSettings();
+      renderSettings();
+    };
+    const btnReset = document.createElement('button');
+    btnReset.type = 'button';
+    btnReset.className = 'settings-btn-add danger';
+    btnReset.textContent = t('settings.reset');
+    btnReset.onclick = () => {
+      if (!confirm(t('settings.customDeleteAll'))) return;
+      window.customSettings = {};
+      saveCustomSettings();
+      renderSettings();
+    };
+    controls.appendChild(btnAdd);
+    controls.appendChild(btnReset);
+    box.appendChild(controls);
+    box.appendChild(sectionLabel(t('settings.customTitle')));
+    const keys = Object.keys(window.customSettings);
+    if (!keys.length) {
+      const empty = document.createElement('div');
+      empty.className = 'setting-row';
+      empty.innerHTML = `<span class="setting-icon-row">🛠️</span><span class="setting-label">${t('inv.empty')}</span>`;
+      box.appendChild(empty);
+    } else {
+      for (const key of keys) {
+        const value = window.customSettings[key];
+        const row = document.createElement('div');
+        row.className = 'setting-row custom-setting-row';
+        row.appendChild(iconSpan('🛠️'));
+        row.appendChild(labelSpan(key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())));
+        const valueBtn = document.createElement('button');
+        valueBtn.type = 'button';
+        valueBtn.className = 'setting-value';
+        valueBtn.textContent = value;
+        valueBtn.onclick = () => {
+          const pretty = key.replace(/_/g, ' ');
+          const newValue = prompt(t('settings.customPrompt', pretty), value);
+          if (newValue !== null) {
+            window.customSettings[key] = newValue.trim() || value;
+            saveCustomSettings();
+            renderSettings();
+          }
+        };
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'custom-del';
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = () => {
+          if (confirm(t('settings.customDelete', key.replace(/_/g, ' ')))) {
+            delete window.customSettings[key];
+            saveCustomSettings();
+            renderSettings();
+          }
+        };
+        row.appendChild(valueBtn);
+        row.appendChild(delBtn);
+        box.appendChild(row);
+      }
+    }
+  } else if (settingsTab === 'about') {
+    const wrap = document.createElement('div');
+    wrap.className = 'settings-about';
+    wrap.innerHTML = `
+      <div class="about-mark" aria-hidden="true">⛏️</div>
+      <div class="about-badge">MC 1.21.1 • v2.1</div>
+      <p>${t('settings.aboutText')}</p>
+      <p><a href="https://github.com/TurkYoshi1905/threejs-minecraft-project" target="_blank" rel="noopener noreferrer">github.com/TurkYoshi1905/threejs-minecraft-project</a></p>
+    `;
+    box.appendChild(wrap);
+  }
   panel.classList.remove('hidden');
 }
 
@@ -696,45 +689,16 @@ async function boot() {
 
 boot();
 
-// ============ Ayarlar paneli: oyuncu adı + dil bağlama ============
-(function bindPlayerControls() {
-  try {
-    const nameInput = document.getElementById('playerNameInput');
-    if (nameInput) {
-      nameInput.value = getPlayerName();
-      nameInput.addEventListener('change', () => {
-        setPlayerName(nameInput.value);
-        nameInput.value = getPlayerName();
-      });
-    }
-    const trBtn = document.getElementById('langTrBtn');
-    const enBtn = document.getElementById('langEnBtn');
-    const refreshActive = () => {
-      const lang = getLang();
-      trBtn?.classList.toggle('active', lang === 'tr');
-      enBtn?.classList.toggle('active', lang === 'en');
-    };
-    const apply = (lang) => {
-      setLang(lang);
-      applyI18n();
-      refreshActive();
-    };
-    trBtn?.addEventListener('click', () => apply('tr'));
-    enBtn?.addEventListener('click', () => apply('en'));
-    refreshActive();
-  } catch (e) { console.warn('[bindPlayerControls]', e); }
-})();
+// ---- Ayarlar paneli: kapatma düğmeleri + dışa açık API (main.js çağırır) ----
+try {
+  document.getElementById('settingsDoneBtn')?.addEventListener('click', closeSettingsPanel);
+  document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsPanel);
+} catch {}
 
-// ---- Duraklatma menüsü ayar butonu (main.js tarafından çağrılabilir) ----
 window.openPauseSettings = function() {
   renderSettings();
   const t2 = document.getElementById('settingsTitle');
   if (t2) t2.innerHTML = t('settings.titleHtml');
-  const doneBtn = document.getElementById('settingsDoneBtn');
-  if (doneBtn) doneBtn.textContent = t('settings.close');
 };
 
-window.closePauseSettings = function() {
-  const p = document.getElementById('settingsPanel');
-  if (p) p.classList.add('hidden');
-};
+window.closePauseSettings = closeSettingsPanel;

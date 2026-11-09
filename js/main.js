@@ -204,9 +204,9 @@ function updateTorchLights() {
     const L = torchLights[i];
     if (i < near.length) {
       L.position.set(near[i][1] + 0.5, near[i][2] + 0.7, near[i][3] + 0.5);
-      // MC ışık titremesi: hafif sinüs tabanlı dalgalanma (ateşin biraz daha güçlü)
+      // Sabit parlama (MC meşale/ateş seviyesi sabittir) — sin-titremesi kaldırıldı (ışık seviyesi geçişi yok)
       L.color.setHex(near[i][4] === 33 ? 0xff9d3c : 0xffb648);
-      L.intensity = near[i][4] + Math.sin(performance.now() / 190 + i * 2.3) * (near[i][4] === 33 ? 6 : 5);
+      L.intensity = near[i][4];
     } else L.intensity = 0;
   }
 }
@@ -499,7 +499,7 @@ function damage(n, reason) {
   hurtFlash();
   if (player.health <= 0) kill(reason);
 }
-function kill(reason = 'Öldün') {
+function kill(reason = t('death.defaultReason')) {
   if (player.dead) return;
   if (GAMEMODE !== 'survival') { toast(t('msg.noKillCreative')); return; }
   player.dead = true;
@@ -530,7 +530,7 @@ async function setGamemode(mode) {
   updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar();
   inventory?.setMode(GAMEMODE);
   renderHotbar();
-  if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? 'Hayatta Kalma: kalpler aktif, dikkatli ol!' : 'Yaratıcı: çift-Space ile uçma, envanter korunur');
+  if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? t('msg.welcomeSurvival') : t('msg.welcomeCreative'));
   try {
     const w = await dbWorlds.get(WORLD_ID);
     if (w) { w.gamemode = GAMEMODE; w.lastPlayed = Date.now(); await dbWorlds.put(w); }
@@ -661,7 +661,7 @@ function renderHotbar() {
     d.className = 'slot' + (i === selected ? ' selected' : '');
     const id = s?.id;
     const kind = s ? (s.kind || (s.id >= 100 ? 'item' : 'block')) : null;
-    const label = s ? slotName(s) : 'Boş';
+    const label = s ? slotName(s) : t('inv.empty');
     const cnt = s && s.count > 1 ? `<span class="cnt2">${s.count}</span>` : '';
     let dur = '';
     if (kind === 'item' && ITEMS[id]?.tool) {
@@ -682,8 +682,8 @@ function renderHotbar() {
   const sel = inventory ? inventory.selectedSlot() : null;
   const sid = selectedId();
   const tid = selectedToolId();
-  if (sel && (sel.kind || (sel.id >= 100 ? 'item' : 'block')) === 'item') selNameEl.textContent = ITEMS[sel.id]?.ad || '';
-  else selNameEl.textContent = sid && BLOCKS[sid] ? BLOCKS[sid].ad : '';
+  if (sel && (sel.kind || (sel.id >= 100 ? 'item' : 'block')) === 'item') selNameEl.textContent = itemName(sel.id) || '';
+  else selNameEl.textContent = sid && BLOCKS[sid] ? blockName(sid) : '';
   clearTimeout(renderHotbar._t);
   renderHotbar._t = setTimeout(() => selNameEl.textContent = '', 1500);
 }
@@ -732,6 +732,17 @@ function deathHidden() { return document.getElementById('deathScreen').classList
 function anyOverlay() {
   const settingsOpen = !!(document.getElementById('settingsPanel') && !document.getElementById('settingsPanel').classList.contains('hidden'));
   return settingsOpen || (inventory && inventory.isOpen) || (chat && chat.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen) || !deathHidden();
+}
+// Oyun panelleri açıkken oyuncu WASD ile yürüyebilir (MC hissi) — tam menülerden FARKLI.
+// Pause menüsü ve sohbet buraya dahil değil; orada girdiler menüye aittir.
+function anyGamePanel() {
+  return !!((inventory && inventory.isOpen) || (craftTable && craftTable.isOpen) || (furnaceUI && furnaceUI.isOpen) || (chestUI && chestUI.isOpen));
+}
+function canControlPlayer() {
+  if (player.dead || !worldReady || !hasStarted) return false;
+  if (chat && chat.isOpen) return false;
+  if (locked) return true;
+  return anyGamePanel(); // envanter/masa/fırın/sandık açıkken yürüyüş devam eder
 }
 function dropOverflowAtPlayer(id, count, kind = null) {
   // çanta dolunca üretilenler yere düşer (blok+eşya)
@@ -843,32 +854,122 @@ function toggleDoor(x, y, z) {
   renderHotbar();
   saveAll();
 }
-function pairChest(x, y, z) {
-  // Komşu TEK sandıklardan ilk uygunla eşleş; yön komşununkine uyar (MC).
-  // Yetim (partneri kırılmış) komşular TEK sandık sayılır ve yeniden eşleşir.
-  const mine = chestMgr.get(x, y, z);
-  const ord = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  for (const [dx, dz] of ord) {
-    const nx = x + dx, nz = z + dz;
-    if (chunkManager.getBlock(nx, y, nz) !== 27) continue;
-    const nb = chestMgr.peek(nx, y, nz);
-    if (!nb) continue;
-    if (nb.paired) {
-      // Partner gerçekte hâlâ var mı? Yetimse temizle ve eşle
-      const [ax, ay, az] = nb.paired.split(',').map(Number);
-      const pa = chestMgr.peek(ax, ay, az);
-      if (pa) continue;
-      nb.paired = null;
+// "x,y,z" → {x, y, z} (yetim kayıtları çözmek için)
+function parseChestKey(k) {
+  const p = (k || '').split(',');
+  return { x: +p[0] || 0, y: +p[1] || 0, z: +p[2] || 0 };
+}
+function chestCellIsChest(x, y, z) {
+  // Yüklenmemiş chunk = bilinmiyor (dokunma); yok=0/katı. Sadece "sandık mı" sorusuna cevap arar.
+  try { return chunkManager ? chunkManager.getBlockOrUnknown(x, y, z) === 27 : false; } catch { return false; }
+}
+function meshChestCell(x, y, z) {
+  try {
+    const cx = Math.floor(x / 16), cz = Math.floor(z / 16);
+    chunkManager.enqueueMesh(cx, cz);
+    if (x - cx * 16 === 0) chunkManager.enqueueMesh(cx - 1, cz);
+    if (x - cx * 16 === 15) chunkManager.enqueueMesh(cx + 1, cz);
+    if (z - cz * 16 === 0) chunkManager.enqueueMesh(cx, cz - 1);
+    if (z - cz * 16 === 15) chunkManager.enqueueMesh(cx, cz + 1);
+  } catch {}
+}
+// Sandık bloğu yok oldu (kırıldı / TNT / /setblock ile ezildi): içindekiler 4 yöne saçılır,
+// partner çiftse tek'e döner. Tüm yıkım yollarının TEK köprüsü (MC: içerik asla kaybolmaz).
+function destroyChestBlock(x, y, z) {
+  try {
+    const cst = chestMgr.peek(x, y, z);
+    if (cst) {
+      for (const slot of cst.slots) {
+        if (!slot) continue;
+        const sk = slot.kind || (slot.id >= 100 ? 'item' : 'block');
+        const n = (sk === 'item' && ITEMS[slot.id]?.tool) ? 1 : slot.count;
+        for (let i = 0; i < n; i++) effects?.spawnDrop(slot.id, x, y, z, null, sk, slot.dur);
+      }
+      if (cst.paired) {
+        const { x: px, y: py, z: pz } = parseChestKey(cst.paired);
+        const ps = chestMgr.peek(px, py, pz);
+        if (ps && ps.paired === chestMgr.key(x, y, z)) {
+          ps.paired = null;
+          meshChestCell(px, py, pz);
+        }
+      }
     }
-    mine.face = (nb.face | 0) & 3;
-    const mk = chestMgr.key(x, y, z), nk = chestMgr.key(nx, y, nz);
-    mine.paired = nk;
-    nb.paired = mk;
-    chunkManager.enqueueMesh(Math.floor(nx / 16), Math.floor(nz / 16));
-    chunkManager.enqueueMesh(Math.floor(x / 16), Math.floor(z / 16));
-    break;
+  } catch {}
+  try { chestMgr.remove(x, y, z); } catch {}
+  try {
+    if (chestUI?.isOpen && ((chestUI.pos?.x === x && chestUI.pos?.y === y && chestUI.pos?.z === z) ||
+        (chestUI.halves().length > 1 && chestUI.halves()[1].key === x + ',' + y + ',' + z))) chestUI.close();
+  } catch {}
+  meshChestCell(x, y, z);
+  try { saveAll(); } catch {}
+}
+// TEK KAYNAK: bir sandık hücresinin (+4 yatay komşusunun) çift durumunu MC gibi yeniden hesapla.
+// Koşul: aynı face + yatay komşu + partnerin partneri kendisi olmak zorunda. Yetim/komşu-komut
+// dahil her kenar yolu düzelir. Idempotent; her setBlock'ta (handleBlockEdit) çağrılır.
+// Sadece durum DEĞİŞTİĞİNDE mesh sıraya alınır (her blok editinde komşu chunk remesh yok).
+function syncChest(x, y, z) {
+  if (!chunkManager) return;
+  const cells = [[x, y, z]];
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) cells.push([x + dx, y, z + dz]);
+  const meshLater = new Set();
+  const mark = (bx, bz) => meshLater.add(bx + ',' + bz);
+  for (const [cx, cy, cz] of cells) {
+    if (typeof chunkManager.getBlockOrUnknown === 'function' && chunkManager.getBlockOrUnknown(cx, cy, cz) === null) continue; // yüklenmemiş
+    const isChest = chestCellIsChest(cx, cy, cz);
+    const st = chestMgr.peek(cx, cy, cz);
+    if (!isChest) {
+      if (st) destroyChestBlock(cx, cy, cz); // kayıt var, blok sandık değil → içerik yere + temizle
+      continue;
+    }
+    const s = chestMgr.get(cx, cy, cz); // kayıt yoksa oluştur (komut /setblock koyması dahil; face varsayılan 0)
+    // Mevcut partner gerçeği hâlâ karşılıyor mu? (sandık + ayna kayıt + aynı face)
+    if (s.paired) {
+      const { x: px, y: py, z: pz } = parseChestKey(s.paired);
+      const ps = chestCellIsChest(px, py, pz) ? chestMgr.peek(px, py, pz) : null;
+      if (!(ps && ps.paired === chestMgr.key(cx, cy, cz) && (ps.face | 0) === (s.face | 0))) {
+        if (ps && ps.paired === chestMgr.key(cx, cy, cz)) ps.paired = null;
+        s.paired = null;
+        mark(cx, cz);
+        if (ps) mark(px, pz);
+      }
+    }
+    if (!s.paired) {
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = cx + dx, nz = cz + dz;
+        if (!chestCellIsChest(nx, cy, nz)) continue;
+        const nb = chestMgr.get(nx, cy, nz);
+        if (nb.paired) {
+          const { x: qx, y: qy, z: qz } = parseChestKey(nb.paired);
+          const qst = chestCellIsChest(qx, qy, qz) ? chestMgr.peek(qx, qy, qz) : null;
+          // Partneri gerçekten sağlamsa bu adayı atla; yetimse temizle ve aday yap
+          if (qst && qst.paired === chestMgr.key(nx, cy, nz)) continue;
+          nb.paired = null;
+        }
+        // Yüz uyar: yeni/senkronlanan yarı mevcut komşunun yüzüne uyar (MC hissi)
+        s.face = (nb.face | 0) & 3;
+        s.paired = chestMgr.key(nx, cy, nz);
+        nb.paired = chestMgr.key(cx, cy, cz);
+        mark(cx, cz);
+        mark(nx, nz);
+        break;
+      }
+    }
+  }
+  // Yalnız DEĞİŞTİĞI blokların chunk'ı + chunk sınırındaki sandıklar için komşu chunk
+  for (const k of meshLater) {
+    const [bx, bz] = k.split(',').map(Number);
+    const cx = Math.floor(bx / 16), cz = Math.floor(bz / 16);
+    try { chunkManager.enqueueMesh(cx, cz); } catch {}
+    try {
+      const lx = bx - cx * 16, lz = bz - cz * 16;
+      if (lx === 0) chunkManager.enqueueMesh(cx - 1, cz);
+      if (lx === 15) chunkManager.enqueueMesh(cx + 1, cz);
+      if (lz === 0) chunkManager.enqueueMesh(cx, cz - 1);
+      if (lz === 15) chunkManager.enqueueMesh(cx, cz + 1);
+    } catch {}
   }
 }
+// Sandık yüzü koyma anında ve handleBlockEdit üzerinden yönetilir (pairChest kaldırıldı).
 // Dünya açılışında çağrılır: yetim/dengeli olmayan sandıkları MC gibi yeniden eşler.
 function scanChestPairs() {
   try {
@@ -876,30 +977,8 @@ function scanChestPairs() {
     const keys = [...chestMgr.map.keys()];
     for (const k of keys) {
       const [x, y, z] = k.split(',').map(Number);
-      const st = chestMgr.peek(x, y, z);
-      if (!st) continue;
-      if (st.paired) {
-        const [ax, ay, az] = st.paired.split(',').map(Number);
-        if (chestMgr.peek(ax, ay, az)) continue; // çift hâlâ bütün
-        st.paired = null; // yetim — temizle
-      }
-      const ord = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      for (const [dx, dz] of ord) {
-        const nx = x + dx, nz = z + dz;
-        if (chunkManager.getBlock(nx, y, nz) !== 27) continue;
-        const nb = chestMgr.peek(nx, y, nz);
-        if (!nb) continue;
-        if (nb.paired) {
-          const [ax, ay2, az] = nb.paired.split(',').map(Number);
-          if (chestMgr.peek(ax, ay2, az)) continue;
-          nb.paired = null;
-        }
-        st.face = (nb.face | 0) & 3;
-        st.paired = chestMgr.key(nx, y, nz);
-        nb.paired = chestMgr.key(x, y, z);
-        try { chunkManager.enqueueMesh(Math.floor(nx / 16), Math.floor(nz / 16)); chunkManager.enqueueMesh(Math.floor(x / 16), Math.floor(z / 16)); } catch {}
-        break;
-      }
+      if (typeof chunkManager.getBlockOrUnknown === 'function' && chunkManager.getBlockOrUnknown(x, y, z) === null) continue;
+      syncChest(x, y, z); // birleşik kuralı tek noktadan uygula (komut yolu dahil)
     }
   } catch {}
 }
@@ -949,11 +1028,21 @@ function refreshMenus() {
   menu.style.display = showMain ? 'flex' : 'none';
   pauseEl?.classList.toggle('hidden', !showPause);
 }
-function tryLock() {
+// Chrome: ESC ile ayrıldıktan ~1.25sn içinde yeniden kilit isteği reddedilir ("user has exited the lock").
+// Bu yüzden reddedilirse 1.4sn sonra TEK SEFER otomatik tekrar deneriz — oyun "takılı" kalmaz.
+function tryLock(attempt = 0) {
   try {
     const p = canvas.requestPointerLock();
-    if (p && p.catch) p.catch((err) => { lockDbg('kilit reddi: ' + (err && err.message ? err.message : err)); refreshMenus(); });
-    else setTimeout(refreshMenus, 60);
+    if (p && p.catch) {
+      p.catch((err) => {
+        lockDbg('kilit reddi: ' + (err && err.message ? err.message : err));
+        if (attempt === 0) {
+          setTimeout(() => { if (!locked && !player.dead) tryLock(1); }, 1400);
+        } else {
+          refreshMenus(); // yine olmadı: kullanıcı "Oyuna Dön"e tıklasın
+        }
+      });
+    } else setTimeout(refreshMenus, 60);
   } catch (err) { lockDbg('kilit hatası: ' + err); refreshMenus(); }
 }
 // ?debug=lock: kilit + menü karar günlüğü (ana menüye atma teşhisi)
@@ -1141,21 +1230,36 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keyup', (e) => {
   keys[e.code] = false;
-  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !anyOverlay()) {
-    player.sneaking = false;
-  }
+  // Shift bırakma her koşulda eğilmeyi iptal eder (panel açıkken takılı kalma yok)
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') player.sneaking = false;
   // Koşma: W bırakılınca durur (MC gibi sürekli basılı tutma gerekmez ama ici basit tutuyoruz)
   if (e.code === 'KeyW') {
     player.sprinting = false;
   }
 });
 document.addEventListener('wheel', (e) => {
-  if (!locked || !inventory) return;
+  if (!inventory) return;
+  // Tekerlek: kilitliyken VEYA bir oyun paneli açıkken hotbar seçimi (MC hissi)
+  if (!locked && !(inventory.isOpen || craftTable?.isOpen || furnaceUI?.isOpen || chestUI?.isOpen)) return;
+  e.preventDefault();
   const len = inventory.hotbar.length;
   selected = (selected + (e.deltaY > 0 ? 1 : -1) + len) % len;
   inventory.sel = selected; inventory.renderHot();
   renderHotbar();
-});
+}, { passive: false });
+// Pencere odağı kaybolursa / sekme gizlenirse tüm basılı tuş ve kırık durumu temizlenir
+// (yoksa "W basılı kaldı, oyunum kendi kendine yürüyor" bug'ı olur).
+function clearAllKeys() {
+  for (const k in keys) keys[k] = false;
+  player.sprinting = false;
+  player.sneaking = false;
+  mouseL = false; mouseR = false;
+  placeCd = 0; creativeBreakCd = 0;
+  hideBreakBar();
+  try { effects?.hideCrack(); } catch {}
+}
+window.addEventListener('blur', clearAllKeys);
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearAllKeys(); });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.getElementById('closeHelp').onclick = () => document.getElementById('helpPanel').classList.add('hidden');
 document.getElementById('respawnBtn').onclick = () => respawn();
@@ -1203,6 +1307,13 @@ function handleBlockEdit(x, y, z) {
     const id = chunkManager.getBlock(x, y, z);
     if (id === 86) effects?.attachFire(x, y, z);
     else effects?.detachFire(x, y, z);
+  } catch {}
+  // Sandık: yerleşim/yıkım/komut/TNT hangi yoldan olursa olsun çift senkronu tek darboğazdan akar.
+  // getBlockOrUnknown null (yüklenmemiş) ise dokunma; böylece kayıtlı sandık yanlışlıkla silinmez.
+  try {
+    if (typeof chunkManager.getBlockOrUnknown !== 'function' || chunkManager.getBlockOrUnknown(x, y, z) !== null) {
+      syncChest(x, y, z);
+    }
   } catch {}
 }
 // Yanar tablosu: odun, yaprak, tahta, yün, terrakota (MC)
@@ -1314,6 +1425,7 @@ function fallFaceMaterial(id, dir) {
 function dropBlockLoot(realId, x, y, z, tool = heldToolId()) {
   const info = breakInfo(realId, tool);
   if (!info.drops) return;
+  if (realId === 16 || realId === 86) return; // su/ateş hiçbir zaman eşya olmaz
   if (realId === 1 || realId === 18) effects?.spawnDrop(2, x, y, z); // toprak
   else if (realId === 3) effects?.spawnDrop(4, x, y, z); // kırık taş
   else if (realId === 11) effects?.spawnDrop(101, x, y, z, null, 'item'); // kömür
@@ -1381,29 +1493,8 @@ function breakInstant(hit) {
     try { popUnsupportedTorches(hit.x, baseY, hit.z); } catch {}
     try { popUnsupportedTorches(hit.x, topY, hit.z); } catch {}
   }
-  if (realId === 27) {
-    // Sandık: YARISI kırılınca içindeki eşyalar HER MODDA yere saçılır (MC + kullanıcı isteği)
-    // Kalan yarı tek sandığa döner; iki modda da chestMgr kaydı temizlenir.
-    try {
-      const cst = chestMgr.peek(hit.x, hit.y, hit.z);
-      if (cst) {
-        for (const slot of cst.slots) {
-          if (!slot) continue;
-          const sk = slot.kind || (slot.id >= 100 ? 'item' : 'block');
-          const n = (sk === 'item' && ITEMS[slot.id]?.tool) ? 1 : slot.count;
-          for (let i = 0; i < n; i++) effects?.spawnDrop(slot.id, hit.x, hit.y, hit.z, null, sk, slot.dur);
-        }
-        if (cst.paired) {
-          const [px, py, pz] = cst.paired.split(',').map(Number);
-          const ps = chestMgr.peek(px, py, pz);
-          if (ps) ps.paired = null; // kalan yarı tek sandığa döner
-          try { saveAll(); } catch {}
-        }
-      }
-    } catch {}
-    chestMgr.remove(hit.x, hit.y, hit.z);
-    try { if (chestUI?.pos && ((chestUI.pos.x === hit.x && chestUI.pos.y === hit.y && chestUI.pos.z === hit.z) || (chestUI.halves().length > 1 && chestUI.halves()[1].key === hit.x + ',' + hit.y + ',' + hit.z))) chestUI.close(); } catch {}
-  }
+  // Sandık yıkımı (içerik saçılımı + partneri tek'e döndürme + kayıt temizleme) artık
+  // handleBlockEdit -> syncChest -> destroyChestBlock hattında, her yıkım yolunda çalışır.
   // Odun kırıldığında yakındaki yaprakları çürüme listesine al (leaf decay)
   if (realId === 5 || realId === 65 || realId === 68) {
     const now = Date.now();
@@ -1481,7 +1572,7 @@ function tryPlaceFromCross() {
     const cur2 = chunkManager.getBlock(px, py + 1, pz);
     if (cur2 !== 0 && cur2 !== 16 && cur2 !== 21) return 'none';
     if (playerInside(px, py, pz) || playerInside(px, py + 1, pz)) return 'none';
-    if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast('Blok yok!'); return 'none'; }
+    if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast(t('msg.noBlocks')); return 'none'; }
     chunkManager.setBlock(px, py, pz, 25);
     chunkManager.setBlock(px, py + 1, pz, 26);
     trackTorch(px, py, pz, 25);
@@ -1519,13 +1610,11 @@ function tryPlaceFromCross() {
       torchFace = sx === 1 ? 3 : sx === -1 ? 4 : sz === 1 ? 1 : 2;
     } else { toast(t('msg.torchWallOrFloor')); return 'none'; }
   }
-  if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast('Blok yok!'); return 'none'; }
-  chunkManager.setBlock(px, py, pz, id);
+  if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast(t('msg.noBlocks')); return 'none'; }
+  // Sandık yüzünü BLOĞU KOYMADAN ÖNCE kaydet: handleBlockEdit -> syncChest çift eşini aynı yüzle bağlasın
+  if (id === 27) { try { chestMgr.get(px, py, pz).face = faceFromYaw(); } catch {} }
+  chunkManager.setBlock(px, py, pz, id); // (sandık çift senkronu handleBlockEdit üzerinden akar)
   trackTorch(px, py, pz, id, torchFace);
-  if (id === 27) {
-    try { chestMgr.get(px, py, pz).face = faceFromYaw(); } catch {}
-    try { pairChest(px, py, pz); } catch {}
-  }
   if (id === 22) {
     // Firin on yuzu oyuncuya bakar (MC): bakis yonunun tersi
     try {
@@ -1595,7 +1684,7 @@ function animate() {
   if (paused && !wasPaused) { try { saveAll(); } catch {} } // duraklatmada otomatik kayit (MC)
   wasPaused = paused;
   const simDt = paused ? 0 : dt;
-  if (locked) movePlayer(simDt);
+  if (canControlPlayer()) movePlayer(simDt);
 
   if (chunkManager) {
     chunkManager.updateStreaming(player.pos.x, player.pos.z);
@@ -1637,8 +1726,8 @@ function animate() {
     const skyCol = night.clone().lerp(day, dayF);
     scene.background = skyCol;
     if (scene.fog) scene.fog.color.copy(skyCol);
-    sun.intensity = 0.06 + 1.2 * dayF;
-    hemi.intensity = 0.16 + 0.84 * dayF;
+    sun.intensity = 0.08 + 1.15 * dayF;
+    hemi.intensity = 0.32 + 0.68 * dayF;
     sun.color.setHSL(0.12, 0.5, 0.5 + 0.5 * dayF);
     const R = 80;
     sun.position.set(player.pos.x + Math.sin(ang) * R, player.pos.y + Math.max(elev, -0.3) * R + 20, player.pos.z + 20);
@@ -2123,8 +2212,8 @@ async function enterWorld(id) {
           return inventory.addItem(id, count, k);
         },
         setBlock: (x, y, z, id) => {
-          if (y < MIN_Y || y > MAX_Y) return { ok: false, msg: 'Y sınırı: -64..319' };
-          if (Math.abs(x) > 250000 || Math.abs(z) > 250000) return { ok: false, msg: 'Dünya sınırı dışı!' };
+          if (y < MIN_Y || y > MAX_Y) return { ok: false, msg: t('chat.yRange') };
+          if (Math.abs(x) > 250000 || Math.abs(z) > 250000) return { ok: false, msg: t('chat.outsideBorder') };
           chunkManager.setBlock(x, y, z, id);
           trackTorch(x, y, z, id);
           return { ok: true };
@@ -2132,7 +2221,7 @@ async function enterWorld(id) {
         pos: () => ({ x: player.pos.x, y: player.pos.y, z: player.pos.z }),
         tp: (x, y, z, toSpawn = false) => {
           if (toSpawn) { player.pos.copy(spawnPos()); player.vel.set(0, 0, 0); return { ok: true }; }
-          if (Math.abs(x) > 250000 || Math.abs(z) > 250000) return { ok: false, msg: 'Dünya sınırı dışı!' };
+          if (Math.abs(x) > 250000 || Math.abs(z) > 250000) return { ok: false, msg: t('chat.outsideBorder') };
           player.pos.set(
             Math.max(-249999, Math.min(249999, x)),
             Math.max(MIN_Y + 1, Math.min(MAX_Y + 5, y)),
@@ -2145,7 +2234,7 @@ async function enterWorld(id) {
         getTime: () => Math.floor(timeOfDay),
         seed: () => SEED_STR,
         clearInv: () => { inventory.clear(); renderHotbar(); },
-        kill: () => kill('/kill kullanıldı'),
+        kill: () => kill(t('chat.killUsed')),
       });
       craftInv = new CraftUI({
         size: 2, embed: true, inventory, getIcon: (id, kind) => iconFor(id, kind),

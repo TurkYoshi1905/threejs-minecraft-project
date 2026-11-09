@@ -95,7 +95,7 @@ export const BLOCKS = {
   83: { ad: 'Ham Demir Bloğu', adEn: 'Raw Iron Block', all: 'raw_iron_block', blast: 6 },
   84: { ad: 'Ham Altın Bloğu', adEn: 'Raw Gold Block', all: 'raw_gold_block', blast: 6 },
   85: { ad: 'Ham Bakır Bloğu', adEn: 'Raw Copper Block', all: 'raw_copper_block', blast: 6 },
-  86: { ad: 'Ateş', adEn: 'Fire', all: 'fire_0', saydam: true, cutout: true, blast: 0 },
+  86: { ad: 'Ateş', adEn: 'Fire', all: 'fire_0', saydam: true, cutout: true, blast: 0, gizli: true, secilemez: true },
 };
 
 export const HOTBAR_DEFAULT = [1, 2, 3, 4, 7, 5, 6, 8, 9, 14];

@@ -237,6 +237,8 @@ export class Effects {
   }
 
   spawnDrop(id, x, y, z, vel = null, kind = null, dur = null) {
+    // Yasak: su (16) ve ateş (86) yere düşmez / eşya olmaz — MC'de de düşmezler
+    if (id === 16 || id === 86) return;
     const k = kind || (id >= 100 ? 'item' : 'block');
     if (this.drops.length > DROP_CAP) { const d = this.drops.shift(); this.scene.remove(d.m); this.dbg('drop-atıldı(eski)'); }
     const flat = k === 'item'; // MC: eşyalar yerde yatan düz sprite, bloklar mini küp

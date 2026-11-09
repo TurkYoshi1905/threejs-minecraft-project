@@ -11,6 +11,7 @@ function cleanSlot(s) {
   const id = +s.id || 0;
   if (kind === 'block' && !BLOCKS[id]) return null;
   if (kind === 'item' && !ITEMS[id]) return null;
+  if (kind === 'block' && (id === 16 || id === 86)) return null; // yasak blok eşyası (kayıt göçü)
   let count = Math.max(1, Math.min(kind === 'item' ? (ITEMS[id]?.max ?? 64) : 64, +s.count || 1));
   const out = { kind, id, count };
   if (kind === 'item' && ITEMS[id]?.tool) {
@@ -37,13 +38,23 @@ export class ChestManager {
     if (!st) return null;
     let dbl = 0;
     if (st.paired) {
-      const [px, , pz] = st.paired.split(',').map(Number);
-      const other = this.peek(px, y, pz);
+      const [px, py, pz] = st.paired.split(',').map(Number);
+      const other = this.peek(px, py, pz);
       if (other && other.paired === this.key(x, y, z)) {
-        dbl = (px < x || pz < z) ? 2 : 1;
+        dbl = this._viewerLeft(x, z, px, pz, st.face | 0) ? 1 : 2;
       }
     }
     return { face: (st.face | 0) & 3, dbl };
+  }
+  // Yüze-duyarlı yarı seçimi (MC): sandığa bakanın SOL tarafındaki yarı = 1 (frontL/topL).
+  // face 0:+z → viewer-left +X · face 1:-z → viewer-left -X · face 2:+x → viewer-left -Z · face 3:-x → viewer-left +Z
+  _viewerLeft(x, z, px, pz, face) {
+    const f = (face | 0) & 3;
+    const axisX = f === 0 || f === 1;
+    const sign = f === 0 ? 1 : f === 1 ? -1 : f === 2 ? -1 : 1;
+    const my = sign * (axisX ? x : z);
+    const ot = sign * (axisX ? px : pz);
+    return my > ot;
   }
   serialize() {
     const out = {};

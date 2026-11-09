@@ -81,6 +81,8 @@ export const HARVEST = {
   25: { tool: 'axe', minTier: 1, soft: true }, // kapı alt
   26: { tool: 'axe', minTier: 1, soft: true }, // kapı üst
   // TNT (64): hasar tablosunda yok -> her aletle/elle anında kırılır, kendisi düşer (MC)
+  // Ateş (86): hiçbir durumda eşya düşmez (blok olarak envantere giremez; MC paritesi)
+  86: { noDrop: true },
   // Huş/Ladin seti (meşe ile aynı kurallar)
   65: { tool: 'axe', minTier: 1, soft: true },
   66: { tool: 'axe', minTier: 1, soft: true },

@@ -2,7 +2,7 @@
 // Kullanım: t('key', ...args) — {0}, {1} ... yer tutucuları doldurur.
 // Kalıcı: localStorage 'mc-lang' (tr|en), 'mc-player-name'
 
-const LANGS = {
+export const LANGS = {
   tr: {
     // Genel
     'game.title': 'Three.js Minecraft',
@@ -232,6 +232,23 @@ const LANGS = {
     'hud.water': 'Su altı',
     'hud.creative': 'YARATICI',
     'hud.survival': 'HAYATTA KALMA',
+    // Sohbet ek anahtarları (hard-coded metinlerin yerine)
+    'chat.noFireBlock': 'Ateş blok olarak alınamaz.',
+    'chat.gave': '{0} adet [{1}] verildi',
+    'chat.killUsed': '/kill kullanıldı',
+    'death.defaultReason': 'Öldün',
+    // Ayarlar kategorileri (yeni düzen)
+    'settings.catGame': '🎮 Oyun & Görüntü',
+    'settings.catControls': '🖱️ Fare & Kontroller',
+    'settings.catAudio': '🔊 Ses & Altyazı',
+    'settings.catPlayer': '👤 Oyuncu & Dil',
+    'settings.catCustom': '🛠️ Özel Ayarlar',
+    'settings.catAbout': 'ℹ️ Hakkında',
+    'settings.aboutText': 'Three.js Minecraft v2.1 • MC 1.21.1 uyumlu<br>Dokular: Faithful Default-Java 1.21.1<br>Motor: Three.js (yerel vendor)<br>Açık kaynak — ticari olmayan bir fan projesidir.',
+    'settings.customNamePrompt': 'Özel ayar adı (örn: FOV, Ses, Mavi):',
+    'settings.customValuePrompt': 'Ayar değeri (örn: 90, açık, yüksek):',
+    'settings.customExists': 'Bu isimde bir ayar zaten var!',
+    'settings.customDeleteAll': 'Tüm özel ayarları silmek istediğinize emin misiniz?',
   },
   en: {
     // General
@@ -462,6 +479,23 @@ const LANGS = {
     'hud.water': 'Underwater',
     'hud.creative': 'CREATIVE',
     'hud.survival': 'SURVIVAL',
+    // Extra chat/settings keys (replacing hard-coded strings)
+    'chat.noFireBlock': "Fire can't be obtained as an item.",
+    'chat.gave': 'Gave {0} [{1}]',
+    'chat.killUsed': 'Killed with /kill',
+    'death.defaultReason': 'You died',
+    // Settings categories (new layout)
+    'settings.catGame': '🎮 Game & Graphics',
+    'settings.catControls': '🖱️ Mouse & Controls',
+    'settings.catAudio': '🔊 Audio & Subtitles',
+    'settings.catPlayer': '👤 Player & Language',
+    'settings.catCustom': '🛠️ Custom Settings',
+    'settings.catAbout': 'ℹ️ About',
+    'settings.aboutText': 'Three.js Minecraft v2.1 • MC 1.21.1 compatible<br>Textures: Faithful Default-Java 1.21.1<br>Engine: Three.js (local vendor)<br>Open source — non-commercial fan project.',
+    'settings.customNamePrompt': 'Custom setting name (e.g. FOV, Volume, Blue):',
+    'settings.customValuePrompt': 'Setting value (e.g. 90, on, high):',
+    'settings.customExists': 'A setting with this name already exists!',
+    'settings.customDeleteAll': 'Delete all custom settings?',
   },
 };
 

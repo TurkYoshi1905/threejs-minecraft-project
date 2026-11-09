@@ -46,8 +46,21 @@ export class FurnaceManager {
   load(obj) {
     this.map.clear();
     if (!obj) return;
+    const cleanSlot = (s) => {
+      if (!s || typeof s !== 'object') return null;
+      const kind = s.kind === 'item' ? 'item' : 'block';
+      const id = +s.id || 0;
+      if (kind === 'block' && !BLOCKS[id]) return null;
+      if (kind === 'item' && !ITEMS[id]) return null;
+      if (kind === 'block' && (id === 16 || id === 86)) return null; // yasak blok eşyası (kayıt göçü)
+      const max = kind === 'item' ? (ITEMS[id]?.max ?? 64) : 64;
+      const count = Math.max(1, Math.min(max, +s.count || 1));
+      const out = { kind, id, count };
+      if (kind === 'item' && ITEMS[id]?.tool && typeof s.dur === 'number') out.dur = Math.max(0, Math.min(ITEMS[id].maxDur, s.dur));
+      return out;
+    };
     for (const [k, v] of Object.entries(obj)) {
-      if (v && typeof v === 'object') this.map.set(k, { input: v.input || null, fuel: v.fuel || null, output: v.output || null, prog: +v.prog || 0, burn: +v.burn || 0, burnTotal: +v.burnTotal || 0, face: (v.face | 0) || 0 });
+      if (v && typeof v === 'object') this.map.set(k, { input: cleanSlot(v.input), fuel: cleanSlot(v.fuel), output: cleanSlot(v.output), prog: +v.prog || 0, burn: +v.burn || 0, burnTotal: +v.burnTotal || 0, face: (v.face | 0) || 0 });
     }
   }
   // 0.2sn tick:-worlddeki tüm fırınlar (sayı az olduğu için hepsi)

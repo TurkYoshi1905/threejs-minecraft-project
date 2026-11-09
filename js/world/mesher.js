@@ -55,17 +55,18 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
     return getBlockGlobal(cx * 16 + lx, y, cz * 16 + lz);
   };
 
-  // ===== IŞIK: sütun başına gökyüzü tıkanması (MC 1.21.1 benzeri ambient occlusion) =====
-  // Her (lx,lz) sütunu için, y bloktaki yüzün TAMAMEN gölgede mi yoksa açıkta mı olduğunu önceden hesapla.
-  // Yapraklar/cam saydam: gölge düşürmezler. Opak blok üst yüzdeki ışık yolunu keser -> caves/iç mekanlar karanlık.
-  const colBlocked = new Uint8Array(16 * 16 * WORLD_HEIGHT);
+  // ===== IŞIK: sütun başına yumuşak gökyüzü tıkanması (MC 1.21.1'e yakın gradyan) =====
+  // Eskiden: herhangi bir blok üstte varsa TÜM alt yüzeyler 0.03 (pik siyah) du. Artık:
+  // üstte kaç opak blok olduğuna göre üssel-yumuşak sönüm + alt sınır 0.24 (kaydet görünür).
+  const colBlocked = new Float32Array(16 * 16 * WORLD_HEIGHT);
   {
     for (let lz = 0; lz < 16; lz++) {
       for (let lx = 0; lx < 16; lx++) {
-        let solidAbove = 0;
+        let shade = 1.0; // açık gökyüzü (üst değer)
         for (let y = MIN_Y + WORLD_HEIGHT - 1; y >= MIN_Y; y--) {
-          colBlocked[(lz * 16 + lx) * WORLD_HEIGHT + (y - MIN_Y)] = solidAbove > 0 ? 1 : 0;
-          if (isOpaqueFast(blocks[(y - MIN_Y) * 256 + lz * 16 + lx])) solidAbove++;
+          colBlocked[(lz * 16 + lx) * WORLD_HEIGHT + (y - MIN_Y)] = shade;
+          // Her opak blok ışığı ~%45 kısar, 0.24 tabanında durur (mağaralar görünür, meşale hâlâ şart)
+          if (isOpaqueFast(blocks[(y - MIN_Y) * 256 + lz * 16 + lx])) shade = Math.max(0.24, shade * 0.55);
         }
       }
     }
@@ -268,12 +269,12 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
         if (!id) continue;
         const b = BLOCKS[id];
         if (id === 86) continue; // ateş: chunk mesh'te çizilmez, effects'in animasyonlu quad'ları kullanılır
-        // Yüz ışık çarpanı: gökyüzü tıkanması (ambient 0.03) veya meşale ışığı (MC seviye 1'er)
+        // Yüz ışık çarpanı: yumuşak sky-light gradyanı (taban 0.24) veya meşale ışığı (MC seviye 1'er)
         const wx = cx * 16 + lx, wz = cz * 16 + lz;
         const colKey = (lz * 16 + lx) * WORLD_HEIGHT + (y - MIN_Y);
         const blocked = colBlocked[colKey];
         const torchF = torchLightAt(wx, y, wz);
-        const faceLight = Math.max(blocked ? 0.03 : 1.0, torchF * 0.97 + 0.03);
+        const faceLight = Math.max(blocked, torchF * 0.97 + 0.03);
         // Kapı yarıları: ince panel, alt/üst doku ayrı
         if (id === 25 || id === 26) {
           const by = id === 25 ? y : y - 1;

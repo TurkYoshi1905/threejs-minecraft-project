@@ -14,8 +14,9 @@ function maxOf(kind, id) {
 }
 
 
+const PALETTE_HIDE = new Set([16, 24, 26, 86]); // su, yanık fırın, kapı üstü, ateş — eşya hâli yok
 const GRID_ALL = [
-  ...Object.keys(BLOCKS).map(Number).filter((id) => id !== 16 && id !== 24 && id !== 26),
+  ...Object.keys(BLOCKS).map(Number).filter((id) => !PALETTE_HIDE.has(id) && !BLOCKS[id]?.gizli),
   ...Object.keys(ITEMS).map(Number),
 ].sort((a, b) => a - b);
 const CATS = {
@@ -158,9 +159,10 @@ export class InventoryUI {
       if (!data) return;
       const norm = (s) => {
         if (s == null) return null;
-        if (typeof s === 'number') return { kind: kindOf(s), id: s, count: Math.min(maxOf(kindOf(s), s), 64) };
+        if (typeof s === 'number') s = { kind: kindOf(s), id: s, count: 1 };
         if (typeof s === 'object' && (BLOCKS[s.id] || ITEMS[s.id])) {
           const kind = s.kind || kindOf(s.id);
+          if (kind === 'block' && (s.id === 16 || s.id === 86)) return null; // yasak blok eşyası (kayıt göçü)
           let c = s.count === 'inf' ? maxOf(kind, s.id) : (+s.count || 1);
           c = Math.min(maxOf(kind, s.id), Math.max(1, c));
           const out = { kind, id: s.id, count: c };
@@ -207,7 +209,7 @@ export class InventoryUI {
   addItem(id, count = 1, kind = null, dur = null) {
     const k = kind || kindOf(id);
     if (k === 'block') {
-      if (!BLOCKS[id] || id === 16 || id === 10) return false;
+      if (!BLOCKS[id] || id === 10 || id === 16 || id === 86) return false;
     } else {
       if (!ITEMS[id]) return false;
     }

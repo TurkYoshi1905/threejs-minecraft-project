@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Three.js Minecraft ⛏️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=16" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
@@ -183,36 +183,30 @@
     <small data-i18n="pause.hint">İpucu: E envanter • T sohbet • H yardım</small>
   </div>
 
-  <!-- ================= AYARLAR PANELİ (Oyun İçi / Menü) ================= -->
+  <!-- ============ AYARLAR (neredeyse tam ekran, kategorili) ============ -->
   <div id="settingsPanel" class="hidden">
-    <div class="settings-box">
-      <div class="settings-box-inner">
-        <div class="settings-header">
+    <div class="settings-shell" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <aside class="settings-sidebar">
+        <div class="settings-brand">
           <div class="settings-icon">⚙️</div>
-          <div class="settings-title" id="settingsTitle" data-i18n-html="settings.titleHtml">Ayarlar<small>Three.js Minecraft</small></div>
-        </div>
-        <div class="settings-controls">
-          <button id="btnAddCustomSetting" class="settings-btn-add" type="button" data-i18n="settings.addCustom">+ Özel Ayar Ekle</button>
-          <button id="btnResetCustomSetting" class="settings-btn-add" type="button" style="background: linear-gradient(135deg, #a33 0%, #772222 100%); border-color: #771111;" data-i18n="settings.reset">↺ Sıfırla</button>
-        </div>
-        <div class="setting-row setting-row-wide">
-          <span class="setting-icon-row">👤</span>
-          <span class="setting-label" data-i18n="settings.playerName">Oyuncu Adı</span>
-          <input id="playerNameInput" class="mc-input" maxlength="16" autocomplete="off" spellcheck="false" />
-        </div>
-        <div class="setting-row">
-          <span class="setting-icon-row">🌐</span>
-          <span class="setting-label" data-i18n="settings.language">Oyun Dili</span>
-          <div class="setting-slider-wrap">
-            <button id="langTrBtn" class="setting-value" type="button">Türkçe</button>
-            <button id="langEnBtn" class="setting-value" type="button">English</button>
+          <div class="settings-brand-text">
+            <div class="settings-title" id="settingsTitle" data-i18n-html="settings.titleHtml">Ayarlar<small>Three.js Minecraft</small></div>
           </div>
         </div>
-        <div id="settingsContent"></div>
-        <div class="settings-footer">
+        <nav class="settings-tabs" id="settingsTabs" aria-label="Ayar kategorileri"></nav>
+        <div class="settings-sidebar-foot">
           <button id="settingsDoneBtn" class="settings-btn-done" data-i18n="settings.done">Bitti</button>
+          <div class="settings-version">v2.1 • MC 1.21.1</div>
         </div>
-      </div>
+      </aside>
+      <main class="settings-main">
+        <div class="settings-main-head">
+          <span id="settingsCatIcon" aria-hidden="true">🎮</span>
+          <h2 id="settingsCatTitle">Oyun &amp; Görüntü</h2>
+          <button id="settingsCloseBtn" class="settings-x" type="button" aria-label="Kapat">✕</button>
+        </div>
+        <div id="settingsContent" class="settings-content"></div>
+      </main>
     </div>
   </div>
 
@@ -392,7 +386,7 @@
     })();
   </script>
 
-  <script type="module" src="js/main.js?v=14"></script>
-  <script type="module" src="js/ui/menu.js?v=14"></script>
+  <script type="module" src="js/main.js?v=15"></script>
+  <script type="module" src="js/ui/menu.js?v=15"></script>
 </body>
 </html>

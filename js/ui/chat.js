@@ -189,11 +189,13 @@ export class ChatUI {
       return hit ? '/' + hit + ' ' : v;
     }
     if (parts[0] === 'give' && parts.length === 2) {
-      const q = parts[1].toLocaleLowerCase();
-      const hitB = Object.values(BLOCKS).map((b) => b.ad).find((n) => n.toLocaleLowerCase('tr').startsWith(q));
-      if (hitB) return `/give ${hitB} `;
-      const hitI = Object.values(ITEMS).map((b) => b.ad).find((n) => n.toLocaleLowerCase('tr').startsWith(q));
-      if (hitI) return `/give ${hitI} `;
+      const qtr = parts[1].toLocaleLowerCase('tr');
+      const qen = parts[1].toLowerCase();
+      const matchName = (b) => (b.ad || '').toLocaleLowerCase('tr').startsWith(qtr) || (b.adEn || '').toLowerCase().startsWith(qen);
+      const hitB = Object.entries(BLOCKS).find(([, b]) => matchName(b));
+      if (hitB) return `/give ${blockName(+hitB[0])} `;
+      const hitI = Object.entries(ITEMS).find(([, b]) => matchName(b));
+      if (hitI) return `/give ${itemName(+hitI[0])} `;
     }
     return v;
   }
@@ -247,9 +249,10 @@ export class ChatUI {
         const bid = resolveBlock(q);
         if (bid) {
           if (bid === 16) return { text: t('chat.noWaterBlock'), cls: 'err' };
+          if (bid === 86) return { text: t('chat.noFireBlock'), cls: 'err' };
           const ok = A.give(bid, count, 'block');
           return ok
-            ? { text: `Gave ${count} [${blockName(bid)}] to player`, cls: 'ok' }
+            ? { text: t('chat.gave', count, blockName(bid)), cls: 'ok' }
             : { text: t('chat.inventoryFull2'), cls: 'err' };
         }
         const iid = resolveItem(q);
@@ -257,7 +260,7 @@ export class ChatUI {
           const c = ITEMS[iid]?.tool ? 1 : count;
           const ok = A.give(iid, c, 'item');
           return ok
-            ? { text: `Gave ${c} [${itemName(iid)}] to player`, cls: 'ok' }
+            ? { text: t('chat.gave', c, itemName(iid)), cls: 'ok' }
             : { text: t('chat.inventoryFull2'), cls: 'err' };
         }
         return { text: t('chat.unknownBlock', q), cls: 'err' };
@@ -294,10 +297,10 @@ export class ChatUI {
         if (a[0] === 'set' && a[1] !== undefined) {
           const v = a[1].toLowerCase();
           const map = { day: 1000, noon: 6000, sunset: 12000, night: 18000, midnight: 18000, sunrise: 0 };
-          const t = map[v] !== undefined ? map[v] : (+v >= 0 && +v < 24000 ? +v : null);
-          if (t === null) return { text: t('chat.usageTime'), cls: 'err' };
-          A.setTime(t);
-          return { text: t('chat.timeSet', t), cls: 'ok' };
+          const tv = map[v] !== undefined ? map[v] : (+v >= 0 && +v < 24000 ? +v : null); // i18n t() gölgeyi önlemek için yerel ad farklı
+          if (tv === null) return { text: t('chat.usageTime'), cls: 'err' };
+          A.setTime(tv);
+          return { text: t('chat.timeSet', tv), cls: 'ok' };
         }
         return { text: t('chat.currentTime', A.getTime()), cls: 'sys' };
       }
