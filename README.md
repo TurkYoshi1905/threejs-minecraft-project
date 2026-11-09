@@ -20,15 +20,28 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
     tüm bloklarda MC 1.21.1 patlama dayanıklılığı tablosu geçerlidir
   - Çakıl kırınca %10 çakmak; çakmak + demir → çakmak ve çelik
   - Oksijen/boğulma, düşme hasarı, gün döngüsü
+  - **Ateş**: çakmak ve çelikle ateşlenir, animasyonlu Faithful alevi, ışık yayar,
+    odun/yaprak/tahta/yün/terrakotaları yakar ve yayılır, suda söner, tepeden atılan eşyaları yakıp yok eder
+  - **Madenler**: bakır, lapis lazuli, redstone, zümrüt — cevher + blok haline getirme (9↔1),
+    çift yönlü craft tarifleri, ham/külde bloklar, füzyon ile bütün maden ailesi tam
+  - **Işıklandırma**: meşale MC seviye 14, her blok 1 sönümlenme (taxicab); ateş seviye 15;
+    yeraltı ve kapalı iç mekanlar karanlık (blocked-above occlusion); gece MC 1.21.1 gibi karanlık
+  - **Sandık birleştirme** kanunu: yan yana konulan iki sandık 1 sandık olarak görünür (MC),
+    ateşlemeden sonra tarama ile de korunur; sandık kırılınca içindekiler yere saçılır (iki modda da)
 - Çoklu dünya kaydı (IndexedDB), 5 sn otomatik kayıt, dünya seçme/silme/oluşturma
 - Dokusuz tek atlas (texture atlas), chunk başına 3 draw call, gölge haritası throttle
-- Türkçe arayüz, MC 1.21.1 tarzı menü ve HUD
+- **Çok dilli arayüz** (Türkçe / İngilizce), ilk girişte profesyonel karşılama ekranı (oyuncu adı + dil),
+  kayıt tarayıcıda kalır, sohbette oyuncu adı görünür, ayarlardan her zaman değiştirilebilir
+- **Envanter/masa/fırın/sandık/pause** açılınca oyun donmaz (MC paritesi)
+- Modern tarayıcı + WebGL 2
+- `vendor/three.module.js` — Three.js artık yerelde (CDN gerekmez)
 
 ## Gereksinimler
 
 - Modern bir tarayıcı (WebGL 2): Chrome / Edge / Firefox
 - Statik bir dosya sunucusu (ES modülleri `file://` ile çalışmaz)
-- İnternet bağlantısı (Three.js CDN'den, Google Fonts) — `js/core/` altına yerelde barındırılabilir
+- Google Fonts internet bağlantısı (oyun yerel three.js ile çalışır)
+- Three.js yerel `vendor/three.module.js` içinde — CDN gerekmez
 
 ## Çalıştırma
 
