@@ -1228,7 +1228,9 @@ document.addEventListener('keyup', (e) => {
 });
 document.addEventListener('wheel', (e) => {
   if (!inventory) return;
-  // Tekerlek: kilitliyken VEYA bir oyun paneli açıkken hotbar seçimi (MC hissi)
+  // Yaratıcı envanter (E) açıkken tekerlek SADECE eşya listesini kaydırır — hotbar'a dokunmaz.
+  // (Tekerlek "eşya arama" hissi: liste gezilir. Hayatta kalmada gezilebilir liste yok; orada kullanılabilir.)
+  if (inventory.isOpen && inventory.mode !== 'survival' && e.target && e.target.closest && e.target.closest('#invPanel')) return;
   if (!locked && !(inventory.isOpen || craftTable?.isOpen || furnaceUI?.isOpen || chestUI?.isOpen)) return;
   e.preventDefault();
   const len = inventory.hotbar.length;
