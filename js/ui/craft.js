@@ -7,34 +7,56 @@ import { t } from '../core/i18n.js';
 // ID <100 blok, >=100 eşya. MC basitleştirmesi.
 // p: satırlar, 0 = boş.
 export const RECIPES = [
-  { out: { id: 7, count: 4 }, p: [[5]] },                    // kütük -> 4 tahta
-  { out: { id: 100, count: 4 }, p: [[7], [7]] },             // 2 tahta dikey -> 4 çubuk
-  { out: { id: 20, count: 1 }, p: [[7, 7], [7, 7]] },        // 4 tahta -> masa
+  { out: { id: 7, count: 4 }, p: [[5]] },                    // meşe kütüğü -> 4 meşe tahtası
+  { out: { id: 66, count: 4 }, p: [[65]] },                  // huş kütüğü -> 4 huş tahtası
+  { out: { id: 69, count: 4 }, p: [[68]] },                  // ladin kütüğü -> 4 ladin tahtası
+  { out: { id: 100, count: 4 }, p: [[7], [7]] },             // 2 meşe tahtası dikey -> 4 çubuk
+  { out: { id: 100, count: 4 }, p: [[66], [66]] },           // 2 huş tahtası dikey -> 4 çubuk
+  { out: { id: 100, count: 4 }, p: [[69], [69]] },           // 2 ladin tahtası dikey -> 4 çubuk
+  { out: { id: 20, count: 1 }, p: [[7, 7], [7, 7]] },        // 4 meşe tahtası -> masa
+  { out: { id: 20, count: 1 }, p: [[66, 66], [66, 66]] },    // 4 huş tahtası -> masa
+  { out: { id: 20, count: 1 }, p: [[69, 69], [69, 69]] },    // 4 ladin tahtası -> masa
+  { out: { id: 20, count: 1 }, p: [[7, 66], [69, 7]] },      // karışık tahta -> masa (MC uyumu)
   { out: { id: 7, count: 1 }, p: [[20]] },                   // masa geri dönüşüm -> 1 tahta
   { out: { id: 21, count: 4 }, p: [[101], [100]] },          // kömür üstte + çubuk altta -> 4 meşale (MC)
+  { out: { id: 21, count: 4 }, p: [[138], [100]] },          // odun kömürü üstte + çubuk altta -> 4 meşale (MC)
   { out: { id: 21, count: 4 }, p: [[11]] },                  // eski kolay tarif korunur (kömür cevheri -> meşale)
-  { out: { id: 110, count: 1 }, p: [[7, 7, 7], [0, 100, 0], [0, 100, 0]] },   // tahta kazma
+  // --- Göğüs (MC 1.21.1): 8 tahta halka, ortası boş — herhangi tahta türü ---
+  { out: { id: 27, count: 1 }, p: [[7, 7, 7], [7, 0, 7], [7, 7, 7]] },
+  { out: { id: 27, count: 1 }, p: [[66, 66, 66], [66, 0, 66], [66, 66, 66]] },
+  { out: { id: 27, count: 1 }, p: [[69, 69, 69], [69, 0, 69], [69, 69, 69]] },
+  { out: { id: 110, count: 1 }, p: [[7, 7, 7], [0, 100, 0], [0, 100, 0]] },   // meşe kazma
+  { out: { id: 110, count: 1 }, p: [[66, 66, 66], [0, 100, 0], [0, 100, 0]] }, // huş kazma
+  { out: { id: 110, count: 1 }, p: [[69, 69, 69], [0, 100, 0], [0, 100, 0]] }, // ladin kazma
   { out: { id: 111, count: 1 }, p: [[4, 4, 4], [0, 100, 0], [0, 100, 0]] },   // taş kazma
   { out: { id: 112, count: 1 }, p: [[102, 102, 102], [0, 100, 0], [0, 100, 0]] }, // demir kazma
   { out: { id: 113, count: 1 }, p: [[103, 103, 103], [0, 100, 0], [0, 100, 0]] }, // altın kazma
   { out: { id: 114, count: 1 }, p: [[104, 104, 104], [0, 100, 0], [0, 100, 0]] }, // elmas kazma
-  { out: { id: 115, count: 1 }, p: [[7], [100], [100]] },       // tahta kürek
+  { out: { id: 115, count: 1 }, p: [[7], [100], [100]] },       // meşe kürek
+  { out: { id: 115, count: 1 }, p: [[66], [100], [100]] },      // huş kürek
+  { out: { id: 115, count: 1 }, p: [[69], [100], [100]] },      // ladin kürek
   { out: { id: 116, count: 1 }, p: [[4], [100], [100]] },       // taş kürek
   { out: { id: 117, count: 1 }, p: [[102], [100], [100]] },     // demir kürek
   { out: { id: 118, count: 1 }, p: [[103], [100], [100]] },     // altın kürek
   { out: { id: 119, count: 1 }, p: [[104], [100], [100]] },     // elmas kürek
-  { out: { id: 120, count: 1 }, p: [[7, 7], [7, 100], [0, 100]] },       // tahta balta
+  { out: { id: 120, count: 1 }, p: [[7, 7], [7, 100], [0, 100]] },       // meşe balta
+  { out: { id: 120, count: 1 }, p: [[66, 66], [66, 100], [0, 100]] },    // huş balta
+  { out: { id: 120, count: 1 }, p: [[69, 69], [69, 100], [0, 100]] },    // ladin balta
   { out: { id: 121, count: 1 }, p: [[4, 4], [4, 100], [0, 100]] },       // taş balta
   { out: { id: 122, count: 1 }, p: [[102, 102], [102, 100], [0, 100]] }, // demir balta
   { out: { id: 123, count: 1 }, p: [[103, 103], [103, 100], [0, 100]] }, // altın balta
   { out: { id: 124, count: 1 }, p: [[104, 104], [104, 100], [0, 100]] }, // elmas balta
-  { out: { id: 125, count: 1 }, p: [[7], [7], [100]] },         // tahta kılıç
+  { out: { id: 125, count: 1 }, p: [[7], [7], [100]] },         // meşe kılıç
+  { out: { id: 125, count: 1 }, p: [[66], [66], [100]] },       // huş kılıç
+  { out: { id: 125, count: 1 }, p: [[69], [69], [100]] },       // ladin kılıç
   { out: { id: 126, count: 1 }, p: [[4], [4], [100]] },         // taş kılıç
   { out: { id: 127, count: 1 }, p: [[102], [102], [100]] },     // demir kılıç
   { out: { id: 128, count: 1 }, p: [[103], [103], [100]] },     // altın kılıç
   { out: { id: 129, count: 1 }, p: [[104], [104], [100]] },     // elmas kılıç
   { out: { id: 22, count: 1 }, p: [[4, 4, 4], [4, 0, 4], [4, 4, 4]] }, // 8 kırma taş -> fırın
-  { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 tahta -> 3 kapı (MC)
+  { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 meşe tahtası -> 3 kapı (MC)
+  { out: { id: 25, count: 3 }, p: [[66, 66], [66, 66], [66, 66]] }, // 6 huş tahtası -> 3 kapı (MC)
+  { out: { id: 25, count: 3 }, p: [[69, 69], [69, 69], [69, 69]] }, // 6 ladin tahtası -> 3 kapı (MC)
   // Çakmak ve Çelik (MC 1.21.1): demir + çakmak, 2x2 diyagonal her yönde
   { out: { id: 131, count: 1 }, p: [[102, 0], [0, 130]] },
   { out: { id: 131, count: 1 }, p: [[0, 102], [130, 0]] },

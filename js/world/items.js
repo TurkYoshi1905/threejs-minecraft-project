@@ -4,10 +4,10 @@
 // 110-114 kazma, 115-119 kürek, 120-124 balta, 125-129 kılıç (ID'ler kalıcı).
 
 export const ITEMS = {
-  100: { ad: 'Çubuk', adEn: 'Stick', tex: 'stick', max: 64 },
+  100: { ad: 'Sopa', adEn: 'Stick', tex: 'stick', max: 64 },
   101: { ad: 'Kömür', adEn: 'Coal', tex: 'coal', max: 64, fuel: 80 },
-  102: { ad: 'Demir Külçe', adEn: 'Iron Ingot', tex: 'iron_ingot', max: 64 },
-  103: { ad: 'Altın Külçe', adEn: 'Gold Ingot', tex: 'gold_ingot', max: 64 },
+  102: { ad: 'Demir Külçesi', adEn: 'Iron Ingot', tex: 'iron_ingot', max: 64 },
+  103: { ad: 'Altın Külçesi', adEn: 'Gold Ingot', tex: 'gold_ingot', max: 64 },
   104: { ad: 'Elmas', adEn: 'Diamond', tex: 'diamond', max: 64 },
   105: { ad: 'Ham Demir', adEn: 'Raw Iron', tex: 'raw_iron', max: 64 },
   106: { ad: 'Ham Altın', adEn: 'Raw Gold', tex: 'raw_gold', max: 64 },
@@ -32,15 +32,17 @@ export const ITEMS = {
   128: { ad: 'Altın Kılıç', adEn: 'Golden Sword', tex: 'golden_sword', tool: 'sword', tier: 1, speed: 1.5, maxDur: 32, max: 1 },
   129: { ad: 'Elmas Kılıç', adEn: 'Diamond Sword', tex: 'diamond_sword', tool: 'sword', tier: 4, speed: 1.5, maxDur: 1561, max: 1 },
   // --- Çakmak ve patlatma seti (MC 1.21.1) ---
-  130: { ad: 'Çakmak', adEn: 'Flint', tex: 'flint', max: 64 },
-  131: { ad: 'Çakmak ve Çelik', adEn: 'Flint and Steel', tex: 'flint_and_steel', tool: 'flintsteel', tier: 0, speed: 1, maxDur: 64, max: 1, neverWornByMining: true },
+  130: { ad: 'Çakmaktaşı', adEn: 'Flint', tex: 'flint', max: 64 },
+  131: { ad: 'Çakmaktaşı ve Çelik', adEn: 'Flint and Steel', tex: 'flint_and_steel', tool: 'flintsteel', tier: 0, speed: 1, maxDur: 64, max: 1, neverWornByMining: true },
   132: { ad: 'Barut', adEn: 'Gunpowder', tex: 'gunpowder', max: 64 },
   // --- Maden/gem eşyaları (MC 1.21.1) ---
   133: { ad: 'Lapis Lazuli', adEn: 'Lapis Lazuli', tex: 'lapis_lazuli', max: 64 },
   134: { ad: 'Redstone', adEn: 'Redstone', tex: 'redstone', max: 64 },
   135: { ad: 'Zümrüt', adEn: 'Emerald', tex: 'emerald', max: 64 },
-  136: { ad: 'Bakır Külçe', adEn: 'Copper Ingot', tex: 'copper_ingot', max: 64 },
+  136: { ad: 'Bakır Külçesi', adEn: 'Copper Ingot', tex: 'copper_ingot', max: 64 },
   137: { ad: 'Ham Bakır', adEn: 'Raw Copper', tex: 'raw_copper', max: 64 },
+  // --- Odun kömürü (kütüklerin fırında pişirilmesi, MC 1.21.1) ---
+  138: { ad: 'Odun Kömürü', adEn: 'Charcoal', tex: 'charcoal', max: 64, fuel: 80 },
 };
 
 export function isTool(id) {
@@ -108,9 +110,10 @@ export function breakInfo(blockId, heldItemId) {
   return { timeMult: 10 / 3, drops: false }; // alet isteyen blokta el/yantis: sertlik x 5sn (MC birebir)
 }
 
-// Yakıt süreleri (sn, MC: kömür 80, odun/kütük 15, tahta 15, çubuk 5)
+// Yakıt süreleri (sn, MC: kömür 80, odun kömürü 80, odun/kütük 15, tahta 15, çubuk 5)
 export const FUEL_TIME = {
   101: 80, // kömür eşyası
+  138: 80, // odun kömürü
   100: 5,  // çubuk
 };
 // Blok yakıtlar blok id ile (envanterde blok olarak durur)
@@ -128,7 +131,10 @@ export const SMELT = {
   12: { out: 105, time: 10 }, // demir cevheri -> ham demir (MC'de fırın hamı pişirir; cevher bloğu da kabul)
   23: { out: 106, time: 10 }, // altın cevheri -> ham altın
   11: { out: 101, time: 10 }, // kömür cevheri -> kömür
-  5:  { out: 101, time: 10 }, // kütük -> kömür (odun kömürü)
+  // Kütükler -> Odun Kömürü (MC 1.21.1: kütük pişirilince charcoal düşer, kömür DEĞİL)
+  5:  { out: 138, time: 10 }, // meşe kütüğü -> odun kömürü
+  65: { out: 138, time: 10 }, // huş kütüğü -> odun kömürü
+  68: { out: 138, time: 10 }, // ladin kütüğü -> odun kömürü
   4:  { out: 3, outKind: 'block', time: 10 }, // kırık taş -> taş (MC)
   8:  { out: 9, outKind: 'block', time: 10 }, // kum -> cam
   81: { out: 137, time: 10 }, // bakır cevheri -> ham bakır

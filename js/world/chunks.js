@@ -10,7 +10,7 @@ function getRenderDistance() {
   } catch {}
   return 5;
 }
-import { generateChunk } from './worldgen.js';
+import { generateChunk, generateFlatChunk } from './worldgen.js';
 import { buildChunkGeometry, bucketToMesh } from './mesher.js';
 import { dbChunks } from '../core/idb.js';
 
@@ -20,13 +20,14 @@ import { dbChunks } from '../core/idb.js';
 const key = (cx, cz) => cx + ',' + cz;
 
 export class ChunkManager {
-  constructor(scene, atlas, worldId, seedStr, seedNum, materials) {
+  constructor(scene, atlas, worldId, seedStr, seedNum, materials, worldType = 'default') {
     this.scene = scene;
     this.atlas = atlas;
     this.worldId = worldId;
     this.seedStr = seedStr;
     this.seedNum = seedNum;
     this.materials = materials; // {opaque, transparent}
+    this.worldType = worldType === 'flat' ? 'flat' : 'default';
     this.chunks = new Map();
     this.genQueue = [];
     this.meshQueue = new Set();
@@ -95,8 +96,10 @@ export class ChunkManager {
         return c;
       }
     } catch { /* DB yoksa üret */ }
-    // 2. Üret
-    const blocks = generateChunk(cx, cz, this.seedStr, this.seedNum);
+    // 2. Üret (dünya tipine göre: Varsayılan voksel arazi / Düz superflat)
+    const blocks = this.worldType === 'flat'
+      ? generateFlatChunk(cx, cz, this.seedStr, this.seedNum)
+      : generateChunk(cx, cz, this.seedStr, this.seedNum);
     const c = { cx, cz, blocks, dirty: false, meshOp: null, meshTr: null };
     this.chunks.set(k, c);
     this.meshQueue.add(k);

@@ -137,8 +137,20 @@
 
           <div class="create-group">
             <label class="create-label" data-i18n="create.worldType">Dünya Tipi</label>
-            <div class="static-badge-btn" data-i18n="create.worldTypeDefault">Varsayılan (1.21.1 Sonsuz Voksel)</div>
-            <span class="create-hint" data-i18n="create.worldTypeHint">Y: -64..319 yükseklik sınırları, derin kayrak ve mağaralar</span>
+            <div class="type-cards" id="worldTypeCards" role="radiogroup" aria-label="Dünya Tipi">
+              <button type="button" id="typeDefaultBtn" class="type-card active" role="radio" aria-checked="true" data-type="default">
+                <span class="type-card-icon">🌍</span>
+                <span class="type-card-title" data-i18n="create.worldTypeDefault">Varsayılan</span>
+                <span class="type-card-desc" data-i18n="create.worldTypeDefaultDesc">1.21.1 Sonsuz Voksel — derin kayrak ve mağaralar</span>
+              </button>
+              <button type="button" id="typeFlatBtn" class="type-card" role="radio" aria-checked="false" data-type="flat">
+                <span class="type-card-icon">🟩</span>
+                <span class="type-card-title" data-i18n="create.worldTypeFlat">Düz</span>
+                <span class="type-card-desc" data-i18n="create.worldTypeFlatDesc">Classic Flat — Y=-64 anakaya, 2 toprak + çim</span>
+              </button>
+            </div>
+            <input type="hidden" id="worldType" value="default" />
+            <span class="create-hint" data-i18n="create.worldTypeHint">İki tür de MC 1.21.1 sınırlarında (Y: -64..319) çalışır</span>
           </div>
         </div>
       </div>
@@ -388,7 +400,7 @@
     })();
   </script>
 
-  <script type="module" src="js/main.js?v=17"></script>
-  <script type="module" src="js/ui/menu.js?v=17"></script>
+  <script type="module" src="js/main.js?v=18"></script>
+  <script type="module" src="js/ui/menu.js?v=18"></script>
 </body>
 </html>

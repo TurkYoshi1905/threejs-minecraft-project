@@ -290,6 +290,10 @@ html, body {
   background: #c43a3a;
   color: #fff;
 }
+.gm-tag.flat {
+  background: #3aa75a;
+  color: #fff;
+}
 .seed-tag {
   color: #ffff54;
   font-family: monospace;
@@ -1644,3 +1648,50 @@ body.at-border::after {
   text-shadow: 1px 1px 0 #000;
 }
 @media (max-width: 700px) { .keys-grid { grid-template-columns: 1fr; } }
+
+/* ================= DÜNYA TÝPÝ KARTLARI (Oluþtur ekraný) ================= */
+.type-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 4px 0 2px;
+}
+.type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 14px;
+  background: linear-gradient(160deg, #24271f 0%, #1a1d17 100%);
+  border: 3px solid #333;
+  border-radius: 6px;
+  color: #cfcfcf;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.type-card:hover { border-color: #6b6b6b; transform: translateY(-2px); }
+.type-card.active {
+  border-color: #6fcf47;
+  box-shadow: 0 0 0 2px #1d3a10 inset, 0 6px 18px rgba(111, 207, 71, 0.25);
+  color: #fff;
+}
+.type-card-icon { font-size: 26px; line-height: 1; }
+.type-card-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+}
+.type-card-desc {
+  font-size: 8px;
+  line-height: 1.7;
+  color: #a9a9a9;
+  text-shadow: 1px 1px 0 #000;
+}
+.type-card.active .type-card-desc { color: #c8e6b0; }
+@media (max-width: 700px) {
+  .type-cards { grid-template-columns: 1fr; }
+}

@@ -37,6 +37,7 @@ let WORLD_NAME = 'Dünya';
 let SEED_STR = urlSeed || DEFAULT_SEED;
 let SEED_NUM = hashSeed(SEED_STR) & 0xffffffff;
 let GAMEMODE = 'creative';
+let WORLD_TYPE = 'default'; // 'default' | 'flat' (MC 1.21.1 Düz/Superflat)
 
 // ============ THREE KURULUM (optimize) ============
 const canvas = document.getElementById('game');
@@ -225,6 +226,8 @@ function updateTorchLights() {
 }
 
 function spawnPos() {
+  // Düz (Classic Flat) dünyada: Y=-60'ta doğ (bedrock -64, toprak -63..-62, çim -61)
+  if (WORLD_TYPE === 'flat') return new THREE.Vector3(8.5, MIN_Y + 4, 8.5);
   // Suda doğma yok: önce (8,8), yoksa spiral kara ara (deterministik, seed'e bağlı).
   const h0 = heightAt(8, 8, SEED_STR);
   if (h0 > SEA_LEVEL && h0 < 120) return new THREE.Vector3(8.5, h0 + 2, 8.5);
@@ -723,9 +726,13 @@ async function saveAll() {
       tnt: (() => { try { return tntSim.serialize(); } catch { return null; } })(),
     });
     const prev = await dbWorlds.get(WORLD_ID).catch(() => null);
+    // Kaydın TÜM alanlarını koru (ör. type='flat') — sadece değişenleri güncelle
     await dbWorlds.put({
+      ...(prev || {}),
       id: WORLD_ID, name: prev?.name || WORLD_NAME || 'Dünya', seed: SEED_STR,
-      gamemode: GAMEMODE, lastPlayed: Date.now(), createdAt: prev?.createdAt || Date.now(),
+      gamemode: GAMEMODE,
+      type: prev?.type === 'flat' ? 'flat' : (WORLD_TYPE === 'flat' ? 'flat' : 'default'),
+      lastPlayed: Date.now(), createdAt: prev?.createdAt || Date.now(),
     });
   } catch {}
 }
@@ -2134,6 +2141,7 @@ async function enterWorld(id) {
       SEED_STR = String(w.seed || DEFAULT_SEED);
       SEED_NUM = hashSeed(SEED_STR) & 0xffffffff;
       GAMEMODE = w.gamemode === 'survival' ? 'survival' : 'creative';
+      WORLD_TYPE = w.type === 'flat' ? 'flat' : 'default';
       player.flying = false; // dunyaya yuruyerek baslanir (cift-Space ile ucma)
       w.lastPlayed = Date.now();
       try { await dbWorlds.put(w); } catch {}
@@ -2190,7 +2198,7 @@ async function enterWorld(id) {
     }
     chunkManager = new ChunkManager(scene, atlas, WORLD_ID, SEED_STR, SEED_NUM, {
       opaque: matOpaque, transparent: matTransparent, emissive: matEmissive,
-    });
+    }, WORLD_TYPE);
     chunkManager.onEdit = handleBlockEdit;
     chunkManager.torchFacing = (x, y, z) => torchFacingAt(x, y, z);
     // Mesher ışığı: chunk + 15 blok payındaki meşaleler (meşale seviye 14, her blok -1 taxicab)

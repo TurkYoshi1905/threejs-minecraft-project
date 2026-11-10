@@ -48,8 +48,11 @@ export const LANGS = {
     'create.modeCreativeTitle': 'Yaratıcı Modu',
     'create.modeCreativeDesc': 'Uçma + sonsuz kaynak + ücretsiz kırma. Ücretsiz yapım.',
     'create.worldType': 'Dünya Tipi',
-    'create.worldTypeDefault': 'Varsayılan (1.21.1 Sonsuz Voksel)',
-    'create.worldTypeHint': 'Y: -64..319 yükseklik sınırları, derin kayrak ve mağaralar',
+    'create.worldTypeDefault': 'Varsayılan',
+    'create.worldTypeDefaultDesc': '1.21.1 Sonsuz Voksel — derin kayrak ve mağaralar',
+    'create.worldTypeFlat': 'Düz',
+    'create.worldTypeFlatDesc': 'Classic Flat — Y=-64 anakaya, 2 toprak + çim (ağaç/cevher yok)',
+    'create.worldTypeHint': 'İki tür de MC 1.21.1 sınırlarında (Y: -64..319) çalışır',
     'create.create': '✔ Dünyayı Oluştur',
     // Ayarlar
     'settings.title': '⚙️ Ayarlar',
@@ -130,10 +133,10 @@ export const LANGS = {
     'inv.empty': 'Boş',
     // Çalışma masası
     'table.title': '🔨 Çalışma Masası',
-    'table.hint': 'Kütük→tahta • 2 tahta→4 çubuk • 4 tahta→masa • Kömür+çubuk→4 meşale • 3 malzeme+2 çubuk→kazma • Malzeme+2 çubuk→kürek • Malzeme+çubuk→kılıç • Balta: üstte 2+1 malzeme, ortada+altta çubuk • 8 kırma taş→fırın • Demir+çakmak→çakmak ve çelik • 5 barut+4 kum→TNT • 9 malzeme↔1 maden bloğu (demir/altın/elmas/kömür/bakır/lapis/redstone/zümrüt)',
+    'table.hint': 'Kütük→tahta • 2 tahta→4 sopa • 4 tahta→masa • Kömür+sopa→4 meşale (odun kömürü de olur) • 3 malzeme+2 sopa→kazma • Malzeme+2 sopa→kürek • Malzeme+sopa→kılıç • Balta: üstte 2+1 malzeme, ortada+altta sopa • 8 kırık taş→fırın • Demir+çakmaktaşı→çakmaktaşı ve çelik • 5 barut+4 kum→TNT • 8 tahta→göğüs • 6 tahta→3 kapı • 9 malzeme↔1 maden bloğu (demir/altın/elmas/kömür/bakır/lapis/redstone/zümrüt)',
     // Fırın
     'furnace.title': '🔥 Fırın',
-    'furnace.hint': 'Üste eritilecek (cevher/kum/kütük) • Alta yakıt (kömür/odun/tahta/çubuk) • Sağ tık: 1 tane koy',
+    'furnace.hint': 'Üste eritilecek (cevher/kum/kütük) • Alta yakıt (kömür/odun kömürü/tahta/sopa) • Sağ tık: 1 tane koy',
     'furnace.input': 'Eritilecek',
     'furnace.fuel': 'Yakıt',
     'furnace.result': 'Sonuç',
@@ -177,7 +180,7 @@ export const LANGS = {
     'msg.doorPlaceBottom': 'Kapıyı alt yarıdan koy!',
     'msg.torchNeedsBase': 'Meşale alta katı blok ister!',
     'msg.torchWallOrFloor': 'Meşale alta ya da duvara konur!',
-    'msg.flintSteelFinished': 'Çakmak ve çeliğin bitti!',
+    'msg.flintSteelFinished': 'Çakmaktaşın ve çeliğin bitti!',
     'msg.enteredWorld': '— {0} dünyasına girildi ({1}) —',
     'msg.welcomeSurvival': 'Hayatta Kalma: E ile envanter, kazma yapmadan cevher düşmez! Fırında pişir. T ile komutlar.',
     'msg.welcomeCreative': 'Yaratıcı: E ile blok+eşya seç (arama var), çift-Space ile uç. T ile komutlar.',
@@ -324,8 +327,11 @@ export const LANGS = {
     'create.modeCreativeTitle': 'Creative Mode',
     'create.modeCreativeDesc': 'Flying + infinite resources + free breaking. Build for free.',
     'create.worldType': 'World Type',
-    'create.worldTypeDefault': 'Default (1.21.1 Infinite Voxel)',
-    'create.worldTypeHint': 'Y: -64..319 height limits, deepslate and caves',
+    'create.worldTypeDefault': 'Default',
+    'create.worldTypeDefaultDesc': '1.21.1 Infinite voxel terrain — deepslate & caves',
+    'create.worldTypeFlat': 'Flat',
+    'create.worldTypeFlatDesc': 'Classic Flat — bedrock at Y=-64, 2 dirt + grass (no trees/ores)',
+    'create.worldTypeHint': 'Both types use MC 1.21.1 limits (Y: -64..319)',
     'create.create': '✔ Create World',
     // Settings
     'settings.title': '⚙️ Settings',
@@ -406,7 +412,7 @@ export const LANGS = {
     'inv.empty': 'Empty',
     // Crafting table
     'table.title': '🔨 Crafting Table',
-    'table.hint': 'Log→planks • 2 planks→4 sticks • 4 planks→table • Coal+stick→4 torches • 3 materials+2 sticks→pickaxe • Material+2 sticks→shovel • Material+stick→sword • Axe: 2+1 on top, middle+bottom sticks • 8 cobblestone→furnace • Iron+flint→flint and steel • 5 gunpowder+4 sand→TNT • 9 materials↔1 ore block (iron/gold/diamond/coal/copper/lapis/redstone/emerald)',
+    'table.hint': 'Log→planks • 2 planks→4 sticks • 4 planks→table • Coal+stick→4 torches (charcoal works too) • 3 materials+2 sticks→pickaxe • Material+2 sticks→shovel • Material+stick→sword • Axe: 2+1 on top, middle+bottom sticks • 8 cobblestone→furnace • Iron+flint→flint and steel • 5 gunpowder+4 sand→TNT • 8 planks→chest • 6 planks→3 doors • 9 materials↔1 ore block (iron/gold/diamond/coal/copper/lapis/redstone/emerald)',
     // Furnace
     'furnace.title': '🔥 Furnace',
     'furnace.hint': 'Top: smelting (ore/sand/log) • Bottom: fuel (coal/wood/planks/sticks) • Right click: place one',

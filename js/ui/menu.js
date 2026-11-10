@@ -533,7 +533,8 @@ async function renderList() {
     const meta = document.createElement('div');
     meta.className = 'w-meta';
     const gmTr = (w.gamemode || 'creative') === 'survival' ? t('msg.modeSurvival') : t('msg.modeCreative');
-    meta.innerHTML = `<span class="gm-tag ${w.gamemode || 'creative'}">${gmTr}</span> • Seed: <span class="seed-tag">${String(w.seed).slice(0, 16)}</span> • ${fmtDate(w.lastPlayed)}`;
+    const flatTag = w.type === 'flat' ? `<span class="gm-tag flat">${t('create.worldTypeFlat')}</span> ` : '';
+    meta.innerHTML = `${flatTag}<span class="gm-tag ${w.gamemode || 'creative'}">${gmTr}</span> • Seed: <span class="seed-tag">${String(w.seed).slice(0, 16)}</span> • ${fmtDate(w.lastPlayed)}`;
 
     info.append(name, meta);
 
@@ -708,6 +709,25 @@ async function init() {
     };
   }
 
+  // Dünya Tipi seçici (kartlar): Varsayılan / Düz
+  try {
+    const typeCards = [
+      document.getElementById('typeDefaultBtn'),
+      document.getElementById('typeFlatBtn'),
+    ].filter(Boolean);
+    const hiddenType = document.getElementById('worldType');
+    const selectType = (v) => {
+      for (const c of typeCards) {
+        const active = c.dataset.type === v;
+        c.classList.toggle('active', active);
+        c.setAttribute('aria-checked', String(active));
+      }
+      if (hiddenType) hiddenType.value = v;
+    };
+    for (const c of typeCards) c.addEventListener('click', () => selectType(c.dataset.type || 'default'));
+    selectType('default');
+  } catch (e) { console.warn('[menu] dünya tipi seçici', e); }
+
   // Dünyayı Oluştur Butonu
   const createBtn = $('createBtn');
   if (createBtn) {
@@ -718,12 +738,14 @@ async function init() {
       const name = (wn ? wn.value.trim() : '') || t('create.defaultName');
       const seed = (ws ? ws.value.trim() : '') || randomSeed();
       const gamemode = (wm ? wm.value : 'survival') === 'creative' ? 'creative' : 'survival';
+      const type = (document.getElementById('worldType')?.value === 'flat') ? 'flat' : 'default';
       const id = 'w-' + Date.now().toString(36);
       await dbWorlds.put({
         id,
         name: name.slice(0, 32),
         seed: seed.slice(0, 64),
         gamemode,
+        type,
         createdAt: Date.now(),
         lastPlayed: Date.now(),
       });

@@ -106,6 +106,26 @@ function veinInto(blocks, set, cx, cz, lx, y, lz, id, seedNum) {
   }
 }
 
+// MC 1.21.1 "Classic Flat" (Düz): Y=-64 bedrock, Y=-63..-62 2× toprůk, Y=-61 çim, üstü hava.
+// Cevher/mağara/ağaç/su YOK (vanilla superflag özelliği). Y sınırları ve anakaya katmanı aynı.
+export const FLAT_Y = MIN_Y + 3; // çim yüzey seviyesi (-61)
+export function generateFlatChunk(cx, cz, seedStr, seedNum) {
+  const blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+  const set = (lx, y, lz, id) => {
+    if (y < MIN_Y || y > MAX_Y) return;
+    blocks[(y - MIN_Y) * 256 + lz * 16 + lx] = id;
+  };
+  for (let lx = 0; lx < 16; lx++) {
+    for (let lz = 0; lz < 16; lz++) {
+      set(lx, MIN_Y, lz, 10);     // bedrock (Y=-64)
+      set(lx, MIN_Y + 1, lz, 2);  // toprak (Y=-63)
+      set(lx, MIN_Y + 2, lz, 2);  // toprak (Y=-62)
+      set(lx, MIN_Y + 3, lz, 1);  // çim (Y=-61)
+    }
+  }
+  return blocks;
+}
+
 export function generateChunk(cx, cz, seedStr, seedNum) {
   const blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
   const set = (lx, y, lz, id) => {
@@ -181,13 +201,13 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     }
   }
 
-  // Ağaçlar: orman biyomunda sık, kumsalda yok. Yüksek kesimlerde ladin,
-  // nemli ormanda huş karışımı, gerisi meşe (MC biyomları: plains/taiga/birch forest)
+  // Ağaçlar: featureless düz dünyada YOK; varsayılan dünyada her chunk'ta garanti.
+  // Türün: çimlerin %70'i meşe, %15'i huş, yüksek kesimde %70 ladin (MC plains/forest/spruce karışımı).
   const rng = rngForChunk(seedNum, cx, cz);
   const { moist: moistN } = noises(seedStr);
   const forest = moistN.fbm(cx * 16 / 120, cz * 16 / 120, 2);
-  const treeBase = forest > 0.15 ? 4 : (forest > -0.1 ? 2 : 1);
-  const treeCount = treeBase + Math.floor(rng() * 3);
+  const treeBase = forest > 0.1 ? 3 : (forest > -0.2 ? 2 : 2);
+  const treeCount = Math.max(2, treeBase + Math.floor(rng() * 3));
   const placedTrees = []; // ağaçlar yan yana olmasın (Manhattan mesafe >= 3)
   for (let t = 0; t < treeCount; t++) {
     const lx = 2 + Math.floor(rng() * 12);
@@ -206,11 +226,11 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     if (!isSpruce && h >= 150) continue;
     const topId = blocks[(h - MIN_Y) * 256 + lz * 16 + lx];
     if (topId !== 1 && topId !== 18) continue; // çim veya karlı çim üstüne
-    if (rng() < (forest > 0.15 ? 0.15 : 0.4)) continue; // ormanda seyreltme az
-    // Ağaç türü: yüksekte %85 ladin, ormanda %45 huş, gerisi meşe
-    const treeRoll = rng();
-    const spruceHere = isSpruce && treeRoll < 0.85;
-    const birchHere = !spruceHere && forest > -0.05 && treeRoll < 0.45;
+    // Ağaç türü: yüksekte %70 ladin, nemli ormanda %30 huş, gerisi meşe (canlı his için seyrelme az)
+    const roll = rng();
+    const spruceHere = isSpruce && roll < 0.7;
+    const birchHere = !spruceHere && forest > -0.15 && roll < 0.3;
+    if (rng() < (forest > 0.1 ? 0.08 : 0.12)) continue; // %8-12 seyreltme — pratikte her chunk'ta 1+ ağaç
     placedTrees.push([lx, lz]);
     const trunkId = spruceHere ? 68 : birchHere ? 65 : 5;
     const leafId = spruceHere ? 70 : birchHere ? 67 : 6;
