@@ -836,7 +836,7 @@ function igniteFireAt(x, y, z) {
   try { playIgnite(); } catch {}
   try { showSubtitle('subtitle.ignite'); } catch {}
   const cur = chunkManager.getBlock(x, y, z);
-  if (cur === 0 || cur === 16 || cur === 21) chunkManager.setBlock(x, y, z, 86);
+  if (cur === 0 || cur === 21) chunkManager.setBlock(x, y, z, 86); // suyun içine ateş koyulamıyor (MC)
   consumeFlintSteelDurability();
   renderHotbar();
 }
@@ -1661,6 +1661,52 @@ function tryPlaceFromCross() {
   renderHotbar();
   return 'placed';
 }
+// MC 1.21.1: orta tık (tekerlek düğmesi) — baktığın bloğu elindeki slota al.
+function pickBlockFromCross() {
+  if (!chunkManager || player.dead) return;
+  if (!inventory) return;
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const eye = player.pos.clone(); eye.y += EYE;
+  const hit = raycastVoxel(eye, dir, REACH);
+  if (!hit) return;
+  const raw = hit.id;
+  if (raw >= 100) return; // eşya değil (donanımsal blok)
+  const b = BLOCKS[raw];
+  if (!b || b.secilemez || b.gizli) { toast(t('msg.pickNotPickable')); return; }
+  const id = raw === 26 ? 25 : (raw === 24 ? 22 : raw); // kapı üstü→kapı, yanan fırın→fırın
+  const sel = inventory.sel;
+  const sameKindBlock = (s) => s && (s.kind || (s.id >= 100 ? 'item' : 'block')) === 'block' && s.id === id;
+  if (GAMEMODE === 'creative') {
+    // Yaratıcı: seçili slota 64'lüğüne koy (MC: ücretsiz alır)
+    inventory.hotbar[sel] = { kind: 'block', id, count: 64 };
+    try { inventory.renderHot(); inventory.onChange(); } catch {}
+    renderHotbar();
+    return;
+  }
+  // Hayatta kalma: önce hotbar'da, yoksa çantada ara; bulursan swap ile seçili slota al
+  const hotIdx = inventory.hotbar.findIndex(sameKindBlock);
+  if (hotIdx >= 0) {
+    if (hotIdx !== sel) {
+      const tmp = inventory.hotbar[sel];
+      inventory.hotbar[sel] = inventory.hotbar[hotIdx];
+      inventory.hotbar[hotIdx] = tmp;
+    }
+    try { inventory.renderHot(); inventory.onChange(); } catch {}
+    renderHotbar();
+    return;
+  }
+  const mainIdx = inventory.main.findIndex(sameKindBlock);
+  if (mainIdx >= 0) {
+    const tmp = inventory.hotbar[sel];
+    inventory.hotbar[sel] = inventory.main[mainIdx];
+    inventory.main[mainIdx] = tmp;
+    try { inventory.renderHot(); inventory.onChange(); } catch {}
+    renderHotbar();
+    return;
+  }
+  toast(t('msg.pickNotInInventory'));
+}
 function tryBreakFromCross() {
   // Creative basılı-tut kırma için (survival zaten mouseL+progress ile kırıyor)
   if (!chunkManager || player.dead || GAMEMODE !== 'creative') return;
@@ -1689,6 +1735,10 @@ document.addEventListener('mousedown', (e) => {
     const r = tryPlaceFromCross();
     if (r === 'table' || r === 'furnace' || r === 'door' || r === 'chest') { mouseR = false; return; }
     mouseR = true; placeCd = PLACE_INTERVAL;
+  } else if (e.button === 1) {
+    // Orta tık (tekerlek): baktığın bloğu elindeki slota al (MC "pick block")
+    e.preventDefault();
+    pickBlockFromCross();
   }
 });
 document.addEventListener('mouseup', (e) => {
