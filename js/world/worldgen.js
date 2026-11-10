@@ -53,39 +53,39 @@ function triangleProb(y, minY, peakY, maxY) {
 
 function oreAt(x, y, z, seedNum) {
   const r = hash3(x, y, z, seedNum ^ 0x9e3779b9);
-  // elmas: -64..16, tepe -59 (damar hissi için komşu bloklarla birlikte değerlendirilir)
-  if (y <= 16 && r < 0.014 * triangleProb(y, -64, -59, 16)) return 13;
-  // altın: -64..32, tepe -16 (nadir, ayrı hash)
+  // elmas: -64..16, tepe -59 — MC 1.18+: en derinlerde, nadir
+  if (y <= 16 && r < 0.006 * triangleProb(y, -64, -59, 16)) return 13;
+  // altın: -64..32, tepe -16 (MC 1.18+: nadir, derin bloklar)
   if (y <= 32 && y >= -64) {
     const rg = hash3(x, y, z, seedNum ^ 0x51ab3f77);
-    if (rg < 0.006 * triangleProb(y, -64, -16, 32)) return 23;
+    if (rg < 0.0035 * triangleProb(y, -64, -16, 32)) return 23;
   }
-  // demir alt: -64..20 tepe -24
-  if (y <= 20 && r > 0.986 && triangleProb(y, -64, -24, 20) > 0.35) return 12;
-  // demir üst: 20..110 tepe 60
-  if (y > 16 && y <= 110 && r < 0.012 * triangleProb(y, 20, 60, 110)) return 12;
-  // bakır: -64..96 tepe 48 (dağ kesimi, nadir)
+  // demir (derin damar): -64..20 tepe -24 (MC 1.18+: derin eşleşik demir damarları)
+  if (y <= 20 && r > 0.995 && triangleProb(y, -64, -24, 20) > 0.5) return 12;
+  // demir (normal): 16..110 tepe 60
+  if (y > 16 && y <= 110 && r < 0.005 * triangleProb(y, 20, 60, 110)) return 12;
+  // bakır: -64..96 tepe 48 (arta kalan orta oluşum)
   if (y >= -64 && y <= 96) {
     const rc = hash3(x, y, z, seedNum ^ 0x2c1bf76d);
-    if (rc < 0.0015 * triangleProb(y, -64, 48, 96)) return 81;
+    if (rc < 0.001 * triangleProb(y, -64, 48, 96)) return 81;
   }
-  // lapis lazuli: -64..64 tepe 0 (derinliğe indikçe artar, nadir)
+  // lapis: -64..64 tepe 0 (derinliğe indikçe artar, nadir)
   if (y >= -64 && y <= 64) {
     const rl = hash3(x, y, z, seedNum ^ 0x6a09e667);
-    if (rl < 0.001 * triangleProb(y, -64, 0, 64)) return 75;
+    if (rl < 0.0008 * triangleProb(y, -64, 0, 64)) return 75;
   }
-  // redstone: -64..16 tepe -58 (kendi hash'i — diamond ile çakışmaz)
+  // redstone: -64..16 tepe -58 (en derinde yoğun)
   if (y >= -64 && y <= 16) {
     const rr = hash3(x, y, z, seedNum ^ 0x1b873593);
-    if (rr < 0.012 * triangleProb(y, -64, -58, 16)) return 77;
+    if (rr < 0.005 * triangleProb(y, -64, -58, 16)) return 77;
   }
   // zümrüt: sadece yüksek tepelerde, çok nadir
   if (y >= -16 && y <= 150) {
     const re = hash3(x, y, z, seedNum ^ 0x55f0e11d);
-    if (re < 0.00015 * triangleProb(y, -16, 130, 150)) return 79;
+    if (re < 0.00008 * triangleProb(y, -16, 130, 150)) return 79;
   }
   // kömür: 50..319 (dağlarda daha sık)
-  if (y >= 50 && r < 0.016 * triangleProb(y, 50, 110, 319)) return 11;
+  if (y >= 50 && r < 0.006 * triangleProb(y, 50, 110, 319)) return 11;
   // çakıl cebi
   if (r > 0.993 && y < 60) return 15;
   return 0;
@@ -201,13 +201,12 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     }
   }
 
-  // Ağaçlar: featureless düz dünyada YOK; varsayılan dünyada her chunk'ta garanti.
-  // Türün: çimlerin %70'i meşe, %15'i huş, yüksek kesimde %70 ladin (MC plains/forest/spruce karışımı).
+  // Ağaçlar: meşe/huş/ladin EŞİT (her biri ~%33). Sayıca az (1-2, ormanda en fazla 3) — MC hisleri
   const rng = rngForChunk(seedNum, cx, cz);
   const { moist: moistN } = noises(seedStr);
   const forest = moistN.fbm(cx * 16 / 120, cz * 16 / 120, 2);
-  const treeBase = forest > 0.1 ? 3 : (forest > -0.2 ? 2 : 2);
-  const treeCount = Math.max(2, treeBase + Math.floor(rng() * 3));
+  const maxTrees = forest > 0.15 ? 3 : (forest > -0.1 ? 2 : 1);
+  const treeCount = Math.max(1, Math.floor(rng() * maxTrees));
   const placedTrees = []; // ağaçlar yan yana olmasın (Manhattan mesafe >= 3)
   for (let t = 0; t < treeCount; t++) {
     const lx = 2 + Math.floor(rng() * 12);
@@ -220,17 +219,14 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     if (tooClose) continue;
     const wx = cx * 16 + lx, wz = cz * 16 + lz;
     const h = heightAt(wx, wz, seedStr);
-    // Yüksek kesimlerde ladin (taiga hissi), nemli ormanda huş karışımı, gerisi meşe
-    const isSpruce = h >= 88;
     if (h <= SEA_LEVEL + 1 || h > MAX_Y - 8) continue;
-    if (!isSpruce && h >= 150) continue;
+    if (h >= 150) continue; // tepe katlarında ağaç yok
     const topId = blocks[(h - MIN_Y) * 256 + lz * 16 + lx];
     if (topId !== 1 && topId !== 18) continue; // çim veya karlı çim üstüne
-    // Ağaç türü: yüksekte %70 ladin, nemli ormanda %30 huş, gerisi meşe (canlı his için seyrelme az)
+    // Türler EŞIT: %33 ladin, %33 huş, %33 meşe
     const roll = rng();
-    const spruceHere = isSpruce && roll < 0.7;
-    const birchHere = !spruceHere && forest > -0.15 && roll < 0.3;
-    if (rng() < (forest > 0.1 ? 0.08 : 0.12)) continue; // %8-12 seyreltme — pratikte her chunk'ta 1+ ağaç
+    const spruceHere = roll < 1 / 3;
+    const birchHere = !spruceHere && roll < 2 / 3;
     placedTrees.push([lx, lz]);
     const trunkId = spruceHere ? 68 : birchHere ? 65 : 5;
     const leafId = spruceHere ? 70 : birchHere ? 67 : 6;
