@@ -35,6 +35,9 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
 - **Envanter/masa/fırın/sandık/pause** açılınca oyun donmaz (MC paritesi)
 - Modern tarayıcı + WebGL 2
 - `vendor/three.module.js` — Three.js artık yerelde (CDN gerekmez)
+- **Performans sekmesi**: Render Ölçeği (%50-100), Gölgeler/Bulutlar (aç/kapa),
+  FPS sınırı (30-144/sınırsız), Dünya Yükleme Hızı (sakin/dengeli/hızlı),
+  Grafik Hızı (hızlı=perf preset / güzel=full), partikül ve altyazı desteği
 
 ## Gereksinimler
 

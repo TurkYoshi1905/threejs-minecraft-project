@@ -64,12 +64,25 @@ let frameNo = 0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, RENDER_DISTANCE * 16 * 0.45, RENDER_DISTANCE * 16 * 0.95);
+// Görsel ayarlar (Render Ölçeği / Gölgeler / Bulutlar) — ilk açılışta ve ayar değişince uygulanır.
+function applyVisualSettings() {
+  try {
+    const gs = window.gameSettings || {};
+    const scale = typeof gs.renderScale === 'number' ? gs.renderScale : 100;
+    const clamped = Math.max(50, Math.min(100, scale)) / 100;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5) * clamped);
+    const shadowsOn = gs.shadows !== 'kapali';
+    if (typeof sun !== 'undefined' && sun) { sun.castShadow = shadowsOn; renderer.shadowMap.enabled = shadowsOn; renderer.shadowMap.needsUpdate = true; }
+    if (typeof clouds !== 'undefined' && clouds) clouds.visible = gs.clouds !== 'kapali';
+  } catch {}
+}
 window.addEventListener('gamesettingschange', (e) => {
   const rd = (e.detail && typeof e.detail.renderDistance === 'number') ? e.detail.renderDistance : 5;
   if (scene.fog && !headUnderwater) {
     scene.fog.near = rd * 16 * 0.45;
     scene.fog.far = rd * 16 * 0.95;
   }
+  applyVisualSettings();
 });
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
@@ -497,6 +510,7 @@ function damage(n, reason) {
   player.health -= n;
   updateHearts();
   hurtFlash();
+  try { showSubtitle('subtitle.hurt'); } catch {}
   if (player.health <= 0) kill(reason);
 }
 function kill(reason = t('death.defaultReason')) {
@@ -592,6 +606,8 @@ const clouds = new THREE.Group();
   }
   scene.add(clouds);
 }
+// Açılışta görsel ayarları uygula (render ölçeği / gölgeler / bulutlar oyun ayarından)
+try { applyVisualSettings(); } catch {}
 
 // ============ HOTBAR (envantere bağlı, atlas'tan tint'li ikon) ============
 let selected = 0;
@@ -771,6 +787,7 @@ function closeTable(returnItems = true) {
 // ============ TNT (çakmak ve çelikle ateşleme + patlama) ============
 function explosionEffect(x, y, z) {
   try { playExplode(); } catch {}
+  try { showSubtitle('subtitle.explosion'); } catch {}
   // bölgesel patlama efekti: tonlarca taş/kıvılcım + sıcak flaş ışığı
   try { effects?.burst(Math.floor(x), Math.floor(y), Math.floor(z), 64, 26); } catch {}
   try { effects?.burst(Math.floor(x), Math.floor(y), Math.floor(z), 3, 14); } catch {}
@@ -797,6 +814,7 @@ function igniteTNTAt(x, y, z) {
   if (!chunkManager) return;
   chunkManager.setBlock(x, y, z, 0); // blok silinir, primed TNT doğar (MC)
   try { playIgnite(); } catch {}
+  try { showSubtitle('subtitle.ignite'); } catch {}
   try { tntSim.spawn(x, y, z, scene, fallTileMaterial, fallFaceMaterial); } catch (e) { console.warn('TNT spawn hatası:', e); } // fitil: MC 1.21.1 = 4.0sn (tnt.js varsayılanı)
   consumeFlintSteelDurability();
   renderHotbar();
@@ -807,6 +825,7 @@ function igniteTNTAt(x, y, z) {
 function igniteFireAt(x, y, z) {
   if (!chunkManager) return;
   try { playIgnite(); } catch {}
+  try { showSubtitle('subtitle.ignite'); } catch {}
   const cur = chunkManager.getBlock(x, y, z);
   if (cur === 0 || cur === 16 || cur === 21) chunkManager.setBlock(x, y, z, 86);
   consumeFlintSteelDurability();
@@ -1652,6 +1671,19 @@ document.addEventListener('mouseup', (e) => {
   if (e.button === 2) { mouseR = false; placeCd = 0; }
 });
 
+let subtitleT;
+// MC altyazıları (oyun ayarı): kritik seslerde kısa satır gösterir
+function showSubtitle(key) {
+  try {
+    if (!window.gameSettings?.subtitles) return;
+    const el = document.getElementById('subtitleLine');
+    if (!el) return;
+    el.textContent = t(key);
+    el.classList.remove('hidden');
+    clearTimeout(subtitleT);
+    subtitleT = setTimeout(() => el.classList.add('hidden'), 2200);
+  } catch {}
+}
 function toast(msg) {
   selNameEl.textContent = msg;
   clearTimeout(renderHotbar._t);
@@ -1668,6 +1700,9 @@ const perfAcc = { ms: 0, max: 0, n: 0 };
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
+  // FPS sınırı (oyun ayarı): kare çok kısaysa bu kareyi atla — MC "maxFramerate" hissi
+  const fpsCap = +(window.gameSettings?.fpsLimit) || 0; // 0 = sınırsız
+  if (fpsCap > 0 && now - last < 1000 / fpsCap - 0.5) return;
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 

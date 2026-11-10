@@ -164,6 +164,7 @@ const SETTINGS_CATS = [
   { id: 'game', icon: '🎮', key: 'settings.catGame' },
   { id: 'controls', icon: '🖱️', key: 'settings.catControls' },
   { id: 'audio', icon: '🔊', key: 'settings.catAudio' },
+  { id: 'performance', icon: '⚡', key: 'settings.catPerformance' },
   { id: 'player', icon: '👤', key: 'settings.catPlayer' },
   { id: 'custom', icon: '🛠️', key: 'settings.catCustom' },
   { id: 'about', icon: 'ℹ️', key: 'settings.catAbout' },
@@ -245,6 +246,55 @@ function fovRow() {
   numInput.onchange = (e) => updateFov(e.target.value);
   return row;
 }
+// Grafik Hızı (Hızlı/Güzel) bir BİLEŞİM: gölge+bulut+partikül preset'i. Tek tıkla tam deneyim.
+function applyGraphics(level) {
+  const fancy = level === 'güzel';
+  const gs = window.gameSettings;
+  gs.shadows = fancy ? 'acik' : 'kapali';
+  gs.clouds = fancy ? 'acik' : 'kapali';
+  gs.particles = fancy ? 'tam' : 'azaltilmis';
+  gs.graphics = level;
+  saveGameSettings();
+}
+// Kategoriyi varsayılanlara döndürür (oyuncu adı/dil ve özel ayarlar hariç — bilinçli)
+const CAT_DEFAULTS = {
+  game: { fov: 70, renderDistance: 5, graphics: 'hizli', particles: 'tam' },
+  controls: { invertMouse: false, mouseSensitivity: 100 },
+  audio: { volume: 100, subtitles: true },
+  performance: { renderScale: 100, shadows: 'acik', clouds: 'acik', chunkLoad: 'dengeli', fpsLimit: 0 },
+};
+function resetCurrentCategory() {
+  const def = CAT_DEFAULTS[settingsTab];
+  if (!def) return;
+  const gs = window.gameSettings;
+  for (const k of Object.keys(def)) {
+    if (def[k] === undefined) delete gs[k]; else gs[k] = def[k];
+  }
+  // Oyun sekmesi resetlendi: grafik bileşimi ve görsel ayarları da uygula
+  if (settingsTab === 'game') applyGraphics('hizli');
+  else saveGameSettings();
+  renderSettings();
+}
+const CONTROL_ROWS = [
+  ['W A S D', 'help.key.move'], ['Space', 'help.key.jump'],
+  ['Shift', 'help.key.sneak'], ['W ×2', 'help.key.sprint'],
+  ['E', 'help.key.inventory'], ['T  veya  /', 'help.key.chat'],
+  ['Q', 'help.key.drop'], ['1 – 0', 'help.key.select'],
+  ['Sol Tık', 'help.key.break'], ['Sağ Tık', 'help.key.place'],
+  ['Space ×2', 'help.key.fly'], ['Esc', 'help.key.close'],
+  ['H', 'help.key.help'],
+];
+function controlReferenceRow() {
+  const div = document.createElement('div');
+  div.className = 'keys-grid';
+  for (const [key, labelKey] of CONTROL_ROWS) {
+    const row = document.createElement('div');
+    row.className = 'krow';
+    row.innerHTML = `<kbd>${key}</kbd><span>${t(labelKey)}</span>`;
+    div.appendChild(row);
+  }
+  return div;
+}
 
 function renderSettings() {
   const panel = document.getElementById('settingsPanel');
@@ -264,6 +314,14 @@ function renderSettings() {
   const cat = SETTINGS_CATS.find((c) => c.id === settingsTab) || SETTINGS_CATS[0];
   const ci = panel.querySelector('#settingsCatIcon'); if (ci) ci.textContent = cat.icon;
   const ct = panel.querySelector('#settingsCatTitle'); if (ct) ct.textContent = cleanLabel(t(cat.key));
+  // Sıfırla butonu: sadece varsayılanı olan sekmelerde gösterilir (Oyuncu/Özel/Hakkında hariç)
+  const resetBtn = panel.querySelector('#settingsResetCatBtn');
+  if (resetBtn) {
+    const hasDefaults = !!CAT_DEFAULTS[cat.id];
+    resetBtn.classList.toggle('hidden', !hasDefaults);
+    resetBtn.title = t('settings.resetCategory');
+    resetBtn.setAttribute('aria-label', t('settings.resetCategory'));
+  }
   const box = panel.querySelector('#settingsContent');
   if (!box) return;
   box.innerHTML = '';
@@ -273,16 +331,25 @@ function renderSettings() {
     box.appendChild(sectionLabel(cleanLabel(t('settings.catGame'))));
     box.appendChild(fovRow());
     box.appendChild(enumRow({ icon: '🔭', label: t('settings.renderDist'), values: [2, 4, 6, 8, 10, 12], get: () => gs.renderDistance, set: (v) => { gs.renderDistance = +v; } }));
-    box.appendChild(enumRow({ icon: '🖥️', label: t('settings.graphics'), values: [t('settings.fast'), t('settings.fancy')], get: () => gs.graphics === 'güzel' ? t('settings.fancy') : t('settings.fast'), set: (v) => { gs.graphics = v === t('settings.fancy') ? 'güzel' : 'hizli'; } }));
+    box.appendChild(enumRow({ icon: '🖥️', label: t('settings.graphics'), values: [t('settings.fast'), t('settings.fancy')], get: () => gs.graphics === 'güzel' ? t('settings.fancy') : t('settings.fast'), set: (v) => { applyGraphics(v === t('settings.fancy') ? 'güzel' : 'hizli'); } }));
     box.appendChild(enumRow({ icon: '✨', label: t('settings.particles'), values: [t('settings.particlesFull'), t('settings.particlesReduced'), t('settings.particlesOff')], get: () => gs.particles === 'azaltilmis' ? t('settings.particlesReduced') : (gs.particles === 'kapali' ? t('settings.particlesOff') : t('settings.particlesFull')), set: (v) => { gs.particles = v === t('settings.particlesFull') ? 'tam' : (v === t('settings.particlesReduced') ? 'azaltilmis' : 'kapali'); } }));
   } else if (settingsTab === 'controls') {
     box.appendChild(sectionLabel(cleanLabel(t('settings.catControls'))));
     box.appendChild(enumRow({ icon: '🖱️', label: t('settings.invertMouse'), values: [t('settings.off'), t('settings.on')], get: () => gs.invertMouse ? t('settings.on') : t('settings.off'), set: (v) => { gs.invertMouse = v === t('settings.on'); } }));
     box.appendChild(enumRow({ icon: '⚡', label: t('settings.mouseSens'), values: ['%50', '%75', '%100', '%125', '%150'], get: () => Math.round(gs.mouseSensitivity) + '%', set: (v) => { gs.mouseSensitivity = +v.replace('%', ''); } }));
+    box.appendChild(sectionLabel(t('help.controlsTitle')));
+    box.appendChild(controlReferenceRow());
   } else if (settingsTab === 'audio') {
     box.appendChild(sectionLabel(cleanLabel(t('settings.catAudio'))));
     box.appendChild(enumRow({ icon: '🔊', label: t('settings.volume'), values: ['%0', '%25', '%50', '%75', '%100'], get: () => Math.round(gs.volume) + '%', set: (v) => { gs.volume = +v.replace('%', ''); } }));
     box.appendChild(enumRow({ icon: '💬', label: t('settings.subtitles'), values: [t('settings.off'), t('settings.on')], get: () => gs.subtitles ? t('settings.on') : t('settings.off'), set: (v) => { gs.subtitles = v === t('settings.on'); } }));
+  } else if (settingsTab === 'performance') {
+    box.appendChild(sectionLabel(cleanLabel(t('settings.catPerformance'))));
+    box.appendChild(enumRow({ icon: '🌫️', label: t('settings.renderScale'), values: ['%50', '%75', '%100'], get: () => '%' + (typeof gs.renderScale === 'number' ? gs.renderScale : 100), set: (v) => { gs.renderScale = +v.replace('%', ''); } }));
+    box.appendChild(enumRow({ icon: '🌑', label: t('settings.shadows'), values: [t('settings.on'), t('settings.off')], get: () => gs.shadows === 'kapali' ? t('settings.off') : t('settings.on'), set: (v) => { gs.shadows = v === t('settings.off') ? 'kapali' : 'acik'; } }));
+    box.appendChild(enumRow({ icon: '☁️', label: t('settings.clouds'), values: [t('settings.on'), t('settings.off')], get: () => gs.clouds === 'kapali' ? t('settings.off') : t('settings.on'), set: (v) => { gs.clouds = v === t('settings.off') ? 'kapali' : 'acik'; } }));
+    box.appendChild(enumRow({ icon: '🧱', label: t('settings.chunkLoad'), values: [t('settings.chunkSpeedCalm'), t('settings.chunkSpeedBalanced'), t('settings.chunkSpeedFast')], get: () => gs.chunkLoad === 'sakin' ? t('settings.chunkSpeedCalm') : gs.chunkLoad === 'hizli' ? t('settings.chunkSpeedFast') : t('settings.chunkSpeedBalanced'), set: (v) => { gs.chunkLoad = v === t('settings.chunkSpeedCalm') ? 'sakin' : v === t('settings.chunkSpeedFast') ? 'hizli' : 'dengeli'; } }));
+    box.appendChild(enumRow({ icon: '⏱️', label: t('settings.fpsLimit'), values: [t('settings.fpsUnlimited'), '144', '60', '30'], get: () => (+gs.fpsLimit) > 0 ? String(gs.fpsLimit) : t('settings.fpsUnlimited'), set: (v) => { gs.fpsLimit = v === t('settings.fpsUnlimited') ? 0 : +v; } }));
   } else if (settingsTab === 'player') {
     box.appendChild(sectionLabel(cleanLabel(t('settings.catPlayer'))));
     const nameRow = document.createElement('div');
@@ -400,7 +467,6 @@ function renderSettings() {
       <div class="about-mark" aria-hidden="true">⛏️</div>
       <div class="about-badge">MC 1.21.1 • v2.1</div>
       <p>${t('settings.aboutText')}</p>
-      <p><a href="https://github.com/TurkYoshi1905/threejs-minecraft-project" target="_blank" rel="noopener noreferrer">github.com/TurkYoshi1905/threejs-minecraft-project</a></p>
     `;
     box.appendChild(wrap);
   }
@@ -689,10 +755,14 @@ async function boot() {
 
 boot();
 
-// ---- Ayarlar paneli: kapatma düğmeleri + dışa açık API (main.js çağırır) ----
+// ---- Ayarlar paneli: kapatma + sıfırlama düğmeleri + dışa açık API (main.js çağırır) ----
 try {
   document.getElementById('settingsDoneBtn')?.addEventListener('click', closeSettingsPanel);
   document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsPanel);
+  document.getElementById('settingsResetCatBtn')?.addEventListener('click', () => {
+    if (!window.confirm(t('settings.resetCategoryConfirm'))) return;
+    resetCurrentCategory();
+  });
 } catch {}
 
 window.openPauseSettings = function() {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Three.js Minecraft ⛏️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>" />
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
@@ -203,6 +203,7 @@
         <div class="settings-main-head">
           <span id="settingsCatIcon" aria-hidden="true">🎮</span>
           <h2 id="settingsCatTitle">Oyun &amp; Görüntü</h2>
+          <button id="settingsResetCatBtn" class="settings-reset hidden" type="button" aria-label="Kategoriyi Sıfırla">↺</button>
           <button id="settingsCloseBtn" class="settings-x" type="button" aria-label="Kapat">✕</button>
         </div>
         <div id="settingsContent" class="settings-content"></div>
@@ -249,6 +250,7 @@
 
   <!-- Hotbar + XP + Can + Oksijen -->
   <div id="hotbar"></div>
+  <div id="subtitleLine" class="hidden"></div>
   <div id="xpContainer" class="hidden">
     <div id="xpBar"><div id="xpFill"></div></div>
     <div id="xpLevel">0</div>
@@ -386,7 +388,7 @@
     })();
   </script>
 
-  <script type="module" src="js/main.js?v=16"></script>
-  <script type="module" src="js/ui/menu.js?v=16"></script>
+  <script type="module" src="js/main.js?v=17"></script>
+  <script type="module" src="js/ui/menu.js?v=17"></script>
 </body>
 </html>

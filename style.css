@@ -1374,7 +1374,6 @@ body.at-border::after {
   justify-content: center;
 }
 .settings-about .about-mark { font-size: 72px; width: 128px; height: 128px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #6fcf47, #3e7a25); border: 4px solid #2e6b1f; border-radius: 14px; box-shadow: 0 8px 0 #16210f, 0 0 40px rgba(111, 207, 71, 0.25); }
-.settings-about img { image-rendering: pixelated; width: 128px; height: 128px; }
 .settings-about p {
   font-size: 9px;
   line-height: 2.1;
@@ -1382,8 +1381,6 @@ body.at-border::after {
   margin: 0;
   max-width: 480px;
 }
-.settings-about a { color: #6fcf47; text-decoration: none; border-bottom: 1px dotted #6fcf47; }
-.settings-about a:hover { color: #8ce65a; }
 .settings-about .about-badge {
   font-size: 8px; color: #7dff8a; background: rgba(111, 207, 71, 0.1);
   border: 1px solid #4e6b3a; border-radius: 999px; padding: 6px 14px;
@@ -1577,3 +1574,73 @@ body.at-border::after {
 .setting-row-wide { flex-wrap: wrap; }
 .setting-row-wide input { max-width: 170px; }
 @media (max-width: 560px) { .fr-panel { padding: 24px 18px 20px; } .fr-title { font-size: 15px; } .fr-desc { font-size: 9px; } }
+
+/* ================= AYARLAR: SIFIRLA BUTONU + SUBTITLE + KISAYOLLAR ================= */
+.settings-reset {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 17px;
+  color: #ffd24d;
+  background: #262a24;
+  border: 2px solid #5a5224;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-reset:hover { background: #3a3621; border-color: #ffd24d; transform: rotate(-25deg) scale(1.1); }
+#subtitleLine {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 112px;
+  z-index: 190;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  padding: 8px 14px;
+  border-radius: 5px;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: subtitleIn 0.15s ease-out;
+}
+@keyframes subtitleIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.keys-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.krow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid #2b2f28;
+  border-radius: 6px;
+}
+.krow kbd {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  min-width: 46px;
+  text-align: center;
+  color: #ffd24d;
+  background: #171a16;
+  border: 2px solid #3d4238;
+  border-bottom-width: 4px;
+  border-radius: 5px;
+  padding: 6px 7px;
+  text-shadow: 1px 1px 0 #000;
+  flex-shrink: 0;
+}
+.krow span {
+  font-size: 9px;
+  color: #d2d2d2;
+  line-height: 1.5;
+  text-shadow: 1px 1px 0 #000;
+}
+@media (max-width: 700px) { .keys-grid { grid-template-columns: 1fr; } }

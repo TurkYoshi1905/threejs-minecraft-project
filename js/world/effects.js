@@ -78,6 +78,17 @@ function crackTexture(stage) {
   return t;
 }
 
+// Partikül miktarı oyun ayarından (graphics preset + Partiküller satırı). 'kapali' → 0, 'azaltilmis' → %35
+function particleBudget() {
+  try {
+    const gs = (typeof window !== 'undefined' && window.gameSettings) || {};
+    const p = gs.particles;
+    if (p === 'kapali') return 0;
+    if (p === 'azaltilmis') return 0.35;
+    return 1;
+  } catch { return 1; }
+}
+
 export class Effects {
   constructor(scene, atlas, getBlock) {
     this.scene = scene;
@@ -177,6 +188,9 @@ export class Effects {
   }
 
   burst(x, y, z, id, n = 14) {
+    const budget = particleBudget();
+    if (budget <= 0) return;
+    n = Math.max(1, Math.round(n * budget));
     const col = tileAvg(this.atlas, sideTex(id));
     for (let i = 0; i < n; i++) {
       if (this.parts.length > 220) { const p = this.parts.shift(); this.scene.remove(p.m); p.m.material.dispose(); }

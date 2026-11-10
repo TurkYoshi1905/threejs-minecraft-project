@@ -1,4 +1,7 @@
-import { CHUNK_SIZE, WORLD_HEIGHT, MIN_Y, MAX_Y, UNLOAD_DISTANCE, GEN_BUDGET_PER_FRAME, MESH_BUDGET_PER_FRAME } from '../core/config.js';
+import { CHUNK_SIZE, WORLD_HEIGHT, MIN_Y, MAX_Y, UNLOAD_DISTANCE } from '../core/config.js';
+// Dünya yükleme hızı artık oyun ayarı (chunkSpeedFlush: sakin/dengeli/hizli) — config sabiti değil, pencere ayarı
+function getGenBudget() { try { const v = window.gameSettings?.chunkLoad; return v === 'hizli' ? 4 : v === 'sakin' ? 1 : 2; } catch { return 2; } }
+function getMeshBudget() { try { const v = window.gameSettings?.chunkLoad; return v === 'hizli' ? 6 : v === 'sakin' ? 1 : 3; } catch { return 3; } }
 // Render distance: ayarlar panelinden dinamik okunur (varsayılan config'deki değer)
 function getRenderDistance() {
   try {
@@ -164,14 +167,16 @@ export class ChunkManager {
   async processQueues() {
     // üretim bütçesi
     let n = 0;
-    while (this.genQueue.length && n < GEN_BUDGET_PER_FRAME) {
+    const genBudget = getGenBudget();
+    while (this.genQueue.length && n < genBudget) {
       const [cx, cz] = this.genQueue.shift();
       if (!this.chunks.has(key(cx, cz))) { await this.ensureChunk(cx, cz); n++; }
     }
     // mesh bütçesi
     let m = 0;
+    const meshBudget = getMeshBudget();
     for (const k of [...this.meshQueue]) {
-      if (m >= MESH_BUDGET_PER_FRAME) break;
+      if (m >= meshBudget) break;
       this.meshQueue.delete(k);
       const c = this.chunks.get(k);
       if (c) { this.remesh(c); m++; }
