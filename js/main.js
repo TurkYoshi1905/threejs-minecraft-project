@@ -827,10 +827,12 @@ function igniteTNTAt(x, y, z) {
   renderHotbar();
 }
 
-// Çakmak ve çelikle hedef yüzeyin komşusuna ateş yakma (MC 1.21.1).
-// Doğru hedef = tıklanan yüzün komşu hücresi (hit + normal), suda/boşlukta ateş doğar.
+// Çakmak ve çelikle hedef hücreye ateş yakma (MC 1.21.1).
+// Alev yalnızca destek varsa konur: altı katı blok VEYA komşuda katı/yanıcı blok — havada olmaz.
 function igniteFireAt(x, y, z) {
   if (!chunkManager) return;
+  const supported = fireSupportedAt((xx, yy, zz) => chunkManager.getBlock(xx, yy, zz), x, y, z);
+  if (!supported) { toast(t('msg.fireNeedsBase')); return; }
   try { playIgnite(); } catch {}
   try { showSubtitle('subtitle.ignite'); } catch {}
   const cur = chunkManager.getBlock(x, y, z);
@@ -1339,6 +1341,28 @@ const FLAMMABLE = new Set([
   28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, // yünler
   44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, // terrakotalar
 ]);
+// Alevin desteği: altı katı blok (veya herhangi komşu katı/yanıcı) yoksa alev asılsız havadır ve söner.
+function fireSupportedAt(getB, x, y, z) {
+  const solidBelow = (id) => {
+    if (!id) return false;
+    const b = BLOCKS[id];
+    if (!b) return false;
+    return !b.saydam && !b.door; // cam/door/yaprak/su saydam; bunlara alev oturmaz
+  };
+  const sideOk = (id) => {
+    if (!id) return false;
+    if (FLAMMABLE.has(id)) return true; // komşu yanıcı yeter
+    const b = BLOCKS[id];
+    return b && !b.saydam && !b.door; // komşu katı blok yeter
+  };
+  if (solidBelow(getB(x, y - 1, z))) return true;
+  const nbs = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]];
+  for (const [dx, dy, dz] of nbs) {
+    if (sideOk(getB(x + dx, y + dy, z + dz))) return true;
+  }
+  return false;
+}
+
 // Ateş yayılma / sönme zamanlayıcısı (MC-lite): 1.6sn'de bir kontrol
 let fireTickAcc = 0;
 function updateFire(dt) {
@@ -1351,22 +1375,16 @@ function updateFire(dt) {
   for (const f of snapshot) {
     // Ateş hücresinde hâlâ 86 var mı?
     if (chunkManager.getBlock(f.x, f.y, f.z) !== 86) { effects.detachFire(f.x, f.y, f.z); continue; }
-    // Su komşusu sön
+    // Su komşusu veya desteksiz (havada kalmış) → sön
     let watery = false;
     for (const [dx, dy, dz] of nbs) { if (getBlock(f.x + dx, f.y + dy, f.z + dz) === 16) { watery = true; break; } }
-    if (watery || f.age > 22) {
+    const supported = fireSupportedAt(getBlock, f.x, f.y, f.z);
+    if (watery || !supported || f.age > 22) {
       chunkManager.setBlock(f.x, f.y, f.z, 0);
       effects?.burst(f.x, f.y, f.z, 3, 4);
       continue;
     }
-    // Yayılma: %30 ihtimal ile rastgele komşuyu tutuştur
-    if (Math.random() < 0.3) {
-      const [dx, dy, dz] = nbs[Math.floor(Math.random() * 6)];
-      const nx = f.x + dx, ny = f.y + dy, nz = f.z + dz;
-      if (ny < MIN_Y || ny > MAX_Y) continue;
-      const bid = getBlock(nx, ny, nz);
-      if (bid === 0 || FLAMMABLE.has(bid)) chunkManager.setBlock(nx, ny, nz, 86);
-    }
+    // YAYILMA YOK — alev her zaman çakmak ve çelik ile konduğu yerde kalır (kullanıcı isteği).
   }
 }
 function simHooks() {
