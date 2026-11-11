@@ -57,6 +57,27 @@ export const RECIPES = [
   { out: { id: 25, count: 3 }, p: [[7, 7], [7, 7], [7, 7]] }, // 6 meşe tahtası -> 3 kapı (MC)
   { out: { id: 25, count: 3 }, p: [[66, 66], [66, 66], [66, 66]] }, // 6 huş tahtası -> 3 kapı (MC)
   { out: { id: 25, count: 3 }, p: [[69, 69], [69, 69], [69, 69]] }, // 6 ladin tahtası -> 3 kapı (MC)
+  // ============ KOVA (MC 1.21.1) ============
+  { out: { id: 139, count: 1 }, p: [[102, 0, 102], [0, 102, 0]] },  // demir külçesi V -> kova
+  // Kova için 3 ayrı iron ingot da V üstünde M V V — opsiyonel 2. tarif:
+  // Demir azsa da geçim, bu 3 demir recipe'sidir MC'de koyun 3 ingot koyun 3 külçe.
+  // ============ ZIRH (MC 1.21.1) ============
+  // Miğfer: XXX / X.X (XXX üst sıra, iki yan orta)
+  { out: { id: 150, count: 1 }, p: [[102, 102, 102], [102, 0, 102]] },   // demir miğfer
+  { out: { id: 154, count: 1 }, p: [[103, 103, 103], [103, 0, 103]] },   // altın miğfer
+  { out: { id: 158, count: 1 }, p: [[104, 104, 104], [104, 0, 104]] },   // elmas miğfer
+  // Gömlek: X.X / XXX / XXX ("kapşon")
+  { out: { id: 151, count: 1 }, p: [[102, 0, 102], [102, 102, 102], [102, 102, 102]] }, // demir gömlek
+  { out: { id: 155, count: 1 }, p: [[103, 0, 103], [103, 103, 103], [103, 103, 103]] }, // altın gömlek
+  { out: { id: 159, count: 1 }, p: [[104, 0, 104], [104, 104, 104], [104, 104, 104]] }, // elmas gömlek
+  // Bacak: XXX / X.X / X.X (bacak bacak)
+  { out: { id: 152, count: 1 }, p: [[102, 102, 102], [102, 0, 102], [102, 0, 102]] },   // demir bacak
+  { out: { id: 156, count: 1 }, p: [[103, 103, 103], [103, 0, 103], [103, 0, 103]] },   // altın bacak
+  { out: { id: 160, count: 1 }, p: [[104, 104, 104], [104, 0, 104], [104, 0, 104]] },   // elmas bacak
+  // Bot: X.X / X.X
+  { out: { id: 153, count: 1 }, p: [[102, 0, 102], [102, 0, 102]] },      // demir bot
+  { out: { id: 157, count: 1 }, p: [[103, 0, 103], [103, 0, 103]] },      // altın bot
+  { out: { id: 161, count: 1 }, p: [[104, 0, 104], [104, 0, 104]] },      // elmas bot
   // Çakmak ve Çelik (MC 1.21.1): demir + çakmak, 2x2 diyagonal her yönde
   { out: { id: 131, count: 1 }, p: [[102, 0], [0, 130]] },
   { out: { id: 131, count: 1 }, p: [[0, 102], [130, 0]] },

@@ -172,23 +172,36 @@ export class WaterSim {
       const [x, y, z] = c;
       if (hooks.isLoaded && !hooks.isLoaded(x, y, z)) continue;
       const id = hooks.getBlock(x, y, z);
-      if (id === 16) {
-        // 1) altına ak: hava/meşale varsa su doldur
+      const isFluid = id === 16 || id === 87; // su veya lav
+      const isLava = id === 87;
+      if (isFluid) {
+        // 1) altına ak
         const b = hooks.getBlock(x, y - 1, z);
         if ((b === 0 || b === 21) && y - 1 >= MIN_Y) {
-          hooks.setBlock(x, y - 1, z, 16);
+          hooks.setBlock(x, y - 1, z, id);
           this.pushNeighbors(x, y - 1, z);
         }
-        // 2) yana yayıl: sadece deniz seviyesi ve altında, tabanı destekli kıyılar
-        if (y <= SEA_LEVEL) {
+        // 2) yana yayıl — su her zaman SEA_LEVEL'e kadar, lav her yerde
+        if (y <= SEA_LEVEL || isLava) {
           const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
           for (const [dx, dz] of nb) {
             const nid = hooks.getBlock(x + dx, y, z + dz);
             if (nid !== 0) continue;
             const sup = hooks.getBlock(x + dx, y - 1, z + dz);
             if (sup !== 0 && sup !== 21) {
-              hooks.setBlock(x + dx, y, z + dz, 16);
+              hooks.setBlock(x + dx, y, z + dz, id);
               this.pushNeighbors(x + dx, y, z + dz);
+            }
+          }
+        }
+        // 3) lav + su → cobblestone (4)
+        if (isLava) {
+          const nb = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+          for (const [dx, dy, dz] of nb) {
+            if (hooks.getBlock(x + dx, y + dy, z + dz) === 16) {
+              hooks.setBlock(x, y, z, 4); // lav → kırık taş
+              this.pushNeighbors(x, y, z);
+              break;
             }
           }
         }

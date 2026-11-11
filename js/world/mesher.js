@@ -71,14 +71,15 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
       }
     }
   }
-  // ===== Işık: meşaleler (seviye 14, her blok -1 taxicab) =====
+  // ===== Işık: meşaleler (seviye 14) + lav (seviye 15), taxicab =====
   const torchList = (typeof getTorchList === 'function') ? (getTorchList(cx, cz) || []) : [];
   function torchLightAt(wx, y, wz) {
     let best = 0;
     for (let i = 0; i < torchList.length; i++) {
       const t = torchList[i];
       const d = Math.abs(t[0] - wx) + Math.abs(t[1] - y) + Math.abs(t[2] - wz);
-      const l = 14 - d;
+      const lvl = t[3] === 15 ? 15 : 14; // lav: 15, meşale: 14
+      const l = lvl - d;
       if (l > best) best = l;
     }
     if (best <= 0) return 0;
@@ -302,7 +303,7 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           continue;
         }
         // su: üstü açıksa üst yüzü bir piksel aşağıda? v1'de tam blok, basit tutuyoruz
-        const isTrans = id === 9 || id === 16 || id === 6;
+        const isTrans = id === 9 || id === 16 || id === 6 || id === 87;
         const isSaydam = b?.saydam === true;
         for (const f of FACES) {
           const nx2 = lx + f.n[0], ny2 = y + f.n[1], nz2 = lz + f.n[2];

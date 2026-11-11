@@ -96,6 +96,8 @@ export const BLOCKS = {
   84: { ad: 'Ham Altın Bloku', adEn: 'Raw Gold Block', all: 'raw_gold_block', blast: 6 },
   85: { ad: 'Ham Bakır Bloku', adEn: 'Raw Copper Block', all: 'raw_copper_block', blast: 6 },
   86: { ad: 'Ateş', adEn: 'Fire', all: 'fire_0', saydam: true, cutout: true, blast: 0, gizli: true, secilemez: true },
+  // --- Lav (id 87-88, MC: lava block; bizde hem kaynak hem akış tek ID 87) ---
+  87: { ad: 'Lav', adEn: 'Lava', all: 'lava_still', sivi: true, saydam: true, blast: 100, isik: 15 },
 };
 
 export const HOTBAR_DEFAULT = [1, 2, 3, 4, 7, 5, 6, 8, 9, 14];
@@ -129,4 +131,5 @@ export const BREAK_TIME = {
   75: 4.5, 76: 4.5, 77: 4.5, 78: 7.5, 79: 4.5, 80: 7.5, 81: 4.5, 82: 4.5,
   83: 4.5, 84: 4.5, 85: 4.5,
   86: 0, // ateş: elle kır, eşya düşmez
+  87: 100, // lav: çıkarılamaz (kova ile yok edilebilir yüzeye akar)
 };

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Three.js Minecraft ⛏️</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>" />
-  <link rel="stylesheet" href="style.css?v=17" />
+  <link rel="stylesheet" href="style.css?v=18" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
@@ -267,6 +267,7 @@
     <div id="xpBar"><div id="xpFill"></div></div>
     <div id="xpLevel">0</div>
   </div>
+  <div id="armorBar" class="hidden" title="Zırh"></div>
   <div id="hearts" title="Can"></div>
   <div id="bubbles" title="Oksijen" class="hidden"></div>
   <div id="modeBadge"></div>
@@ -283,6 +284,7 @@
         <button data-tab="yapi" data-i18n="inv.tabBuilding">🏠 Yapı</button>
         <button data-tab="degerli" data-i18n="inv.tabValuable">💎 Değerli</button>
         <button data-tab="alet" data-i18n="inv.tabTools">⛏️ Aletler</button>
+        <button data-tab="armor" data-i18n="inv.tabArmor">🛡️ Zırh</button>
         <input id="invSearch" data-i18n-placeholder="inv.searchPlaceholder" placeholder="🔍 Ara... (örn: taş)" />
       </div>
       <div id="invCursorInfo" data-i18n="inv.cursorHint">Sol: al/bırak • Sağ: yarısını al / 1 tane koy • Çift-tık: topla • Shift+tık: hızlı taşı</div>
@@ -295,10 +297,18 @@
           <div id="craft2Out"></div>
         </div>
       </div>
-      <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
-      <div id="invMain"></div>
-      <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
-      <div id="invHot"></div>
+      <div class="inv-bag-and-armor">
+        <div class="inv-bag-col">
+          <div class="inv-sub" data-i18n="inv.bag">Çanta (27)</div>
+          <div id="invMain"></div>
+          <div class="inv-sub" data-i18n="inv.hotbar">Hotbar (1-0)</div>
+          <div id="invHot"></div>
+        </div>
+        <aside class="armor-col" aria-label="Zırh">
+          <div class="inv-sub" data-i18n="inv.armor">Zırh</div>
+          <div class="armor-slots" id="armorSlots"></div>
+        </aside>
+      </div>
     </div>
   </div>
 
@@ -400,7 +410,7 @@
     })();
   </script>
 
-  <script type="module" src="js/main.js?v=21"></script>
-  <script type="module" src="js/ui/menu.js?v=21"></script>
+  <script type="module" src="js/main.js?v=22"></script>
+  <script type="module" src="js/ui/menu.js?v=22"></script>
 </body>
 </html>

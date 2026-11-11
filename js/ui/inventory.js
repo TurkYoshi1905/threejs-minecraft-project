@@ -1,5 +1,5 @@
 import { BLOCKS } from '../world/blocks.js';
-import { ITEMS } from '../world/items.js';
+import { ITEMS, ARMOR_SLOTS } from '../world/items.js';
 import { nameOf } from '../core/names.js';
 import { t } from '../core/i18n.js';
 
@@ -30,6 +30,7 @@ const CATS = {
   ],
   degerli: [11, 12, 23, 13, 10, 14, 104, 105, 106, 102, 103, 101, 75, 77, 79, 81, 71, 72, 73, 74, 76, 78, 80, 82, 83, 84, 85, 133, 134, 135, 136, 137],
   alet: [110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 100, 101, 105, 106, 102, 103, 104, 131],
+  armor: [150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 139, 140, 141, 87],
 };
 const MAX_STACK = 64;
 
@@ -51,17 +52,21 @@ export class InventoryUI {
     // survival kırarak/toplayarak doldurur.
     this.hotbar = new Array(10).fill(null);
     this.main = new Array(27).fill(null);
+    // Zırh (MC 1.21.1 slotları): baş/gövde/bacak/bot
+    this.armor = { head: null, chest: null, legs: null, feet: null };
     this.el = {
       panel: document.getElementById('invPanel'),
       grid: document.getElementById('invGrid'),
       main: document.getElementById('invMain'),
       hot: document.getElementById('invHot'),
+      armorSlots: document.getElementById('armorSlots'),
       tabs: document.getElementById('invTabs'),
       search: document.getElementById('invSearch'),
       mode: document.getElementById('invMode'),
       close: document.getElementById('invClose'),
     };
     this.el.close.onclick = () => opts.onClose?.();
+    this.renderArmorSlots();
     this.el.tabs.querySelectorAll('button[data-tab]').forEach((b) => {
       b.onclick = () => {
         this.tab = b.dataset.tab;
@@ -179,6 +184,15 @@ export class InventoryUI {
       }
       if (Array.isArray(data.main)) this.main = data.main.slice(0, 27).map(norm);
       if (typeof data.sel === 'number') this.sel = Math.max(0, Math.min(9, data.sel));
+      // Zırh: sadece armorSlot alanı olan, kendi slotuna uyan itemleri geri yükle
+      if (data.armor && typeof data.armor === 'object') {
+        for (const slot of ARMOR_SLOTS) {
+          const v = norm(data.armor[slot]);
+          this.armor[slot] = (v && ITEMS[v.id]?.armorSlot === slot) ? v : null;
+        }
+      } else {
+        for (const slot of ARMOR_SLOTS) this.armor[slot] = null;
+      }
     } catch {}
     this.renderAll();
   }
@@ -190,7 +204,9 @@ export class InventoryUI {
 
   serialize() {
     const s = (x) => (x ? { kind: x.kind || kindOf(x.id), id: x.id, count: x.count, dur: x.dur } : null);
-    return { hotbar: this.hotbar.map(s), main: this.main.map(s), sel: this.sel };
+    const a = {};
+    for (const slot of ARMOR_SLOTS) a[slot] = s(this.armor[slot]);
+    return { hotbar: this.hotbar.map(s), main: this.main.map(s), sel: this.sel, armor: a };
   }
 
   selectedSlot() { return this.hotbar[this.sel] || null; }
@@ -338,6 +354,8 @@ export class InventoryUI {
   stackAt(area, index, craftPanel = null) {
     if (area === 'hot') return this.hotbar[index] || null;
     if (area === 'main') return this.main[index] || null;
+    if (area === 'armor') return this.armor[ARMOR_SLOTS[index]] || null;
+    if (area === 'armor') return this.armor[ARMOR_SLOTS[index]] || null;
     if (area === 'craft') {
       if (index < 0) return null; // sonuç/çıktı hücresi sürüklenemez
       const c = this.craftUIs[craftPanel];
@@ -399,10 +417,69 @@ export class InventoryUI {
       cu.renderAll();
     } catch {}
   }
+  // ===== ZIRH SLOTLARI =====
+  armorPoints() {
+    let total = 0;
+    for (const slotName of ARMOR_SLOTS) {
+      const s = this.armor[slotName];
+      if (s && ITEMS[s.id]?.armorPts) total += ITEMS[s.id].armorPts;
+    }
+    return total;
+  }
+  renderArmorSlots() {
+    const el = this.el.armorSlots;
+    if (!el) return;
+    el.innerHTML = '';
+    // Her slot için piksel-art silueti (MC gibi boşken görülür)
+    const silhouette = {
+      head: '⛑️',
+      chest: '🦺',
+      legs: '👖',
+      feet: '👢',
+    };
+    ARMOR_SLOTS.forEach((slotName, idx) => {
+      const d = document.createElement('div');
+      d.className = 'inv-slot armor-slot';
+      d.dataset.area = 'armor';
+      d.dataset.index = String(idx);
+      const item = this.armor[slotName];
+      if (item) {
+        const kind = item.kind || kindOf(item.id);
+        const img = document.createElement('img');
+        img.src = this.getIcon(item.id, kind);
+        img.alt = nameOf(kind, item.id) || '';
+        img.title = img.alt;
+        img.draggable = false;
+        d.appendChild(img);
+        if (item.count > 1) {
+          const c = document.createElement('span'); c.className = 'cnt'; c.textContent = item.count; d.appendChild(c);
+        }
+      } else {
+        const span = document.createElement('span');
+        span.className = 'armor-placeholder';
+        span.textContent = silhouette[slotName] || '?';
+        d.appendChild(span);
+      }
+      d.onpointerdown = (e) => { e.preventDefault(); this.dragStart('armor', idx, e); };
+      d.onpointermove = (e) => { if (e.buttons === 1 || e.buttons === 2) { if (!this.drag) this.dragStart('armor', idx, e); this.dragMove(e); } };
+      d.onpointerup = (e) => { if (this.drag) this.dragEnd(e); };
+      d.oncontextmenu = (e) => e.preventDefault();
+      d.ondragstart = (e) => e.preventDefault();
+      el.appendChild(d);
+    });
+  }
+  // ===== ARMOR END =====
+
   // Alan-bağımsız slot yazma (main/hot/craft grid/chest)
   _setSlot(area, index, value, craftPanel = null) {
     if (area === 'hot') { this.hotbar[index] = value; return; }
     if (area === 'main') { this.main[index] = value; return; }
+    if (area === 'armor') {
+      const slotName = ARMOR_SLOTS[index];
+      if (slotName) { this.armor[slotName] = value; }
+      this.renderArmorSlots();
+      return;
+    }
     if (area === 'chest') { this._chestSet(index, value); return; }
     if (area === 'craft') {
       const c = this.craftUIs[craftPanel];
@@ -713,6 +790,7 @@ export class InventoryUI {
     };
     const getSlot = (area, panel, i) => {
       if (i < 0) return null;
+      if (area === 'armor') return this.armor[ARMOR_SLOTS[i]] || null;
       if (area === 'chest') return this._chestGet(i);
       if (area === 'craft') { const g = getCraftGrid(panel); return g ? g[i] : null; }
       if (area === 'hot') return this.hotbar[i] || null;
@@ -720,6 +798,10 @@ export class InventoryUI {
     };
     const setSlot = (area, panel, i, v) => this._setSlot(area, i, v, panel);
     const clearFrom = () => setSlot(fromArea, fromCraftPanel, fromIndex, null);
+
+    // Zırh slotu doğrulaması: sadece uint armorSlot eşleşen eşya geçer
+    const armorSlotName = toArea === 'armor' ? ARMOR_SLOTS[toIndex] : null;
+    const isArmorTarget = toArea === 'armor';
 
     // Kaynak verisini al (craft grid'ten, sandıktan veya envanterden)
     const src = getSlot(fromArea, fromCraftPanel, fromIndex);
@@ -729,6 +811,12 @@ export class InventoryUI {
 
     // Hedef verisini al
     const dst = getSlot(toArea, craftPanel, toIndex);
+
+    // Zırh hedefteyse: sadece uygun armorSlot itemine izin ver
+    if (isArmorTarget) {
+      const want = ITEMS[src.id];
+      if (!want || want.armorSlot !== armorSlotName) return;
+    }
 
     // Aynı slota geri bırakıldı: hiçbir şey yapma
     if (fromArea === toArea && fromIndex === toIndex && (fromCraftPanel || null) === (craftPanel || null)) return;
@@ -1056,5 +1144,5 @@ export class InventoryUI {
     this.el.hot.innerHTML = '';
     this.hotbar.forEach((s, i) => this.el.hot.appendChild(this.slotEl(s, 'hot', i)));
   }
-  renderAll() { this.renderGrid(); this.renderMain(); this.renderHot(); }
+  renderAll() { this.renderGrid(); this.renderMain(); this.renderHot(); this.renderArmorSlots(); }
 }

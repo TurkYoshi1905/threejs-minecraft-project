@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MIN_Y, MAX_Y, SEA_LEVEL, REACH, EYE, PW, PH, RENDER_DISTANCE, DEFAULT_SEED, SAVE_AUTOSAVE_MS } from './core/config.js';
 import { BLOCKS, HOTBAR_DEFAULT, BREAK_TIME } from './world/blocks.js';
-import { ITEMS, breakInfo } from './world/items.js';
+import { ITEMS, breakInfo, armorReduction } from './world/items.js';
 import { buildAtlas } from './core/atlas.js';
 import { ChunkManager } from './world/chunks.js';
 import { WorldBorder } from './world/border.js';
@@ -168,6 +168,7 @@ let lastLeafDecayCheck = 0;
 
 // Meşale ışık takibi: koyulan/kırılan meşaleler + sarı ışık havuzu
 const torchMap = new Map(); // "x,y,z" -> facing (0 yerde, 1..4 duvarda)
+const lavaSet = new Set();  // "x,y,z" lav blokları (meşale gibi statik ışık kaynağı; dünya gen + kova + sim)
 const TORCH_DIR = [[0, -1, 0], [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0]]; // mesaleden destega yon
 const torchLights = [];
 let torchScanT = 0;
@@ -177,6 +178,11 @@ const tkey = (x, y, z) => x + ',' + y + ',' + z;
 function trackTorch(x, y, z, id, facing = 0) {
   if (id === 21) torchMap.set(tkey(x, y, z), facing);
   else torchMap.delete(tkey(x, y, z));
+}
+function trackLava(x, y, z, id) {
+  const k = tkey(x, y, z);
+  if (id === 87) lavaSet.add(k);
+  else lavaSet.delete(k);
 }
 function torchFacingAt(x, y, z) { const f = torchMap.get(tkey(x, y, z)); return f == null ? 0 : f; }
 // Destegi kirilan mesaleleri dusur (yer + duvar, MC). Donus: dusurulen sayisi.
@@ -207,6 +213,13 @@ function updateTorchLights() {
     const d2 = (x + 0.5 - px) ** 2 + (y + 0.5 - py) ** 2 + (z + 0.5 - pz) ** 2;
     if (d2 < 30 * 30) near.push([d2, x, y, z, 24]); // meşale: seviye 14
   }
+  let lavaChecked = 0;
+  for (const k of lavaSet) {
+    if (++lavaChecked > 4000) break; // güvenlik tavanı (eski kayıtlar)
+    const [x, y, z] = k.split(',').map(Number);
+    const d2 = (x + 0.5 - px) ** 2 + (y + 0.5 - py) ** 2 + (z + 0.5 - pz) ** 2;
+    if (d2 < 30 * 30) near.push([d2, x, y, z, 44]); // lav: seviye 15 (ateşten biraz daha kırmızı, daha parlak)
+  }
   if (effects) {
     for (const f of effects.fires) {
       const d2 = (f.x + 0.5 - px) ** 2 + (f.y + 0.5 - py) ** 2 + (f.z + 0.5 - pz) ** 2;
@@ -219,8 +232,8 @@ function updateTorchLights() {
     if (i < near.length) {
       L.position.set(near[i][1] + 0.5, near[i][2] + 0.7, near[i][3] + 0.5);
       // Sabit parlama (MC meşale/ateş seviyesi sabittir) — sin-titremesi kaldırıldı (ışık seviyesi geçişi yok)
-      L.color.setHex(near[i][4] === 33 ? 0xff9d3c : 0xffb648);
-      L.intensity = near[i][4];
+      L.color.setHex(near[i][4] === 33 ? 0xff9d3c : near[i][4] === 44 ? 0xff6a1f : 0xffb648);
+      L.intensity = near[i][4] === 44 ? 36 : near[i][4];
     } else L.intensity = 0;
   }
 }
@@ -432,22 +445,8 @@ function movePlayer(dt) {
 }
 
 // ============ CAN / ÖLÜM / GAMEMODE / OKSİJEN / XP / FOV ============
-const BUBBLE_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges">
-  <rect x="2" y="0" width="5" height="1" fill="#1b3040"/>
-  <rect x="2" y="8" width="5" height="1" fill="#1b3040"/>
-  <rect x="0" y="2" width="1" height="5" fill="#1b3040"/>
-  <rect x="8" y="2" width="1" height="5" fill="#1b3040"/>
-  <rect x="1" y="1" width="1" height="1" fill="#1b3040"/>
-  <rect x="7" y="1" width="1" height="1" fill="#1b3040"/>
-  <rect x="1" y="7" width="1" height="1" fill="#1b3040"/>
-  <rect x="7" y="7" width="1" height="1" fill="#1b3040"/>
-  <rect x="2" y="1" width="5" height="7" fill="#2d93e2"/>
-  <rect x="1" y="2" width="7" height="5" fill="#2d93e2"/>
-  <rect x="2" y="2" width="2" height="2" fill="#ffffff"/>
-  <rect x="2" y="4" width="1" height="1" fill="#75c1f0"/>
-  <rect x="3" y="5" width="3" height="2" fill="#19559c"/>
-</svg>`);
+// Faithful 1.21.1 hava kabarcığı sprite'ı (textures/hud/air.png)
+const AIR_ICON = 'textures/hud/air.png';
 
 function getBaseFov() {
   const f = window.gameSettings?.fov;
@@ -466,7 +465,7 @@ function updateBubbles() {
   const count = Math.max(0, Math.min(10, Math.ceil(player.oxygen / 30)));
   let html = '';
   for (let i = 0; i < count; i++) {
-    html += `<img class="bb" src="${BUBBLE_SVG}" alt="O2">`;
+    html += `<img class="bb" src="${AIR_ICON}" alt="O2">`;
   }
   el.innerHTML = html;
 }
@@ -478,11 +477,28 @@ function updateXpBar() {
   else el.classList.remove('hidden');
 }
 
+function updateArmorBar() {
+  const el = document.getElementById('armorBar');
+  if (!el) return;
+  const pts = (GAMEMODE === 'survival' && inventory?.armorPoints) ? inventory.armorPoints() : 0;
+  if (pts <= 0) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  // MC 1.21.1: 10 simge, her biri 2 zırh puanı; full/half/empty
+  let html = '';
+  for (let i = 0; i < 10; i++) {
+    const p = pts - i * 2;
+    const src = p >= 2 ? 'textures/hud/armor_full.png' : p >= 1 ? 'textures/hud/armor_half.png' : 'textures/hud/armor_empty.png';
+    html += `<img class="ar" src="${src}" alt="">`;
+  }
+  el.innerHTML = html;
+}
+
 function updateHearts() {
   const el = document.getElementById('hearts');
   if (!el) return;
+  updateArmorBar();
   if (GAMEMODE !== 'survival') { el.innerHTML = ''; return; }
-  // MC tarzı piksel kalpler (10 slot, yarım kalp destekli)
+  // Faithful 1.21.1 kalp sprite'ları (10 slot, yarım kalp desteği)
   const H = heartIcons();
   let html = '';
   for (let i = 0; i < 10; i++) {
@@ -510,7 +526,11 @@ function updateModeBadge() {
 }
 function damage(n, reason) {
   if (GAMEMODE !== 'survival' || player.dead || n <= 0) return;
-  player.health -= n;
+  // Zırh azaltması: üzerinizdeki zırh noktalarını topla; her nokta %4 azalma (maks 80%)
+  const armorPts = inventory?.armorPoints ? inventory.armorPoints() : 0;
+  const pen = armorReduction(armorPts);
+  const realDmg = Math.max(1, n - Math.round(n * pen)); // en az 1 hasar
+  player.health -= realDmg;
   updateHearts();
   hurtFlash();
   try { showSubtitle('subtitle.hurt'); } catch {}
@@ -1321,6 +1341,8 @@ function simGet(x, y, z) {
 function handleBlockEdit(x, y, z) {
   fallSim.pushColumn(x, y, z);
   waterSim.pushNeighbors(x, y, z);
+  // Lav ışığını güncel tut: 87 oldu/çıktı (kova, sim dönüşümü, TNT deligi)
+  try { trackLava(x, y, z, chunkManager.getBlock(x, y, z)); } catch {}
   // Ateş efekti: 86'ya dönüştüğünde spawn et, çıktığında temizle
   try {
     const id = chunkManager.getBlock(x, y, z);
@@ -1486,7 +1508,8 @@ function updateFireDamage(simDt) {
   if (!chunkManager || player.dead || GAMEMODE !== 'survival') return;
   const p1 = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z));
   const p2 = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 1.2), Math.floor(player.pos.z));
-  if (p1 === 86 || p2 === 86) damage(2, t('msg.fire'));
+  // lava ve ateş aynı şiddette (2 HP'den birisi)
+  if (p1 === 86 || p2 === 86 || p1 === 87 || p2 === 87) damage(2, p1 === 87 || p2 === 87 ? t('subtitle.ignite') : t('msg.fire'));
 }
 function breakInstant(hit) {
   // Ateş (86): elle kır, düşmez, kırılması anında olur
@@ -1590,6 +1613,29 @@ function tryPlaceFromCross() {
   if (selFlint && (selFlint.kind || 'item') === 'item' && selFlint.id === 131) {
     igniteFireAt(px, py, pz);
     return 'fire';
+  }
+  // ===== KOVA: boş kova ile su/lava al (MC) =====
+  const selItem = inventory?.selectedSlot();
+  if (selItem && (selItem.kind || 'item') === 'item') {
+    if (selItem.id === 139) { // boş kova: hedef bloktan su veya lav kap
+      const target = hit.id;
+      if (target === 16 || target === 87) {
+        const filled = target === 16 ? 140 : 141;
+        chunkManager.setBlock(hit.x, hit.y, hit.z, 0);
+        inventory.hotbar[inventory.sel] = { kind: 'item', id: filled, count: 1 };
+        try { waterSim?.pushNeighbors(hit.x, hit.y, hit.z); } catch {}
+        renderHotbar();
+        return 'bucket';
+      }
+    }
+    if (selItem.id === 140 || selItem.id === 141) { // dolu kova: tıkladığı yere koy (MC)
+      const fluidId = selItem.id === 140 ? 16 : 87;
+      chunkManager.setBlock(px, py, pz, fluidId);
+      inventory.hotbar[inventory.sel] = { kind: 'item', id: 139, count: 1 };
+      try { waterSim?.pushNeighbors(px, py, pz); } catch {}
+      renderHotbar();
+      return 'bucket';
+    }
   }
   const id = selectedId();
   if (!id) {
@@ -2139,6 +2185,22 @@ function scanTorches() {
   } catch {}
 }
 
+function scanLava() {
+  // yüklü chunk'lardaki lav bloklarını ışık listesine al (kova/sim ile eklenenler handleBlockEdit'ten akar)
+  try {
+    lavaSet.clear();
+    for (const c of chunkManager.chunks.values()) {
+      const { blocks, cx, cz } = c;
+      for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i] !== 87) continue;
+        const y = MIN_Y + Math.floor(i / 256);
+        const lz = Math.floor((i % 256) / 16), lx = i % 16;
+        lavaSet.add(tkey(cx * 16 + lx, y, cz * 16 + lz));
+      }
+    }
+  } catch {}
+}
+
 // Dünya açılışında: tüm yüklenen chunk'lardaki 86 blokları effects fire mesh'lerine bağla
 function scanFires() {
   try {
@@ -2189,6 +2251,7 @@ async function enterWorld(id) {
     disposeWorld();
     try { effects?.clearAll?.(); } catch {}
     torchMap.clear();
+    lavaSet.clear();
     for (const L of torchLights) L.intensity = 0;
     mouseL = false; mouseR = false; placeCd = 0; hideBreakBar(); try { effects?.hideCrack(); } catch {}
     player.dead = false;
@@ -2268,15 +2331,43 @@ async function enterWorld(id) {
       opaque: matOpaque, transparent: matTransparent, emissive: matEmissive,
     }, WORLD_TYPE);
     chunkManager.onEdit = handleBlockEdit;
+    // Lav ışık registrisini chunk yükleme/çıkarmasıyla senkron tut (sonradan akan chunk'lar karanlık kalmasın)
+    chunkManager.onChunkLoaded = (c) => {
+      try {
+        const { blocks, cx, cz } = c;
+        for (let i = 0; i < blocks.length; i++) {
+          if (blocks[i] !== 87) continue;
+          const y = MIN_Y + Math.floor(i / 256);
+          const lz = Math.floor((i % 256) / 16), lx = i % 16;
+          lavaSet.add(tkey(cx * 16 + lx, y, cz * 16 + lz));
+        }
+      } catch {}
+    };
+    chunkManager.onChunkUnloaded = (c) => {
+      try {
+        const { cx, cz } = c;
+        for (const k of [...lavaSet]) {
+          const [x, y, z] = k.split(',').map(Number);
+          if (Math.floor(x / 16) === cx && Math.floor(z / 16) === cz) lavaSet.delete(k);
+        }
+      } catch {}
+    };
     chunkManager.torchFacing = (x, y, z) => torchFacingAt(x, y, z);
-    // Mesher ışığı: chunk + 15 blok payındaki meşaleler (meşale seviye 14, her blok -1 taxicab)
+    // Mesher ışığı: chunk + payındaki meşaleler (14) ve lav (15) — taxicab’a seviye etiketini taşır
     chunkManager.torchListFn = (ccx, ccz) => {
       const out = [];
       const x0 = ccx * 16 - 16, x1 = ccx * 16 + 32, z0 = ccz * 16 - 16, z1 = ccz * 16 + 32;
       for (const k of torchMap.keys()) {
         const [x, y, z] = k.split(',').map(Number);
         if (x < x0 || x >= x1 || z < z0 || z >= z1) continue;
-        out.push([x, y, z]);
+        out.push([x, y, z, 14]);
+      }
+      let lavaIn = 0;
+      for (const k of lavaSet) {
+        const [x, y, z] = k.split(',').map(Number);
+        if (x < x0 || x >= x1 || z < z0 || z >= z1) continue;
+        if (++lavaIn > 600) break; // tavan: yoğun lav cepleri mesh maliyetini şişirmesin
+        out.push([x, y, z, 15]);
       }
       return out;
     };
@@ -2290,7 +2381,7 @@ async function enterWorld(id) {
       say(t('loading.buildingInv'));
       inventory = new InventoryUI({
         getIcon: (id, kind) => iconFor(id, kind),
-        onChange: () => { renderHotbar(); if (craftTable?.isOpen) renderTableInv(); if (furnaceUI?.isOpen) renderFurnaceInv(); if (typeof chestUI !== 'undefined' && chestUI?.isOpen) { try { chestUI.renderInv(); } catch {} } saveAll(); },
+        onChange: () => { renderHotbar(); updateHearts(); saveAll(); if (craftTable?.isOpen) renderTableInv(); if (furnaceUI?.isOpen) renderFurnaceInv(); if (typeof chestUI !== 'undefined' && chestUI?.isOpen) { try { chestUI.renderInv(); } catch {} } },
         onClose: () => {
           try { craftInv?.close(true); } catch {}
           inventory.close();
@@ -2414,6 +2505,7 @@ async function enterWorld(id) {
       await chunkManager.ensureChunk(scx + dx, scz + dz);
     for (const c of chunkManager.chunks.values()) chunkManager.remesh(c);
     scanTorches();
+    scanLava();
     scanFurnaces();
     scanChestPairs();
     scanFires();

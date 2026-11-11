@@ -5,7 +5,7 @@ import { hashSeed, hash3, rngForChunk } from '../core/rng.js';
 // Chunk üretimi: deterministik, seed'e bağlı.
 // cx,cz -> Uint8Array(16*384*16), index: (y-MIN_Y)*256 + z*16 + x
 
-const noiseCache = new Map(); // seedStr -> {cont, hill, moist, river}
+const noiseCache = new Map(); // seedStr -> {cont, hill, moist, river, lava}
 
 function noises(seedStr) {
   if (!noiseCache.has(seedStr)) {
@@ -14,6 +14,7 @@ function noises(seedStr) {
       hill: new ValueNoise2D(seedStr + ':hill'),
       moist: new ValueNoise2D(seedStr + ':moist'),
       river: new ValueNoise2D(seedStr + ':river'),
+      lava: new ValueNoise2D(seedStr + ':lava'),
     });
   }
   return noiseCache.get(seedStr);
@@ -168,7 +169,13 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
         if (id !== 10 && y < h - 5 && y > MIN_Y + 1 && y < 45) {
           const c1 = caveNoise(wx / 18, y / 16, wz / 18, seed32);
           const c2 = caveNoise(wx / 14 + 100, y / 12, wz / 14, seed32 ^ 0x5bd1e995);
-          if (c1 * c1 + c2 * c2 < 0.018) { set(lx, y, lz, 0); continue; }
+          if (c1 * c1 + c2 * c2 < 0.018) {
+            // derinlerde (< -8) kısmen lav dolu: mağaranın bazı boşluklarını lav yap
+            const { lava } = noises(seedStr);
+            const lavVal = lava.fbm(wx / 60, wz / 60, 2);
+            if (y <= -8 && lavVal > 0.45) { set(lx, y, lz, 87); continue; }
+            set(lx, y, lz, 0); continue;
+          }
         }
         set(lx, y, lz, id);
       }
@@ -198,6 +205,27 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
         if (blocks[j] === 3 || blocks[j] === 17) blocks[j] = nid;
       };
       veinInto(blocks, set2, cx, cz, lx, y, lz, id, seedNum);
+    }
+  }
+
+  // Yüzey lav gölleri: çok nadir, kuru arazide sığ lav çukuru (MC 1.21.1'deki gibi yüzeyde nadiren)
+  {
+    const { lava } = noises(seedStr);
+    for (let lx = 0; lx < 16; lx++) {
+      for (let lz = 0; lz < 16; lz++) {
+        const wx = cx * 16 + lx, wz = cz * 16 + lz;
+        const h = heightAt(wx, wz, seedStr);
+        if (h <= SEA_LEVEL + 1 || h > 110) continue; // deniz ve çok yüksek zirveler hariç
+        const topI = (h - MIN_Y) * 256 + lz * 16 + lx;
+        const topId = blocks[topI];
+        // doğal kuru yüzeyler: çim / karlı çim / toprak / kum / çakıl
+        if (topId !== 1 && topId !== 18 && topId !== 2 && topId !== 8 && topId !== 15) continue;
+        const pool = lava.fbm(wx / 34 + 31.7, wz / 34 - 17.3, 2);
+        if (pool > 0.75) { // seyrek, küçük lav birikintisi (nadiren)
+          set(lx, h, lz, 87);
+          set(lx, h - 1, lz, 87);
+        }
+      }
     }
   }
 

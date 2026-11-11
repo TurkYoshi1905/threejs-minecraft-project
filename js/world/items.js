@@ -43,8 +43,36 @@ export const ITEMS = {
   137: { ad: 'Ham Bakır', adEn: 'Raw Copper', tex: 'raw_copper', max: 64 },
   // --- Odun kömürü (kütüklerin fırında pişirilmesi, MC 1.21.1) ---
   138: { ad: 'Odun Kömürü', adEn: 'Charcoal', tex: 'charcoal', max: 64, fuel: 80 },
+  // --- Kovalar ---
+  139: { ad: 'Kova', adEn: 'Bucket', tex: 'bucket', max: 1 },
+  140: { ad: 'Su Kovası', adEn: 'Water Bucket', tex: 'water_bucket', max: 1 },
+  141: { ad: 'Lav Kovası', adEn: 'Lava Bucket', tex: 'lava_bucket', max: 1, fuel: 80 },
+  // --- Zırh: Demir ---
+  150: { ad: 'Demir Miğfer', adEn: 'Iron Helmet', tex: 'iron_helmet', max: 1, armorPts: 2, armorSlot: 'head' },
+  151: { ad: 'Demir Gömlek', adEn: 'Iron Chestplate', tex: 'iron_chestplate', max: 1, armorPts: 6, armorSlot: 'chest' },
+  152: { ad: 'Demir Bacak', adEn: 'Iron Leggings', tex: 'iron_leggings', max: 1, armorPts: 5, armorSlot: 'legs' },
+  153: { ad: 'Demir Bot', adEn: 'Iron Boots', tex: 'iron_boots', max: 1, armorPts: 2, armorSlot: 'feet' },
+  // --- Zırh: Altın ---
+  154: { ad: 'Altın Miğfer', adEn: 'Golden Helmet', tex: 'golden_helmet', max: 1, armorPts: 2, armorSlot: 'head' },
+  155: { ad: 'Altın Gömlek', adEn: 'Golden Chestplate', tex: 'golden_chestplate', max: 1, armorPts: 5, armorSlot: 'chest' },
+  156: { ad: 'Altın Bacak', adEn: 'Golden Leggings', tex: 'golden_leggings', max: 1, armorPts: 3, armorSlot: 'legs' },
+  157: { ad: 'Altın Bot', adEn: 'Golden Boots', tex: 'golden_boots', max: 1, armorPts: 1, armorSlot: 'feet' },
+  // --- Zırh: Elmas ---
+  158: { ad: 'Elmas Miğfer', adEn: 'Diamond Helmet', tex: 'diamond_helmet', max: 1, armorPts: 3, armorSlot: 'head' },
+  159: { ad: 'Elmas Gömlek', adEn: 'Diamond Chestplate', tex: 'diamond_chestplate', max: 1, armorPts: 8, armorSlot: 'chest' },
+  160: { ad: 'Elmas Bacak', adEn: 'Diamond Leggings', tex: 'diamond_leggings', max: 1, armorPts: 6, armorSlot: 'legs' },
+  161: { ad: 'Elmas Bot', adEn: 'Diamond Boots', tex: 'diamond_boots', max: 1, armorPts: 3, armorSlot: 'feet' },
 };
 
+export const ARMOR_SLOTS = ['head', 'chest', 'legs', 'feet'];
+
+// MC 1.21.1 benzeri: zırh puanı başına %4 azalma, maksimum %80
+// (Düşme hasarı dahil her hasar türü damage() içinde buna göre azaltılır)
+export function armorReduction(points) {
+  return Math.min(0.80, points * 0.04);
+}
+
+// Düşük seviyeli zırh dayanıklılığı
 export function isTool(id) {
   return !!ITEMS[id]?.tool;
 }

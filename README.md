@@ -16,6 +16,16 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
   - 2×2 / 3×3 şekilli üretim, eşitleme (fetolama), yakıt/eritme, dayanıklılık barı
   - Kapı (çift kapı eşleme), meşale (yere/duvara, destek kırılınca düşer), sandık (tek/çift)
   - Düşen bloklar (kum/çakıl), sınırlı su simülasyonu, yaprak çürümesi
+  - **Lav**: derinde mağara lav havuzları (Y≤-8, ~%10 chunk) + nadir yüzey lav çukurları
+    (~%2 chunk, kuru arazide sığ), lav ışığı (seviye 15, meşale gibi taxicab sönüm),
+    lav + su teması → çakıltaşı (cobblestone); lav kaynağı kovayla alınabilir/koyulabilir
+  - **Kova**: V şeklinde 3 demir → kova; su veya lavı kap/yolla (MC birebir);
+    lav ve ateş 2 HP hasar, zırh düşüşü azaltır
+  - **Zırh**: Demir/Altın/Elmas × miğfer/gömlek/bacak/bot (MC 1.21.1 puanları:
+    2/6/5/2, 2/5/3/1, 3/8/6/3 — toplam üstü 80% azalma, eşyanın başı %4/puan);
+    envanterde zırh takma slotları, HUD'da zırh barı (Faithful),
+    düşme hasarı dahil tüm hasarda geçer
+  - **HUD sprite seti**: kalp / oksijen / zırh / XP (Faithful 1.21.1)
   - **TNT**: çakmak ve çelikle ateşlenir, yanıp söner, 5 saniye sonra patlar;
     tüm bloklarda MC 1.21.1 patlama dayanıklılığı tablosu geçerlidir
   - Çakıl kırınca %10 çakmak; çakmak + demir → çakmak ve çelik

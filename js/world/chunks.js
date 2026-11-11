@@ -34,6 +34,9 @@ export class ChunkManager {
     this.saveQueue = new Map(); // key -> {cx,cz,blocks snapshot} (karede max 1 yazım)
     this.meshBuilt = 0; // gölge tazeleme takibi için
     this.lastCenter = [Infinity, Infinity];
+    // main.js: chunk yükleme/çıkarma bildirimleri (ışık kaynağı registrisi)
+    this.onChunkLoaded = null;
+    this.onChunkUnloaded = null;
   }
 
   getBlock(x, y, z) {
@@ -91,6 +94,7 @@ export class ChunkManager {
         const c = { cx, cz, blocks: new Uint8Array(saved.blocks), dirty: false, meshOp: null, meshTr: null };
         this.chunks.set(k, c);
         this.meshQueue.add(k);
+        try { this.onChunkLoaded?.(c); } catch {}
         this.enqueueMesh(cx - 1, cz); this.enqueueMesh(cx + 1, cz);
         this.enqueueMesh(cx, cz - 1); this.enqueueMesh(cx, cz + 1);
         return c;
@@ -103,6 +107,7 @@ export class ChunkManager {
     const c = { cx, cz, blocks, dirty: false, meshOp: null, meshTr: null };
     this.chunks.set(k, c);
     this.meshQueue.add(k);
+    try { this.onChunkLoaded?.(c); } catch {}
     // Komşu chunk'ların sınır yüzlerini düzelt (önce hava sanılmıştı)
     this.enqueueMesh(cx - 1, cz); this.enqueueMesh(cx + 1, cz);
     this.enqueueMesh(cx, cz - 1); this.enqueueMesh(cx, cz + 1);
@@ -131,6 +136,7 @@ export class ChunkManager {
         if (c.meshOp) { this.scene.remove(c.meshOp); c.meshOp.geometry.dispose(); }
         if (c.meshTr) { this.scene.remove(c.meshTr); c.meshTr.geometry.dispose(); }
         if (c.meshEm) { this.scene.remove(c.meshEm); c.meshEm.geometry.dispose(); }
+        try { this.onChunkUnloaded?.(c); } catch {}
         this.chunks.delete(k);
         this.meshQueue.delete(k);
       }
