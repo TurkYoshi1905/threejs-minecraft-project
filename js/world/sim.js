@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MIN_Y, MAX_Y, SEA_LEVEL } from '../core/config.js';
 
-// Blok fiziği: düşen bloklar (kum/çakıl) + su dolgusu.
+// Blok fiziği: düşen bloklar (kum/çakıl) + SIVI MOTORU (MC 1.21.1).
 // ChunkManager.setBlock funnel'ından beslenir (main.js onEdit kancası).
 // Düşme MC 1.21 sayılarıyla: yerçekimi 0.04 blok/tick² (@20tps) = 16 blok/sn²,
 // dikey sürtünme ×0.98/tick, limit hız 1.96 blok/tick = 39.2 blok/sn.
@@ -26,6 +26,9 @@ class Queue {
     this.list.push([x, y, z]);
     if (this.list.length > 4000) { const old = this.list.shift(); this.set.delete(key(old[0], old[1], old[2])); }
   }
+  // FIFO ( adil ): kuyruktaki en eski hücre önce işlenir.
+  // LIFO denendi ama "açlık" sorunu yarattı: sürekli yenileri eklenince eski hücreler
+  // hiç sıra gelmiyordu (kaynak bloklar işlenmediği için su düşmüyordu).
   shift() {
     const c = this.list.shift();
     if (c) this.set.delete(key(c[0], c[1], c[2]));
@@ -35,8 +38,53 @@ class Queue {
   clear() { this.list = []; this.set.clear(); }
 }
 
-// Kum/çakıl içinden geçebildiği bloklar: hava, su, meşale, ateş (MC)
-function fallThrough(id) { return id === 0 || id === 16 || id === 21 || id === 86; }
+// ===== SIVI MOTORU (MC 1.21.1) =====
+// Kaynak/akan ayrımı blok id'sine gömülü -> seviye chunk ile birlikte kaydedilir:
+//   16      = Su kaynağı  (seviye 0)
+//   87      = Lav kaynağı (seviye 0)
+//   88..94  = Akan su     (seviye 1..7)
+//   95..97  = Akan lav     (seviye 1..3)
+//   98      = Obsidyen
+// MC kuralları: su kaynağı 7 blok, lav kaynağı 3 blok yana yayılır.
+// "Kısa yol kazanır": seviye = 1 + min(yatay komşu seviyesi).
+
+export const FLUID_WATER = 1;
+export const FLUID_LAVA = 2;
+export const WATER_SOURCE_ID = 16;
+export const LAVA_SOURCE_ID = 87;
+export const OBSIDIAN_ID = 98;
+export const WATER_MAX_LEVEL = 7;   // MC: kaynak 7 blok
+export const LAVA_MAX_LEVEL = 3;    // MC: kaynak 3 blok
+export const WATER_TICK = 0.25;     // 4 tick/sn (MC su tick rate 5)
+export const LAVA_TICK = 0.5;       // 2 tick/sn (MC lav tick rate 10 -> yavaş)
+const WATER_BUDGET = 384;           // tick başına işlenen hücre
+const LAVA_BUDGET = 256;
+
+const FLUID_INFO = new Map();
+FLUID_INFO.set(WATER_SOURCE_ID, { t: FLUID_WATER, l: 0 });
+FLUID_INFO.set(LAVA_SOURCE_ID, { t: FLUID_LAVA, l: 0 });
+for (let l = 1; l <= WATER_MAX_LEVEL; l++) FLUID_INFO.set(87 + l, { t: FLUID_WATER, l });
+for (let l = 1; l <= LAVA_MAX_LEVEL; l++) FLUID_INFO.set(94 + l, { t: FLUID_LAVA, l });
+
+/** id -> {t: tür, l: seviye} | null */
+export function fluidInfo(id) { return FLUID_INFO.get(id) || null; }
+/** id bir sıvı mı? */
+export function isFluidBlock(id) { return FLUID_INFO.has(id); }
+/** sıvı türü (0 = sıvı değil) */
+export function fluidTypeOf(id) { const i = FLUID_INFO.get(id); return i ? i.t : 0; }
+/** türün maksimum seviyesi (yayılma mesafesi) */
+export function fluidMaxLevel(type) { return type === FLUID_LAVA ? LAVA_MAX_LEVEL : WATER_MAX_LEVEL; }
+/** tür + seviye -> blok id */
+export function fluidIdFor(type, level) {
+  if (level <= 0) return type === FLUID_LAVA ? LAVA_SOURCE_ID : WATER_SOURCE_ID;
+  return type === FLUID_LAVA ? 94 + level : 87 + level;
+}
+
+const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const DIRS6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
+// Kum/çakıl içinden geçebildiği bloklar: hava, sıvılar, meşale, ateş (MC)
+function fallThrough(id) { return id === 0 || id === 16 || id === 21 || id === 86 || isFluidBlock(id); }
 
 export class FallSim {
   constructor() { this.q = new Queue(); this.fallers = []; this.geo = null; this._scene = null; }
@@ -116,7 +164,7 @@ export class FallSim {
       if (cell === 21) {
         // MC: meşaleye inen kum/çakıl eşya olur, meşale yerinde kalır
         try { env.onTorchCrush(f.x, top, f.z, f.id); } catch {}
-      } else if (cell === 0 || cell === 16) {
+      } else if (cell === 0 || cell === 16 || isFluidBlock(cell)) {
         env.setBlock(f.x, top, f.z, f.id);
         this.push(f.x, top + 1, f.z);
       } else {
@@ -149,79 +197,223 @@ export class FallSim {
   }
 }
 
-// MC-lite su: aşağı doldur + deniz seviyesinde kıyıya yanal yayıl.
-// Mağara sellerini engellemek için yanal yayılma y<=SEA_LEVEL hücrelerle sınırlı.
-export class WaterSim {
-  constructor() { this.q = new Queue(); }
-  push(x, y, z) { this.q.push(x, y, z); }
-  pushNeighbors(x, y, z) {
-    this.q.push(x, y, z);
-    this.q.push(x + 1, y, z); this.q.push(x - 1, y, z);
-    this.q.push(x, y + 1, z); this.q.push(x, y - 1, z);
-    this.q.push(x, y, z + 1); this.q.push(x, y, z - 1);
+// ===== SIVI MOTORU (MC 1.21.1) =====
+export class FluidSim {
+  constructor() {
+    this.qWater = new Queue();
+    this.qLava = new Queue();
+    this.waterAcc = 0;
+    this.lavaAcc = 0;
+    this._suppress = 0;
+    this.stats = { cells: 0, cobble: 0, obsidian: 0, filled: 0, removed: 0 };
   }
-  clear() { this.q.clear(); }
-  get size() { return this.q.size; }
-  // hooks: {getBlock, setBlock, isLoaded}
-  step(budget, hooks) {
+  /** Sim kendi yazımı sırasında genel push'u bastırır (kuyruk şişmesini önler) */
+  get suppressed() { return this._suppress > 0; }
+  /**
+   * Sıvı bloğu yaz + etkilenen hücreleri kuyruğa al (yatay komşular + alt hücre).
+   * MC: seviye değişimi komşuların seviyesini etkiler, o yüzden onlar da yeniden hesaplanır.
+   */
+  write(hooks, x, y, z, id) {
+    this._suppress++;
+    try { hooks.setBlock(x, y, z, id); } finally { this._suppress--; }
+    this.push(x, y, z);
+    this.push(x + 1, y, z); this.push(x - 1, y, z);
+    this.push(x, y, z + 1); this.push(x, y, z - 1);
+    this.push(x, y - 1, z);
+  }
+  /** Genel bildirim (tür bilinmiyor): her iki kuyruğa da düşer */
+  push(x, y, z) { this.qWater.push(x, y, z); this.qLava.push(x, y, z); }
+  pushWater(x, y, z) { this.qWater.push(x, y, z); }
+  pushLava(x, y, z) { this.qLava.push(x, y, z); }
+  /** Hücre + 6 komşu (blok değişiminde tetiklenir) */
+  pushNeighbors(x, y, z) {
+    this.push(x, y, z);
+    this.push(x + 1, y, z); this.push(x - 1, y, z);
+    this.push(x, y + 1, z); this.push(x, y - 1, z);
+    this.push(x, y, z + 1); this.push(x, y, z - 1);
+  }
+  clear() { this.qWater.clear(); this.qLava.clear(); this.waterAcc = 0; this.lavaAcc = 0; }
+  get size() { return this.qWater.size + this.qLava.size; }
+
+  /**
+   * @param dt   geçen süre (sn)
+   * @param hooks {getBlock, setBlock, isLoaded, onLavaTouch?}
+   */
+  step(dt, hooks) {
+    let processed = 0;
+    this.waterAcc += dt;
+    this.lavaAcc += dt;
+    if (this.waterAcc >= WATER_TICK) {
+      this.waterAcc = 0;
+      processed += this.processQueue(this.qWater, FLUID_WATER, WATER_BUDGET, hooks);
+    }
+    if (this.lavaAcc >= LAVA_TICK) {
+      this.lavaAcc = 0;
+      processed += this.processQueue(this.qLava, FLUID_LAVA, LAVA_BUDGET, hooks);
+    }
+    this.stats.cells = processed;
+    return processed;
+  }
+
+  processQueue(q, type, budget, hooks) {
     let n = 0;
     while (n < budget) {
-      const c = this.q.shift();
+      const c = q.shift();
       if (!c) break;
       n++;
       const [x, y, z] = c;
       if (hooks.isLoaded && !hooks.isLoaded(x, y, z)) continue;
       const id = hooks.getBlock(x, y, z);
-      const isFluid = id === 16 || id === 87; // su veya lav
-      const isLava = id === 87;
-      if (isFluid) {
-        // 1) altına ak
-        const b = hooks.getBlock(x, y - 1, z);
-        if ((b === 0 || b === 21) && y - 1 >= MIN_Y) {
-          hooks.setBlock(x, y - 1, z, id);
-          this.pushNeighbors(x, y - 1, z);
-        }
-        // 2) yana yayıl — su her zaman SEA_LEVEL'e kadar, lav her yerde
-        if (y <= SEA_LEVEL || isLava) {
-          const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-          for (const [dx, dz] of nb) {
-            const nid = hooks.getBlock(x + dx, y, z + dz);
-            if (nid !== 0) continue;
-            const sup = hooks.getBlock(x + dx, y - 1, z + dz);
-            if (sup !== 0 && sup !== 21) {
-              hooks.setBlock(x + dx, y, z + dz, id);
-              this.pushNeighbors(x + dx, y, z + dz);
-            }
-          }
-        }
-        // 3) lav + su → cobblestone (4)
-        if (isLava) {
-          const nb = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-          for (const [dx, dy, dz] of nb) {
-            if (hooks.getBlock(x + dx, y + dy, z + dz) === 16) {
-              hooks.setBlock(x, y, z, 4); // lav → kırık taş
-              this.pushNeighbors(x, y, z);
-              break;
-            }
-          }
-        }
-      } else if (id === 0 && y <= SEA_LEVEL) {
-        // hava cebi: yanında su + altı destekliyse doldur (kazılmış su altı)
-        const sup = hooks.getBlock(x, y - 1, z);
-        if (sup === 0 || sup === 21) continue;
-        const nb = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]];
-        let wet = false;
-        for (const [dx, dz] of nb) {
-          if (dx === 0 && dz === 0) {
-            if (hooks.getBlock(x, y + 1, z) === 16) { wet = true; break; }
-          } else if (hooks.getBlock(x + dx, y, z + dz) === 16) { wet = true; break; }
-        }
-        if (wet) {
-          hooks.setBlock(x, y, z, 16);
-          this.pushNeighbors(x, y, z);
-        }
-      }
+      const info = fluidInfo(id);
+      if (!info) { this.tryFill(x, y, z, type, hooks); continue; }
+      if (info.t !== type) continue; // diğer sıvı türü -> kendi kuyruğunda işlenir
+      this.updateCell(x, y, z, id, info, hooks);
     }
     return n;
   }
+
+  /** Hava hücresi: komşu sıvıdan dolar (MC: kazılan boşluk suyu çeker) */
+  tryFill(x, y, z, type, hooks) {
+    // SADECE hava hücresi dolar; katı blokların üstüne sıvı yazılmaz
+    if (hooks.getBlock(x, y, z) !== 0) return;
+    const maxL = fluidMaxLevel(type);
+    let best = null;
+    // MC: sıvı yalnızca YANINA kazılan boşluğu doldurur (üstüne tırmanmaz)
+    for (const [dx, dz] of DIRS4) {
+      const nid = hooks.getBlock(x + dx, y, z + dz);
+      const ni = fluidInfo(nid);
+      if (!ni || ni.t !== type) continue;
+      if (best === null || ni.l < best) best = ni.l;
+    }
+    if (best === null) return;
+    const level = best + 1;
+    if (level > maxL) return;
+    if (hooks.isLoaded && !hooks.isLoaded(x, y, z)) return;
+    this.write(hooks, x, y, z, fluidIdFor(type, level));
+    this.stats.filled++;
+  }
+
+  /** Sıvı hücresini MC kurallarıyla güncelle */
+  updateCell(x, y, z, id, info, hooks) {
+    const type = info.t;
+    const maxL = fluidMaxLevel(type);
+    const above = hooks.getBlock(x, y + 1, z);
+    const aboveInfo = fluidInfo(above);
+    const aboveSame = !!aboveInfo && aboveInfo.t === type;
+    const below = hooks.getBlock(x, y - 1, z);
+    const belowInfo = fluidInfo(below);
+    const belowSame = !!belowInfo && belowInfo.t === type;
+    const belowIsSource = belowSame && belowInfo.l === 0;
+    const falling = aboveSame && below === 0; // düşüyor (altı boş)
+
+    let level = info.l;
+
+    if (level > 0) {
+      // Yatay komşulardaki en iyi (en düşük seviyeli) kaynak yolu
+      let best = null;
+      for (const [dx, dz] of DIRS4) {
+        const nid = hooks.getBlock(x + dx, y, z + dz);
+        const ni = fluidInfo(nid);
+        if (!ni || ni.t !== type) continue;
+        if (best === null || ni.l < best) best = ni.l;
+      }
+      // MC: geçerli sıvı hücresi kendisinden DAHA DÜŞÜK seviyeli bir komşuya (kaynak yoluna)
+      // sahip olmalıdır. Kaynak kalkınca bu dal kırılır ve hücre geri çekilir.
+      const hasPath = best !== null && best < level;
+      const supported = hasPath || belowIsSource || aboveSame;
+      if (!supported) {
+        // Kaynak kalmadı -> sıvı geri çekilir (MC)
+        this.write(hooks, x, y, z, 0);
+        this.stats.removed++;
+        return;
+      }
+      if (hasPath) {
+        const desired = best + 1;
+        if (desired > maxL) {
+          // Yayılma sınırı aşıldı -> hücre kaybolur (MC)
+          this.write(hooks, x, y, z, 0);
+          this.stats.removed++;
+          return;
+        }
+        if (desired !== level) {
+          // Daha kısa yol (tazeleme) veya zayıflama (kaynak uzaklaştı)
+          level = desired;
+          this.write(hooks, x, y, z, fluidIdFor(type, level));
+        }
+      }
+    }
+
+    // Lav + su karışımı: lav kaynağı -> obsidyen, akan lav -> çakıltaşı (MC)
+    if (this.handleMix(x, y, z, type, level, hooks)) return;
+
+    // Aşağı akış (yerçekimi): alt hücre boşsa sıvı düşer
+    if (below === 0) {
+      if (hooks.isLoaded && !hooks.isLoaded(x, y - 1, z)) return; // yüklü olmayan chunk'a yazma
+      this.write(hooks, x, y - 1, z, fluidIdFor(type, 1));
+      return;
+    }
+
+    // Düşerken yatay yayılmaz (MC)
+    if (falling) return;
+
+    // Yatay yayılım (seviye + 1)
+    const spread = level + 1;
+    if (spread > maxL) return;
+    for (const [dx, dz] of DIRS4) {
+      const nx = x + dx, nz = z + dz;
+      const nid = hooks.getBlock(nx, y, nz);
+      const ni = fluidInfo(nid);
+      if (ni) {
+        if (ni.t === type && ni.l > spread) {
+          // Bayat (uzaktan gelen) sıvı -> tazele (sadece gerçekten daha tazese yaz)
+          this.write(hooks, nx, y, nz, fluidIdFor(type, spread));
+        }
+        continue;
+      }
+      if (nid !== 0) continue; // değiştirilemez blok
+      if (hooks.isLoaded && !hooks.isLoaded(nx, y, nz)) continue; // yüklü olmayan chunk'a yayılma
+      this.write(hooks, nx, y, nz, fluidIdFor(type, spread));
+    }
+  }
+
+  /** Su/lav teması -> obsidyen (kaynak) veya çakıltaşı (akan) */
+  handleMix(x, y, z, type, level, hooks) {
+    for (const [dx, dy, dz] of DIRS6) {
+      const nx = x + dx, ny = y + dy, nz = z + dz;
+      const nid = hooks.getBlock(nx, ny, nz);
+      const ni = fluidInfo(nid);
+      if (ni && ni.t !== type) {
+        if (type === FLUID_LAVA) {
+          // bu hücre lav, komşusu su
+          if (level === 0) {
+            this.write(hooks, x, y, z, OBSIDIAN_ID);        // lav kaynağı -> obsidyen
+            this.stats.obsidian++;
+          } else {
+            this.write(hooks, x, y, z, 4);                 // akan lav -> çakıltaşı
+            this.write(hooks, nx, ny, nz, 4);              // su da çakıltaşı olur
+            this.stats.cobble++;
+          }
+          return true;
+        }
+        // bu hücre su, komşusu lav
+        if (ni.l === 0) {
+          this.write(hooks, nx, ny, nz, OBSIDIAN_ID);      // lav kaynağı -> obsidyen
+          this.stats.obsidian++;
+        } else {
+          this.write(hooks, nx, ny, nz, 4);               // akan lav -> çakıltaşı
+          this.write(hooks, x, y, z, 4);                  // su da çakıltaşı olur
+          this.stats.cobble++;
+        }
+        return true;
+      }
+      // Lav, yanıcı blokları tutuşturur (MC: lav ağaca yangın çıkarır)
+      if (type === FLUID_LAVA && ni === null && nid !== 0 && hooks.onLavaTouch) {
+        try { hooks.onLavaTouch(nx, ny, nz, nid); } catch {}
+      }
+    }
+    return false;
+  }
 }
+
+// Geriye dönük uyum: eski adı kullanan kodlar için
+export const WaterSim = FluidSim;

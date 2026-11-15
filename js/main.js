@@ -18,7 +18,7 @@ import { FurnaceManager, FurnaceUI } from './ui/furnace.js';
 import { DoorManager } from './world/doors.js';
 import { ChestManager } from './world/chests.js';
 import { ChestUI } from './ui/chest.js';
-import { FallSim, WaterSim } from './world/sim.js';
+import { FallSim, FluidSim, isFluidBlock, fluidInfo, fluidTypeOf, FLUID_WATER, FLUID_LAVA, WATER_SOURCE_ID, LAVA_SOURCE_ID, OBSIDIAN_ID } from './world/sim.js';
 import { TNTSim } from './world/tnt.js';
 import { playIgnite, playExplode } from './core/audio.js';
 import { Sky } from './world/sky.js';
@@ -153,10 +153,10 @@ let chestUI = null; // sandik paneli (uiBuilt blogunda kurulur)
 const doorMgr = new DoorManager();
 const chestMgr = new ChestManager();
 const fallSim = new FallSim();
-const waterSim = new WaterSim();
+const fluidSim = new FluidSim(); // MC 1.21.1 sıvı motoru (su + lav, kaynak/akan seviyeli)
 const tntSim = new TNTSim();
+const BUCKET_BLOCK_ID = 99; // kova bloğu (boş kova yere yerleştirilebilir, MC)
 const flashLights = []; // patlama flaş ışıkları (kısa ömürlü, fade-out)
-let waterTickAcc = 0;
 
 // Yaprak çürüme (leaf decay): odun kırıldığında yakındaki yapraklar işaretlenir,
 // oyuncu uzaklaştığında zamanla kendi kendine kırılır (MC mantığı).
@@ -181,7 +181,8 @@ function trackTorch(x, y, z, id, facing = 0) {
 }
 function trackLava(x, y, z, id) {
   const k = tkey(x, y, z);
-  if (id === 87) lavaSet.add(k);
+  // Kaynak lav (87) ve akan lav (95-97) ışık yayar (MC: seviye 15)
+  if (fluidTypeOf(id) === FLUID_LAVA) lavaSet.add(k);
   else lavaSet.delete(k);
 }
 function torchFacingAt(x, y, z) { const f = torchMap.get(tkey(x, y, z)); return f == null ? 0 : f; }
@@ -267,16 +268,20 @@ function spawnPos() {
 
 function getBlock(x, y, z) { return chunkManager ? chunkManager.getBlock(x, y, z) : 0; }
 function isDoorBlock(id) { return id === 25 || id === 26; }
+// Sıvılar (su, lav, akan su/lav) hiçbir zaman katı değildir -> oyuncu içine girer (MC)
+function isFluid(id) { return !!BLOCKS[id]?.sivi; }
 function isFloorSolid(x, y, z) {
   const id = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
-  if (!id || id === 16 || id === 21 || id === 25 || id === 26 || id === 86) return false;
+  if (!id || isFluid(id)) return false;
+  if (id === 21 || id === 25 || id === 26 || id === 86) return false;
   return true;
 }
 function solidAt(x, y, z) {
   const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
   const id = getBlock(bx, by, bz);
   if (!id) return false;
-  if (id === 16 || id === 21 || id === 86) return false; // su, meşale, ateş katı değil (içinden geçilir)
+  if (isFluid(id)) return false; // su/lav: içinden geçilir
+  if (id === 21 || id === 86) return false; // meşale, ateş katı değil
   if (id === 25 || id === 26) { // kapı: kapalı katı, açık geçirgen (MC)
     const doorBaseY = id === 25 ? by : by - 1;
     try {
@@ -294,6 +299,8 @@ function solidAt(x, y, z) {
   return true;
 }
 function inWater(px, py, pz) { return getBlock(Math.floor(px), Math.floor(py + 0.4), Math.floor(pz)) === 16; }
+// Lav içinde mi? (kaynak 87 veya akan lav 95-97)
+function inLava(px, py, pz) { return fluidTypeOf(getBlock(Math.floor(px), Math.floor(py + 0.4), Math.floor(pz))) === FLUID_LAVA; }
 function collides(px, py, pz) {
   for (const dx of [-PW, PW]) for (const dz of [-PW, PW]) for (const dy of [0.1, 0.9, PH - 0.1]) {
     if (solidAt(px + dx, py + dy, pz + dz)) return true;
@@ -333,7 +340,9 @@ function movePlayer(dt) {
   // Yumuşak geçiş: mevcut hızı hedef hızla eşitle (MC anlık değil, yumuşak ivme)
   const speedLerp = Math.min(1, dt * 12);
   currentSpeed += (targetSpeed - currentSpeed) * speedLerp;
-  const speed = currentSpeed;
+  // Lav içinde yatay hareket çok yavaş (MC: ağır, çamur gibi)
+  const inLavaNow = inLava(player.pos.x, player.pos.y, player.pos.z);
+  const speed = currentSpeed * (inLavaNow ? 0.45 : 1);
   const f = (keys['KeyW'] ? 1 : 0) - (keys['KeyS'] ? 1 : 0);
   const s = (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0);
   const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
@@ -357,6 +366,7 @@ function movePlayer(dt) {
   if (!collides(player.pos.x, player.pos.y, player.pos.z + dz)) player.pos.z += dz;
 
   const water = inWater(player.pos.x, player.pos.y, player.pos.z);
+  const lava = inLava(player.pos.x, player.pos.y, player.pos.z);
 
   if (player.flying) {
     player.vel.y = 0;
@@ -370,6 +380,38 @@ function movePlayer(dt) {
     if (player.pos.y > MAX_Y + 10) player.pos.y = MAX_Y + 10;
     if (player.pos.y < MIN_Y + 1) player.pos.y = MIN_Y + 1;
     player.onGround = false;
+    return;
+  }
+
+  // MC 1.21.1: suda yüzme (hafif batma, Space ile yükselme),
+  // lavda çok yavaş batma (ağırlık hissi) ve Space ile yavaş yükselme.
+  if (lava) {
+    player.vel.y -= 6 * dt;              // lav: yerçekimi çok daha zayıf
+    if (player.vel.y < -2.2) player.vel.y = -2.2;
+    if (keys['Space']) player.vel.y = 1.6; // yavaş yüzme
+    if (player.onGround) player.fallStart = player.pos.y;
+    const nyL = player.pos.y + player.vel.y * dt;
+    player.onGround = false;
+    if (player.vel.y <= 0) {
+      let maxFloorL = -Infinity;
+      for (const dx of [-PW, PW]) {
+        for (const dz of [-PW, PW]) {
+          const bx = Math.floor(player.pos.x + dx);
+          const bz = Math.floor(player.pos.z + dz);
+          for (let by = Math.floor(nyL); by <= Math.floor(player.pos.y - 0.0001); by++) {
+            if (isFloorSolid(bx, by, bz)) maxFloorL = Math.max(maxFloorL, by + 1);
+          }
+        }
+      }
+      if (maxFloorL > -Infinity && nyL <= maxFloorL && player.pos.y >= maxFloorL - 0.25) {
+        player.pos.y = maxFloorL;
+        player.onGround = true;
+        player.vel.y = 0;
+      } else player.pos.y = nyL;
+    } else {
+      player.pos.y = nyL;
+      if (collides(player.pos.x, player.pos.y, player.pos.z)) player.vel.y = 0;
+    }
     return;
   }
 
@@ -526,10 +568,11 @@ function updateModeBadge() {
 }
 function damage(n, reason) {
   if (GAMEMODE !== 'survival' || player.dead || n <= 0) return;
-  // Zırh azaltması: üzerinizdeki zırh noktalarını topla; her nokta %4 azalma (maks 80%)
+  // Zırh azaltması: üzerinizdeki zırh noktalarını topla; her puan %4 azalma (maks 80%)
   const armorPts = inventory?.armorPoints ? inventory.armorPoints() : 0;
   const pen = armorReduction(armorPts);
-  const realDmg = Math.max(1, n - Math.round(n * pen)); // en az 1 hasar
+  // Kesirli hasar korunur (MC: en az 1 yarım kalp). Böylece zırh %80'de bile etkisini gösterir.
+  const realDmg = Math.max(0.5, n * (1 - pen));
   player.health -= realDmg;
   updateHearts();
   hurtFlash();
@@ -578,7 +621,8 @@ async function setGamemode(mode) {
 }
 
 // ============ RAYCAST (DDA, chunkManager üzerinden) ============
-function raycastVoxel(origin, dir, maxDist) {
+function raycastVoxel(origin, dir, maxDist, opts = {}) {
+  const includeFluids = !!opts.includeFluids;
   let x = Math.floor(origin.x), y = Math.floor(origin.y), z = Math.floor(origin.z);
   const stepX = Math.sign(dir.x), stepY = Math.sign(dir.y), stepZ = Math.sign(dir.z);
   const tDeltaX = stepX ? Math.abs(1 / (dir.x || 1e-9)) : Infinity;
@@ -595,7 +639,12 @@ function raycastVoxel(origin, dir, maxDist) {
     if (t > maxDist) return null;
     if (y < MIN_Y || y > MAX_Y) continue;
     const id = getBlock(x, y, z);
-    if (id && id !== 16) return { x, y, z, nx, ny, nz, id };
+    if (!id) continue;
+    if (isFluid(id)) {
+      if (includeFluids) return { x, y, z, nx, ny, nz, id, fluid: true };
+      continue; // sıvılar normal nişanlamayı engellemez (MC: suyun arkasındaki blok hedeflenir)
+    }
+    return { x, y, z, nx, ny, nz, id };
   }
   return null;
 }
@@ -849,15 +898,15 @@ function igniteTNTAt(x, y, z) {
 
 // Çakmak ve çelikle hedef hücreye ateş yakma (MC 1.21.1).
 // Alev yalnızca destek varsa konur: altı katı blok VEYA komşuda katı/yanıcı blok — havada olmaz.
-function igniteFireAt(x, y, z) {
+function igniteFireAt(x, y, z, consumeTool = true) {
   if (!chunkManager) return;
   const supported = fireSupportedAt((xx, yy, zz) => chunkManager.getBlock(xx, yy, zz), x, y, z);
-  if (!supported) { toast(t('msg.fireNeedsBase')); return; }
+  if (!supported) { if (consumeTool) toast(t('msg.fireNeedsBase')); return; }
   try { playIgnite(); } catch {}
   try { showSubtitle('subtitle.ignite'); } catch {}
   const cur = chunkManager.getBlock(x, y, z);
   if (cur === 0 || cur === 21) chunkManager.setBlock(x, y, z, 86); // suyun içine ateş koyulamıyor (MC)
-  consumeFlintSteelDurability();
+  if (consumeTool) consumeFlintSteelDurability();
   renderHotbar();
 }
 function tntHooks() {
@@ -1340,7 +1389,7 @@ function simGet(x, y, z) {
 }
 function handleBlockEdit(x, y, z) {
   fallSim.pushColumn(x, y, z);
-  waterSim.pushNeighbors(x, y, z);
+  fluidSim.pushNeighbors(x, y, z);
   // Lav ışığını güncel tut: 87 oldu/çıktı (kova, sim dönüşümü, TNT deligi)
   try { trackLava(x, y, z, chunkManager.getBlock(x, y, z)); } catch {}
   // Ateş efekti: 86'ya dönüştüğünde spawn et, çıktığında temizle
@@ -1424,6 +1473,14 @@ function simHooks() {
       effects?.spawnDrop(id, x, y, z);
     },
     spawnDrop: (id, x, y, z) => effects?.spawnDrop(id, x, y, z),
+    // Lav yanıcı bloğa değdi -> ateş çıkar (MC)
+    onLavaTouch: (x, y, z, id) => {
+      try {
+        if (!FLAMMABLE.has(id)) return;
+        if (getBlock(x, y + 1, z) !== 0) return; // ateş üstte doğar
+        igniteFireAt(x, y + 1, z, false); // çakmak/çelik harcanmaz
+      } catch {}
+    },
   };
 }
 // Düşen kum/çakıl görseli: blok dokulu malzeme (dokubaşı önbellekli)
@@ -1483,6 +1540,7 @@ function dropBlockLoot(realId, x, y, z, tool = heldToolId()) {
   const info = breakInfo(realId, tool);
   if (!info.drops) return;
   if (realId === 16 || realId === 86) return; // su/ateş hiçbir zaman eşya olmaz
+  if (realId === BUCKET_BLOCK_ID) { effects?.spawnDrop(139, x, y, z, null, 'item'); return; } // kova bloğu -> kova eşyası (MC)
   if (realId === 1 || realId === 18) effects?.spawnDrop(2, x, y, z); // toprak
   else if (realId === 3) effects?.spawnDrop(4, x, y, z); // kırık taş
   else if (realId === 11) effects?.spawnDrop(101, x, y, z, null, 'item'); // kömür
@@ -1499,19 +1557,46 @@ function dropBlockLoot(realId, x, y, z, tool = heldToolId()) {
   else effects?.spawnDrop(realId, x, y, z); // yerden toplanır
 }
 
-// Ateşe temas: her 0.6sn'de 1 kalp (hayatta kalma)
+// Ateşe/lava teması hasarı (hayatta kalma)
+// MC 1.21.1: ateş 2 HP / 0.6sn, lav 4 HP / sn (saniyede 4 kalp)
 let firePlayerTickAcc = 0;
+let lavaDamageAcc = 0;
 function updateFireDamage(simDt) {
+  // LAV: sürekli hasar (MC: 4 HP/sn = 0.5sn'de 2 kalp)
+  lavaDamageAcc += simDt;
+  if (lavaDamageAcc >= 0.5) {
+    lavaDamageAcc = 0;
+    if (chunkManager && !player.dead && GAMEMODE === 'survival') {
+      const lf = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.4), Math.floor(player.pos.z));
+      const lh = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 1.4), Math.floor(player.pos.z));
+      if (fluidTypeOf(lf) === FLUID_LAVA || fluidTypeOf(lh) === FLUID_LAVA) {
+        damage(2, t('subtitle.ignite'));
+      }
+    }
+  }
+  // ATEŞ: 0.6sn'de 2 HP
   firePlayerTickAcc += simDt;
   if (firePlayerTickAcc < 0.6) return;
   firePlayerTickAcc = 0;
   if (!chunkManager || player.dead || GAMEMODE !== 'survival') return;
   const p1 = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z));
   const p2 = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 1.2), Math.floor(player.pos.z));
-  // lava ve ateş aynı şiddette (2 HP'den birisi)
-  if (p1 === 86 || p2 === 86 || p1 === 87 || p2 === 87) damage(2, p1 === 87 || p2 === 87 ? t('subtitle.ignite') : t('msg.fire'));
+  if (p1 === 86 || p2 === 86) damage(2, t('msg.fire'));
 }
 function breakInstant(hit) {
+  // Sıvılar hayatta kalmada kırılamaz (MC: su/lav madencilikle alınmaz, kova ile alınır).
+  // Yaratıcıda ise MC gibi kaldırılabilir.
+  if (isFluid(hit.id)) {
+    if (GAMEMODE === 'creative') {
+      chunkManager.setBlock(hit.x, hit.y, hit.z, 0);
+      hideBreakBar();
+      try { effects?.hideCrack(); } catch {}
+      return;
+    }
+    hideBreakBar();
+    try { effects?.hideCrack(); } catch {}
+    return;
+  }
   // Ateş (86): elle kır, düşmez, kırılması anında olur
   if (hit.id === 86) {
     chunkManager.setBlock(hit.x, hit.y, hit.z, 0);
@@ -1583,13 +1668,69 @@ function breakInstant(hit) {
   hideBreakBar();
   effects?.hideCrack();
 }
+// ===== KOVA (MC 1.21.1) =====
+// Boş kova + KAYNAK su/lav -> kova dolar (MC: akan sıvı kapılamaz)
+// Dolu kova -> hedef hücreye sıvı konur, kova boşalır
+// Boş kova + katı blok -> kova bloğu olarak yerleştirilir (MC)
+function swapHeldItem(newId) {
+  const slot = inventory?.hotbar?.[inventory.sel];
+  if (!slot) return;
+  slot.kind = 'item';
+  slot.id = newId;
+  slot.count = 1;
+  delete slot.dur;
+}
+function tryBucket(hit) {
+  const sel = inventory?.selectedSlot();
+  if (!sel || (sel.kind || 'item') !== 'item') return 'none';
+  if (sel.id === 139) { // BOŞ KOVA
+    if (hit.fluid) {
+      const info = fluidInfo(hit.id);
+      if (!info) return 'none';
+      if (info.l !== 0) { toast(t('msg.bucketNotSource')); return 'bucket'; } // akan sıvı kapılanmaz
+      const filled = info.t === FLUID_LAVA ? 141 : 140;
+      chunkManager.setBlock(hit.x, hit.y, hit.z, 0); // kaynak alınır
+      swapHeldItem(filled);
+      try { fluidSim?.pushNeighbors(hit.x, hit.y, hit.z); } catch {}
+      renderHotbar();
+      return 'bucket';
+    }
+    // Katı bloğa sağ tık: kova bloğu olarak yerleştir (MC)
+    const bx = hit.x + hit.nx, by = hit.y + hit.ny, bz = hit.z + hit.nz;
+    if (by < MIN_Y || by > MAX_Y) return 'none';
+    const cur = chunkManager.getBlock(bx, by, bz);
+    if (cur !== 0 && !isFluid(cur) && cur !== 21) return 'none';
+    if (playerInside(bx, by, bz)) return 'none';
+    if (GAMEMODE === 'survival' && !inventory.consumeSelected()) { toast(t('msg.noBlocks')); return 'none'; }
+    chunkManager.setBlock(bx, by, bz, BUCKET_BLOCK_ID);
+    renderHotbar();
+    return 'bucket';
+  }
+  if (sel.id === 140 || sel.id === 141) { // DOLU KOVA
+    const fluidId = sel.id === 140 ? WATER_SOURCE_ID : LAVA_SOURCE_ID;
+    const bx = hit.x + hit.nx, by = hit.y + hit.ny, bz = hit.z + hit.nz;
+    if (by < MIN_Y || by > MAX_Y) return 'none';
+    const cur = chunkManager.getBlock(bx, by, bz);
+    if (cur !== 0 && !isFluid(cur)) { toast(t('msg.bucketNoSpace')); return 'bucket'; }
+    if (playerInside(bx, by, bz)) return 'none';
+    chunkManager.setBlock(bx, by, bz, fluidId);
+    swapHeldItem(139);
+    try { fluidSim?.pushNeighbors(bx, by, bz); } catch {}
+    renderHotbar();
+    return 'bucket';
+  }
+  return 'none';
+}
 function tryPlaceFromCross() {
   // MC gibi nişangâhtan blok koy. 'table'/'furnace' dönerse panel açıldı (tutmayı bırak).
   if (!chunkManager || player.dead) return 'none';
   const dir = new THREE.Vector3();
   camera.getWorldDirection(dir);
   const eye = player.pos.clone(); eye.y += EYE;
-  const hit = raycastVoxel(eye, dir, REACH);
+  // Kova eldeyken sıvıları da hedefle (MC: kova ile su/lav kapılır)
+  const heldItem = inventory?.selectedSlot();
+  const heldBucket = !!(heldItem && (heldItem.kind || 'item') === 'item' && (heldItem.id === 139 || heldItem.id === 140 || heldItem.id === 141));
+  const hit = raycastVoxel(eye, dir, REACH, { includeFluids: heldBucket });
   if (!hit) return 'none';
   if (hit.id === 20) { openTable(); return 'table'; } // çalışma masası: yerleştirme değil panel
   if (hit.id === 22 || hit.id === 24) { openFurnace(hit.x, hit.y, hit.z); return 'furnace'; } // fırın paneli
@@ -1603,39 +1744,21 @@ function tryPlaceFromCross() {
       return 'tnt';
     }
   }
+  // ===== KOVA (MC 1.21.1) =====
+  if (heldBucket) {
+    const r = tryBucket(hit);
+    if (r !== 'none') return r;
+  }
   const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
   if (py < MIN_Y || py > MAX_Y) { toast(t('msg.heightLimit')); return 'none'; }
   const cur = chunkManager.getBlock(px, py, pz);
-  if (cur !== 0 && cur !== 16 && cur !== 21) return 'none'; // hava/su/meşale üstüne kurulur
+  if (cur !== 0 && !isFluid(cur) && cur !== 21) return 'none'; // hava/sıvı/meşale üstüne kurulur
   if (playerInside(px, py, pz)) return 'none';
   // Çakmak ve çelik: hedef yüzün komşusuna ateş (MC 1.21.1)
   const selFlint = inventory?.selectedSlot();
   if (selFlint && (selFlint.kind || 'item') === 'item' && selFlint.id === 131) {
     igniteFireAt(px, py, pz);
     return 'fire';
-  }
-  // ===== KOVA: boş kova ile su/lava al (MC) =====
-  const selItem = inventory?.selectedSlot();
-  if (selItem && (selItem.kind || 'item') === 'item') {
-    if (selItem.id === 139) { // boş kova: hedef bloktan su veya lav kap
-      const target = hit.id;
-      if (target === 16 || target === 87) {
-        const filled = target === 16 ? 140 : 141;
-        chunkManager.setBlock(hit.x, hit.y, hit.z, 0);
-        inventory.hotbar[inventory.sel] = { kind: 'item', id: filled, count: 1 };
-        try { waterSim?.pushNeighbors(hit.x, hit.y, hit.z); } catch {}
-        renderHotbar();
-        return 'bucket';
-      }
-    }
-    if (selItem.id === 140 || selItem.id === 141) { // dolu kova: tıkladığı yere koy (MC)
-      const fluidId = selItem.id === 140 ? 16 : 87;
-      chunkManager.setBlock(px, py, pz, fluidId);
-      inventory.hotbar[inventory.sel] = { kind: 'item', id: 139, count: 1 };
-      try { waterSim?.pushNeighbors(px, py, pz); } catch {}
-      renderHotbar();
-      return 'bucket';
-    }
   }
   const id = selectedId();
   if (!id) {
@@ -2065,11 +2188,9 @@ function animate() {
       if (f.life <= 0) { try { scene.remove(f.L); f.L.dispose?.(); } catch {} flashLights.splice(i, 1); }
     }
   }
-  // Su dolgusu: 0.25sn tick, bütçeli (MC-lite)
-  waterTickAcc += simDt;
-  if (waterTickAcc > 0.25 && chunkManager && waterSim.size) {
-    waterTickAcc = 0;
-    try { waterSim.step(40, simHooks()); } catch {}
+  // Sıvı dolgusu: su 4 tick/sn, lav 2 tick/sn (MC tick rate), bütçeli
+  if (chunkManager && fluidSim.size) {
+    try { fluidSim.step(simDt, simHooks()); } catch (e) { console.warn('Sivi tick hatasi:', e); }
   }
   // gölge kısması: SADECE güneş hücresi değişince / 10sn periyot.
   // (Mesh sayacına bağlanmaz: streaming sırasında her kare 2x çizim biter.)
@@ -2192,7 +2313,7 @@ function scanLava() {
     for (const c of chunkManager.chunks.values()) {
       const { blocks, cx, cz } = c;
       for (let i = 0; i < blocks.length; i++) {
-        if (blocks[i] !== 87) continue;
+        if (fluidTypeOf(blocks[i]) !== FLUID_LAVA) continue;
         const y = MIN_Y + Math.floor(i / 256);
         const lz = Math.floor((i % 256) / 16), lx = i % 16;
         lavaSet.add(tkey(cx * 16 + lx, y, cz * 16 + lz));
@@ -2336,7 +2457,7 @@ async function enterWorld(id) {
       try {
         const { blocks, cx, cz } = c;
         for (let i = 0; i < blocks.length; i++) {
-          if (blocks[i] !== 87) continue;
+          if (fluidTypeOf(blocks[i]) !== FLUID_LAVA) continue;
           const y = MIN_Y + Math.floor(i / 256);
           const lz = Math.floor((i % 256) / 16), lx = i % 16;
           lavaSet.add(tkey(cx * 16 + lx, y, cz * 16 + lz));
@@ -2374,7 +2495,7 @@ async function enterWorld(id) {
     chunkManager.doorState = (x, y, z) => { try { return doorMgr.map.get(x + ',' + y + ',' + z) || null; } catch { return null; } };
     chunkManager.chestState = (x, y, z) => { try { return chestMgr.info(x, y, z); } catch { return null; } };
     chunkManager.furnaceFacing = (x, y, z) => { try { const st = furnaceMgr.map.get(x + ',' + y + ',' + z); return (st && st.face | 0) || 0; } catch { return 0; } };
-    fallSim.clear(); waterSim.clear(); waterTickAcc = 0;
+    fallSim.clear(); fluidSim.clear();
 
     if (!uiBuilt) {
       uiBuilt = true;
@@ -2552,6 +2673,27 @@ async function exitToMenu(save = true) {
 window.__enterWorld = enterWorld;
 window.__exitToMenu = exitToMenu;
 window.__currentWorld = () => (worldReady ? WORLD_ID : null);
+// Hata ayıklama/QA tutamağı: konsoldan (veya otomasyonla) oyunun iç durumuna erişim.
+// Sıvı motoru, kova akışı ve zırh takımı bu üzerinden test edilir.
+window.__game = {
+  get chunkManager() { return chunkManager; },
+  get player() { return player; },
+  get camera() { return camera; },
+  get fluidSim() { return fluidSim; },
+  get fallSim() { return fallSim; },
+  get inventory() { return inventory; },
+  get worldReady() { return worldReady; },
+  get gamemode() { return GAMEMODE; },
+  getBlock: (x, y, z) => getBlock(x, y, z),
+  setBlock: (x, y, z, id) => chunkManager?.setBlock(x, y, z, id),
+  tryPlaceFromCross,
+  raycastVoxel,
+  simHooks,
+  damage,
+  setGamemode,
+  teleport: (x, y, z) => { player.pos.set(x, y, z); player.vel.set(0, 0, 0); player.fallStart = y; },
+  look: (yaw, pitch) => { player.yaw = yaw; player.pitch = pitch ?? 0; },
+};
 
 // Hafif boot: DB + aktif id, o kadar. Ağır iş enterWorld'de.
 (async function bootLight() {

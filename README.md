@@ -15,12 +15,22 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
   - 4 köşeli zemin tespiti, kırılma süreleri ve alet çarpanları
   - 2×2 / 3×3 şekilli üretim, eşitleme (fetolama), yakıt/eritme, dayanıklılık barı
   - Kapı (çift kapı eşleme), meşale (yere/duvara, destek kırılınca düşer), sandık (tek/çift)
-  - Düşen bloklar (kum/çakıl), sınırlı su simülasyonu, yaprak çürümesi
+  - Düşen bloklar (kum/çakıl), yaprak çürümesi
+  - **Sıvı motoru (MC 1.21.1 seviye sistemi)**: kaynak/akan ayrımı blok id'sine gömülü
+    (`16` su kaynağı, `87` lav kaynağı, `88–94` akan su seviye 1–7, `95–97` akan lav seviye 1–3),
+    böylece seviye chunk ile birlikte otomatik kaydedilir. "Kısa yol kazanır" kuralı:
+    seviye = 1 + min(yatay komşu seviyesi). Su kaynağı **7 blok**, lav kaynağı **3 blok**
+    yana yayılır → 2×2 su **sonsuz**, 2×2 lav **sınırlı** (MC kuralı).
+    Su her yükseklikte akar, yerçekimiyle düşer, çukurları doldurur, kazılan yan boşlukları doldurur;
+    kaynak kalkınca sıvı geri çekilir. Lav **yavaştır** (su 4 tick/sn, lav 2 tick/sn).
+    Lav kaynağı + su → **obsidyen**, akan lav + su → **çakıltaşı** (MC).
+    Sıvı blokları kırılamaz (MC) — yalnızca kova ile alınır/konur; su altında blok koyulabilir.
   - **Lav**: derinde mağara lav havuzları (Y≤-8, ~%10 chunk) + nadir yüzey lav çukurları
-    (~%2 chunk, kuru arazide sığ), lav ışığı (seviye 15, meşale gibi taxicab sönüm),
-    lav + su teması → çakıltaşı (cobblestone); lav kaynağı kovayla alınabilir/koyulabilir
-  - **Kova**: V şeklinde 3 demir → kova; su veya lavı kap/yolla (MC birebir);
-    lav ve ateş 2 HP hasar, zırh düşüşü azaltır
+    (MC badlands tarzı: çukur + yükseltilmiş obsidyen çember, ~%2 chunk, spawn'dan uzak),
+    lav ışığı (seviye 15, meşale gibi taxicab sönüm), lav yanıcı blokları tutuşturur,
+    oyuncu lavın **içine girebilir** (yavaş batma, Space ile yavaş yüzme, 4 HP/sn hasar)
+  - **Kova**: V şeklinde 3 demir → kova; **yalnızca kaynaktan** sıvı kapar (MC), dolu kova ile
+    hedef hücreye sıvı konur, boş kova katı yüzeye **kova bloğu** olarak yerleştirilebilir
   - **Zırh**: Demir/Altın/Elmas × miğfer/gömlek/bacak/bot (MC 1.21.1 puanları:
     2/6/5/2, 2/5/3/1, 3/8/6/3 — toplam üstü 80% azalma, eşyanın başı %4/puan);
     envanterde zırh takma slotları, HUD'da zırh barı (Faithful),

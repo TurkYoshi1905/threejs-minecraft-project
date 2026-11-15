@@ -25,6 +25,7 @@ const TINTS = {
   birch_leaves: [128 / 255, 167 / 255, 85 / 255], // #80A755 (huş, sabit)
   spruce_leaves: [97 / 255, 153 / 255, 97 / 255], // #619961 (ladin, sabit)
   water_still: [63 / 255, 118 / 255, 228 / 255],  // #3F76E4
+  water_flow: [63 / 255, 118 / 255, 228 / 255],   // #3F76E4 (akan su)
 };
 
 function chestCode(st) { if (!st) return 0; return (((st.dbl | 0) % 3) * 4) + ((st.face | 0) & 3); }
@@ -302,8 +303,8 @@ export function buildChunkGeometry(blocks, cx, cz, getBlockGlobal, uvMap, MIN_Y,
           addTorch(em, wx, y, wz, rect, getTorch ? getTorch(wx, y, wz) : 0);
           continue;
         }
-        // su: üstü açıksa üst yüzü bir piksel aşağıda? v1'de tam blok, basit tutuyoruz
-        const isTrans = id === 9 || id === 16 || id === 6 || id === 87;
+        // su/lav/akan sıvılar saydam kovaya girer (BLOCKS.sivi bayrağı)
+        const isTrans = b?.sivi === true || id === 9 || id === 6;
         const isSaydam = b?.saydam === true;
         for (const f of FACES) {
           const nx2 = lx + f.n[0], ny2 = y + f.n[1], nz2 = lz + f.n[2];

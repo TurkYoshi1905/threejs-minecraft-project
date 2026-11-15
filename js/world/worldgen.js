@@ -43,7 +43,27 @@ export function heightAt(x, z, seedStr) {
     const depth = Math.min(3, Math.max(0, y - target));
     y -= depth * s;
   }
-  return Math.max(MIN_Y + 4, Math.min(150, Math.floor(y)));
+  y = Math.max(MIN_Y + 4, Math.min(150, Math.floor(y)));
+  // Lav havuzu çukuru: zemin 1-2 blok aşağı çekilir (MC badlands gölü)
+  // Sadece kuru arazide (deniz seviyesinin üstünde) ve 110'un altında
+  if (y > SEA_LEVEL + 2 && y < 110) {
+    y -= lavaPoolDepth(x, z, seedStr);
+  }
+  return y;
+}
+
+// Yüzey lav havuzu derinliği (MC badlands tarzı):
+//   0 = havuz yok, 1-2 = çukur derinliği.
+// Çok nadir (gürültü eşiği yüksek), spawn'dan uzak, deniz seviyesinin üstünde.
+export function lavaPoolDepth(x, z, seedStr) {
+  const { lava } = noises(seedStr);
+  // Spawn çevresinde lav havuzu olmasın (doğumda ölüm tuzağı)
+  const dx = x - 8, dz = z - 8;
+  if (dx * dx + dz * dz < 96 * 96) return 0;
+  const v = lava.fbm(x / 34 + 31.7, z / 34 - 17.3, 2);
+  if (v <= 0.75) return 0;
+  // Merkezde daha derin, kenarda sığ (MC: göl ortada derin)
+  return Math.min(2, 1 + Math.floor((v - 0.75) * 10));
 }
 
 function triangleProb(y, minY, peakY, maxY) {
@@ -208,23 +228,32 @@ export function generateChunk(cx, cz, seedStr, seedNum) {
     }
   }
 
-  // Yüzey lav gölleri: çok nadir, kuru arazide sığ lav çukuru (MC 1.21.1'deki gibi yüzeyde nadiren)
+  // Yüzey lav gölleri (MC badlands tarzı): çukur + YÜKSELTİLMİŞ obsidyen çember.
+  // Zemin çukuru heightAt -> lavaPoolDepth ile oyulur; burada lav tabanı + çember duvarı yapılır.
   {
-    const { lava } = noises(seedStr);
+    const poolDepthAt = (wx, wz) => lavaPoolDepth(wx, wz, seedStr);
+    // 1) Havuz tabanı: lav kaynağı
     for (let lx = 0; lx < 16; lx++) {
       for (let lz = 0; lz < 16; lz++) {
         const wx = cx * 16 + lx, wz = cz * 16 + lz;
+        if (poolDepthAt(wx, wz) <= 0) continue;
         const h = heightAt(wx, wz, seedStr);
-        if (h <= SEA_LEVEL + 1 || h > 110) continue; // deniz ve çok yüksek zirveler hariç
-        const topI = (h - MIN_Y) * 256 + lz * 16 + lx;
-        const topId = blocks[topI];
-        // doğal kuru yüzeyler: çim / karlı çim / toprak / kum / çakıl
-        if (topId !== 1 && topId !== 18 && topId !== 2 && topId !== 8 && topId !== 15) continue;
-        const pool = lava.fbm(wx / 34 + 31.7, wz / 34 - 17.3, 2);
-        if (pool > 0.75) { // seyrek, küçük lav birikintisi (nadiren)
-          set(lx, h, lz, 87);
-          set(lx, h - 1, lz, 87);
+        set(lx, h, lz, 87);
+      }
+    }
+    // 2) Çember: havuzun kenarındaki sütunlarda obsidyen duvar (lav dışarı taşmasın)
+    for (let lx = 0; lx < 16; lx++) {
+      for (let lz = 0; lz < 16; lz++) {
+        const wx = cx * 16 + lx, wz = cz * 16 + lz;
+        if (poolDepthAt(wx, wz) > 0) continue; // havuz içi
+        let poolFloor = null;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (poolDepthAt(wx + dx, wz + dz) > 0) { poolFloor = heightAt(wx + dx, wz + dz, seedStr); break; }
         }
+        if (poolFloor === null) continue;
+        const nh = heightAt(wx, wz, seedStr);
+        const wallTop = Math.max(nh, poolFloor + 1); // lav seviyesinden en az 1 yüksek
+        for (let y = nh; y <= wallTop; y++) set(lx, y, lz, 98);
       }
     }
   }

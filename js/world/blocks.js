@@ -96,8 +96,23 @@ export const BLOCKS = {
   84: { ad: 'Ham Altın Bloku', adEn: 'Raw Gold Block', all: 'raw_gold_block', blast: 6 },
   85: { ad: 'Ham Bakır Bloku', adEn: 'Raw Copper Block', all: 'raw_copper_block', blast: 6 },
   86: { ad: 'Ateş', adEn: 'Fire', all: 'fire_0', saydam: true, cutout: true, blast: 0, gizli: true, secilemez: true },
-  // --- Lav (id 87-88, MC: lava block; bizde hem kaynak hem akış tek ID 87) ---
-  87: { ad: 'Lav', adEn: 'Lava', all: 'lava_still', sivi: true, saydam: true, blast: 100, isik: 15 },
+  // --- Sıvılar (MC 1.21.1) ---
+  // 16 = su kaynağı, 87 = lav kaynağı, 88-94 = akan su (seviye 1..7), 95-97 = akan lav (seviye 1..3)
+  87: { ad: 'Lav', adEn: 'Lava', all: 'lava_still', sivi: true, saydam: true, transparent: true, blast: 100, isik: 15, secilemez: true },
+  88: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  89: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  90: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  91: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  92: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  93: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  94: { ad: 'Akış Suyu', adEn: 'Flowing Water', all: 'water_flow', sivi: true, saydam: true, transparent: true, blast: 100, secilemez: true, gizli: true },
+  95: { ad: 'Akış Lavı', adEn: 'Flowing Lava', all: 'lava_flow', sivi: true, saydam: true, transparent: true, blast: 100, isik: 15, secilemez: true, gizli: true },
+  96: { ad: 'Akış Lavı', adEn: 'Flowing Lava', all: 'lava_flow', sivi: true, saydam: true, transparent: true, blast: 100, isik: 15, secilemez: true, gizli: true },
+  97: { ad: 'Akış Lavı', adEn: 'Flowing Lava', all: 'lava_flow', sivi: true, saydam: true, transparent: true, blast: 100, isik: 15, secilemez: true, gizli: true },
+  // Obsidyen: lav kaynağı suya değdiğinde oluşur (MC)
+  98: { ad: 'Obsidyen', adEn: 'Obsidian', all: 'obsidian', blast: 50 },
+  // Kova bloğu: boş kova katı yüzeye sağ tıkla yerleştirilir (MC)
+  99: { ad: 'Kova', adEn: 'Bucket', all: 'bucket', blast: 0.3, gizli: true },
 };
 
 export const HOTBAR_DEFAULT = [1, 2, 3, 4, 7, 5, 6, 8, 9, 14];
@@ -131,5 +146,9 @@ export const BREAK_TIME = {
   75: 4.5, 76: 4.5, 77: 4.5, 78: 7.5, 79: 4.5, 80: 7.5, 81: 4.5, 82: 4.5,
   83: 4.5, 84: 4.5, 85: 4.5,
   86: 0, // ateş: elle kır, eşya düşmez
-  87: 100, // lav: çıkarılamaz (kova ile yok edilebilir yüzeye akar)
+  87: 100, // lav: çıkarılamaz (kova ile alınır)
+  88: 100, 89: 100, 90: 100, 91: 100, 92: 100, 93: 100, 94: 100, // akan su
+  95: 100, 96: 100, 97: 100, // akan lav
+  98: 75,  // obsidyen (MC sertlik 50 -> 75 sn)
+  99: 0.45, // kova bloğu
 };
