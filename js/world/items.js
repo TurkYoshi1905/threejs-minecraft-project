@@ -62,6 +62,21 @@ export const ITEMS = {
   159: { ad: 'Elmas Gömlek', adEn: 'Diamond Chestplate', tex: 'diamond_chestplate', max: 1, armorPts: 8, armorSlot: 'chest' },
   160: { ad: 'Elmas Bacak', adEn: 'Diamond Leggings', tex: 'diamond_leggings', max: 1, armorPts: 6, armorSlot: 'legs' },
   161: { ad: 'Elmas Bot', adEn: 'Diamond Boots', tex: 'diamond_boots', max: 1, armorPts: 3, armorSlot: 'feet' },
+  // --- Yemekler (id 200+, MC 1.21.1: hunger = açlık puanı, saturation = doygunluk) ---
+  200: { ad: 'Elma', adEn: 'Apple', tex: 'apple', max: 64, food: { hunger: 4, saturation: 2.4 } },
+  201: { ad: 'Ekmek', adEn: 'Bread', tex: 'bread', max: 64, food: { hunger: 5, saturation: 6.0 } },
+  202: { ad: 'Pişmiş Dana', adEn: 'Cooked Beef', tex: 'cooked_beef', max: 64, food: { hunger: 8, saturation: 12.8 } },
+  203: { ad: 'Pişmiş Domuz Pirzolası', adEn: 'Cooked Porkchop', tex: 'cooked_porkchop', max: 64, food: { hunger: 8, saturation: 12.8 } },
+  204: { ad: 'Pişmiş Tavuk', adEn: 'Cooked Chicken', tex: 'cooked_chicken', max: 64, food: { hunger: 6, saturation: 7.2 } },
+  205: { ad: 'Havuç', adEn: 'Carrot', tex: 'carrot', max: 64, food: { hunger: 3, saturation: 3.6 } },
+  206: { ad: 'Patates', adEn: 'Potato', tex: 'potato', max: 64, food: { hunger: 1, saturation: 0.6 } },
+  207: { ad: 'Fırın Patates', adEn: 'Baked Potato', tex: 'baked_potato', max: 64, food: { hunger: 5, saturation: 6.0 } },
+  208: { ad: 'Kavun Dilimi', adEn: 'Melon Slice', tex: 'melon_slice', max: 64, food: { hunger: 2, saturation: 1.2 } },
+  209: { ad: 'Kurabiye', adEn: 'Cookie', tex: 'cookie', max: 64, food: { hunger: 2, saturation: 0.4 } },
+  210: { ad: 'Altın Elma', adEn: 'Golden Apple', tex: 'golden_apple', max: 64, food: { hunger: 4, saturation: 9.6 } },
+  211: { ad: 'Çiğ Dana', adEn: 'Raw Beef', tex: 'beef', max: 64, food: { hunger: 3, saturation: 1.8 } },
+  212: { ad: 'Çiğ Domuz Pirzolası', adEn: 'Raw Porkchop', tex: 'porkchop', max: 64, food: { hunger: 3, saturation: 1.8 } },
+  213: { ad: 'Çiğ Tavuk', adEn: 'Raw Chicken', tex: 'chicken', max: 64, food: { hunger: 2, saturation: 1.2 } },
 };
 
 export const ARMOR_SLOTS = ['head', 'chest', 'legs', 'feet'];
@@ -168,9 +183,14 @@ export const SMELT = {
   81: { out: 137, time: 10 }, // bakır cevheri -> ham bakır
 };
 
-// Eritme tarifleri (eşya girdiler): ham -> külçe (MC)
+// Eritme tarifleri (eşya girdiler): ham -> külçe (MC) + çiğ yemekler -> pişmiş
 export const SMELT_ITEM = {
   105: { out: 102, time: 10 }, // ham demir -> demir külçe
   106: { out: 103, time: 10 }, // ham altın -> altın külçe
   137: { out: 136, time: 10 }, // ham bakır -> bakır külçe
+  // Çiğ yemekler -> pişmiş yemekler (MC)
+  211: { out: 202, time: 10 }, // çiğ dana -> pişmiş dana
+  212: { out: 203, time: 10 }, // çiğ domuz -> pişmiş domuz pirzolası
+  213: { out: 204, time: 10 }, // çiğ tavuk -> pişmiş tavuk
+  206: { out: 207, time: 10 }, // patates -> fırın patates
 };

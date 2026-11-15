@@ -1769,3 +1769,108 @@ body.at-border::after {
 .armor-slot { width: 56px !important; height: 56px !important; background: #353535 !important; border-color: #222 !important; }
 .armor-slot:hover { background: #454545 !important; }
 .armor-placeholder { font-size: 26px; opacity: 0.55; line-height: 1; pointer-events: none; }
+
+/* ================= MC 1.21.1 HUD OUTLINE (ince siyah hat) ================= */
+:root { --hotbar-w: 570px; }
+#hearts img.hh, #bubbles img.bb, #armorBar img.ar, #hungerBar img.hb {
+  filter:
+    drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000)
+    drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)
+    drop-shadow(1px 1px 0 #000) drop-shadow(1px -1px 0 #000)
+    drop-shadow(-1px 1px 0 #000) drop-shadow(-1px -1px 0 #000);
+}
+
+/* ================= HUNGER BAR (MC: sag altta, kalplerle hizali) ================= */
+#hungerBar {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(85px);
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+#hungerBar.hidden { display: none !important; }
+#hungerBar img.hb {
+  width: 19px; height: 19px;
+  image-rendering: pixelated;
+  margin-right: 1px;
+  vertical-align: bottom;
+}
+#hungerBar.starving img.hb {
+  animation: hbBlink 0.5s steps(2) infinite;
+  /* outline'u koruyarak parlaklık değişir */
+  filter:
+    brightness(0.6)
+    drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000)
+    drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)
+    drop-shadow(1px 1px 0 #000) drop-shadow(1px -1px 0 #000)
+    drop-shadow(-1px 1px 0 #000) drop-shadow(-1px -1px 0 #000) !important;
+}
+@keyframes hbBlink { 0%,100% { filter: brightness(1); } 50% { filter: brightness(0.35); } }
+
+/* XP bar: hotbar ile birebir genislik */
+#xpContainer { width: var(--hotbar-w) !important; bottom: 84px !important; }
+
+/* Secilen esya adi: XP barinin uzerinde, ince kontur */
+#selected-name {
+  bottom: 118px !important;
+  font-size: 21px !important;
+  text-shadow: 0 2px 2px #000, 0 0 6px #000, 0 0 3px #000 !important;
+}
+#selected-name.hidden { display: none !important; }
+
+/* ================= YEME ANIMASYONU (MC 1.6s) ================= */
+#eatOverlay {
+  position: fixed;
+  bottom: 158px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 29;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+#eatOverlay.hidden { display: none !important; }
+#eatRing {
+  position: relative;
+  width: 88px; height: 88px;
+}
+#eatRing svg {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+#eatRing .eat-bg {
+  fill: rgba(0,0,0,0.35);
+  stroke: rgba(255,255,255,0.35);
+  stroke-width: 4;
+}
+#eatRing .eat-fill {
+  fill: none;
+  stroke: #ffff54;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 94.2;
+  stroke-dashoffset: 94.2;
+}
+#eatIcon {
+  position: absolute;
+  inset: 14px;
+  width: 60px; height: 60px;
+  image-rendering: pixelated;
+  animation: eatBob 0.55s ease-in-out infinite;
+}
+@keyframes eatBob {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.15); }
+}
+#eatHint {
+  color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  text-shadow: 1px 1px 0 #000;
+}

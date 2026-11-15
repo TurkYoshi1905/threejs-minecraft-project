@@ -20,7 +20,7 @@ import { ChestManager } from './world/chests.js';
 import { ChestUI } from './ui/chest.js';
 import { FallSim, FluidSim, isFluidBlock, fluidInfo, fluidTypeOf, FLUID_WATER, FLUID_LAVA, WATER_SOURCE_ID, LAVA_SOURCE_ID, OBSIDIAN_ID } from './world/sim.js';
 import { TNTSim } from './world/tnt.js';
-import { playIgnite, playExplode } from './core/audio.js';
+import { playIgnite, playExplode, playEat } from './core/audio.js';
 import { Sky } from './world/sky.js';
 import { Effects } from './world/effects.js';
 
@@ -124,6 +124,9 @@ const player = {
   oxygen: 300, drownTimer: 0,
   sneaking: false,
   sprinting: false,
+  // MC 1.21.1 açlık
+  hunger: 20, saturation: 20, exhaustion: 0,
+  eating: null, // { id, elapsed, dur, slot }
 };
 let currentEye = EYE;
 let lastWTime = 0;
@@ -409,8 +412,26 @@ function movePlayer(dt) {
         player.vel.y = 0;
       } else player.pos.y = nyL;
     } else {
-      player.pos.y = nyL;
-      if (collides(player.pos.x, player.pos.y, player.pos.z)) player.vel.y = 0;
+      // Yukarı yüzme: tavan (tavan engeli) kontrolü — kafası katı bloğa girmez (MC)
+      let hitCeilL = false, lowestCeilL = Infinity;
+      for (const dx of [-PW, PW]) {
+        for (const dz of [-PW, PW]) {
+          const bx = Math.floor(player.pos.x + dx);
+          const bz = Math.floor(player.pos.z + dz);
+          const by = Math.floor(nyL + PH);
+          if (isFloorSolid(bx, by, bz)) {
+            hitCeilL = true;
+            if (by < lowestCeilL) lowestCeilL = by;
+          }
+        }
+      }
+      if (hitCeilL && lowestCeilL < Infinity) {
+        player.pos.y = lowestCeilL - PH - 0.001;
+        player.vel.y = 0;
+      } else {
+        player.pos.y = nyL;
+        if (collides(player.pos.x, player.pos.y, player.pos.z)) player.vel.y = 0;
+      }
     }
     return;
   }
@@ -450,7 +471,9 @@ function movePlayer(dt) {
       // Düşme hasarı (survival, suya düşmede yok). MC: 4 blok=1 kalp
       const drop = player.fallStart - player.pos.y;
       player.fallStart = player.pos.y;
-      if (drop > 3 && GAMEMODE === 'survival' && !player.dead && !inWater(player.pos.x, player.pos.y, player.pos.z)) {
+      if (drop > 3 && GAMEMODE === 'survival' && !player.dead
+        && !inWater(player.pos.x, player.pos.y, player.pos.z)
+        && !inLava(player.pos.x, player.pos.y, player.pos.z)) {
         damage(Math.floor(drop - 3), t('msg.fellFromHeight'));
       }
     } else {
@@ -511,6 +534,131 @@ function updateBubbles() {
   }
   el.innerHTML = html;
 }
+
+// ============ AÇLIK (MC 1.21.1) ============
+// Faithful 1.21.1 açlık spriteları (textures/hud/food_*.png)
+const FOOD_FULL = 'textures/hud/food_full.png';
+const FOOD_HALF = 'textures/hud/food_half.png';
+const FOOD_EMPTY = 'textures/hud/food_empty.png';
+const FOOD_FULL_HUNGER = 'textures/hud/food_full_hunger.png';
+const FOOD_HALF_HUNGER = 'textures/hud/food_half_hunger.png';
+const FOOD_EMPTY_HUNGER = 'textures/hud/food_empty_hunger.png';
+
+function updateHunger() {
+  const el = document.getElementById('hungerBar');
+  if (!el) return;
+  if (GAMEMODE !== 'survival') { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.classList.toggle('starving', player.hunger <= 6);
+  const blink = player.hunger <= 6;
+  const full = blink ? FOOD_FULL_HUNGER : FOOD_FULL;
+  const half = blink ? FOOD_HALF_HUNGER : FOOD_HALF;
+  const empty = blink ? FOOD_EMPTY_HUNGER : FOOD_EMPTY;
+  let html = '';
+  for (let i = 0; i < 10; i++) {
+    const hp = player.hunger - i * 2;
+    const src = hp >= 2 ? full : hp >= 1 ? half : empty;
+    html += `<img class="hb" src="${src}" alt="">`;
+  }
+  el.innerHTML = html;
+}
+let hungerTickAcc = 0; // 0.5sn tick birikimi
+let hungerRegenAcc = 0;  // 1 HP yenileme sayacı (MC: 18+ açlık -> 4sn'de 1 HP)
+function updateHungerTick(dt) {
+  if (player.dead || GAMEMODE !== 'survival') return;
+  hungerTickAcc += dt;
+  if (hungerTickAcc >= 0.5) {
+    hungerTickAcc = 0;
+    // MC: her 4 yorulma puanı -> 1 doygunluk (doygunluk yoksa 1 açlık)
+    if (player.exhaustion >= 4) {
+      player.exhaustion -= 4;
+      if (player.saturation > 0) player.saturation = Math.max(0, player.saturation - 1);
+      else if (player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1);
+    }
+    // Koşma yorulma ekler
+    if (player.sprinting && player.onGround) addExhaustion(0.1);
+    // Açlık 0 ve can 1'den yüksekse 1 HP düşer (MC Normal: açlıktan ölmez)
+    if (player.hunger <= 0 && player.health > 1) {
+      player.health = Math.max(1, player.health - 1);
+      hurtFlash();
+      updateHearts();
+    }
+    updateHunger();
+  }
+  // Can yenilenmesi (MC: açlık >= 18 -> 4sn'de 1 HP)
+  if (player.hunger >= 18 && player.health < 20) {
+    hungerRegenAcc += dt;
+    if (hungerRegenAcc >= 4) {
+      hungerRegenAcc = 0;
+      player.health = Math.min(20, player.health + 1);
+      addExhaustion(6); // MC: her 1 HP yenileme 6 yorulma ekler
+      updateHearts();
+    }
+  } else hungerRegenAcc = 0;
+}
+function addExhaustion(n) { player.exhaustion = Math.min(40, (player.exhaustion || 0) + n); }
+
+// ============ YEME ANIMASYONU (MC 1.6s) — survival ve creative'ta da çalışır ============
+function startEating() {
+  const sel = inventory?.selectedSlot();
+  if (!sel || (sel.kind || 'item') !== 'item') return false;
+  const id = sel.id;
+  const food = ITEMS[id]?.food;
+  if (!food) return false;
+  if (player.dead) return false;
+  if (GAMEMODE === 'survival' && player.hunger >= 20) { toast(t('hunger.full')); return false; }
+  player.eating = { id, elapsed: 0, dur: 1.6 };
+  showEatOverlay(id, 0);
+  try { playEat(); } catch {}
+  return true;
+}
+function cancelEating() {
+  if (!player.eating) return;
+  player.eating = null;
+  hideEatOverlay();
+}
+function finishEating() {
+  if (!player.eating) return;
+  const id = player.eating.id;
+  const food = ITEMS[id]?.food;
+  player.eating = null;
+  hideEatOverlay();
+  if (!food) return;
+  if (GAMEMODE === 'survival') {
+    player.hunger = Math.min(20, player.hunger + food.hunger);
+    player.saturation = Math.min(20, player.saturation + food.saturation);
+    updateHunger();
+  }
+  const sel = inventory?.selectedSlot();
+  if (sel && sel.id === id && (sel.kind || 'item') === 'item') {
+    sel.count = Math.max(0, (sel.count || 1) - 1);
+    if (sel.count <= 0) inventory.hotbar[inventory.sel] = null;
+    try { inventory.renderHot(); } catch {}
+    renderHotbar();
+  }
+}
+function updateEating(dt) {
+  if (!player.eating) return;
+  player.eating.elapsed += dt;
+  const p = Math.min(1, player.eating.elapsed / player.eating.dur);
+  showEatOverlay(player.eating.id, p);
+  if (p >= 1) finishEating();
+}
+function showEatOverlay(id, progress) {
+  const ov = document.getElementById('eatOverlay');
+  const img = document.getElementById('eatIcon');
+  const circ = document.querySelector('#eatRing .eat-fill');
+  if (!ov || !img || !circ) return;
+  img.src = `textures/${ITEMS[id]?.tex || 'apple'}.png`;
+  ov.classList.remove('hidden');
+  const CIRC = 94.2; // 2*Math.PI*r (r = 15)
+  circ.style.strokeDashoffset = String(CIRC * (1 - progress));
+}
+function hideEatOverlay() {
+  const ov = document.getElementById('eatOverlay');
+  if (ov) ov.classList.add('hidden');
+}
+
 
 function updateXpBar() {
   const el = document.getElementById('xpContainer');
@@ -584,6 +732,7 @@ function kill(reason = t('death.defaultReason')) {
   if (GAMEMODE !== 'survival') { toast(t('msg.noKillCreative')); return; }
   player.dead = true;
   player.health = 0;
+  cancelEating();
   updateHearts();
   updateBubbles();
   hideBreakBar();
@@ -598,8 +747,10 @@ function respawn() {
   player.vel.set(0, 0, 0);
   player.health = 20; player.dead = false;
   player.oxygen = 300; player.drownTimer = 0;
+  player.hunger = 20; player.saturation = 20; player.exhaustion = 0;
+  player.eating = null; hideEatOverlay();
   player.fallStart = player.pos.y;
-  updateHearts(); updateBubbles(); updateXpBar();
+  updateHearts(); updateBubbles(); updateXpBar(); updateHunger();
   document.getElementById('deathScreen').classList.add('hidden');
   tryLock();
 }
@@ -607,7 +758,7 @@ async function setGamemode(mode) {
   const prev = GAMEMODE;
   GAMEMODE = mode === 'survival' ? 'survival' : 'creative';
   if (GAMEMODE === 'survival') { player.flying = false; if (player.health <= 0) player.health = 20; }
-  updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar();
+  updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar(); showSelectedName(); updateHunger();
   inventory?.setMode(GAMEMODE);
   renderHotbar();
   if (prev !== GAMEMODE) toast(GAMEMODE === 'survival' ? t('msg.welcomeSurvival') : t('msg.welcomeCreative'));
@@ -761,19 +912,29 @@ function renderHotbar() {
     // MC tarzı: numara rozeti yok, sadece ikon + adet + dayanıklılık
     d.innerHTML = (id ? `<img src="${iconFor(id, kind)}" alt="${label}" title="${label}">${cnt}${dur}` : '');
     d.onclick = () => {
+      cancelEating();
       selected = i;
       if (inventory) { inventory.sel = i; inventory.renderHot(); }
       renderHotbar();
+      showSelectedName();
     };
     hotbarEl.appendChild(d);
   });
+}
+
+// MC 1.21.1: envanterde seçili eşyanın adı kısa süreyle görünür (seçim değişince),
+// sonra kaybolur. Kısmi güncelleme: kırılma/koyma/dayanıklılık ekranında isim çıkmaz.
+function showSelectedName() {
+  const el = selNameEl; if (!el) return;
   const sel = inventory ? inventory.selectedSlot() : null;
   const sid = selectedId();
-  const tid = selectedToolId();
-  if (sel && (sel.kind || (sel.id >= 100 ? 'item' : 'block')) === 'item') selNameEl.textContent = itemName(sel.id) || '';
-  else selNameEl.textContent = sid && BLOCKS[sid] ? blockName(sid) : '';
-  clearTimeout(renderHotbar._t);
-  renderHotbar._t = setTimeout(() => selNameEl.textContent = '', 1500);
+  let name = '';
+  if (sel && (sel.kind || (sel.id >= 100 ? 'item' : 'block')) === 'item') name = itemName(sel.id) || '';
+  else if (sid && BLOCKS[sid]) name = blockName(sid) || '';
+  el.textContent = name;
+  el.classList.toggle('hidden', !name);
+  clearTimeout(showSelectedName._t);
+  if (name) showSelectedName._t = setTimeout(() => { el.textContent = ''; el.classList.add('hidden'); }, 1800);
 }
 
 // ============ KAYIT (IndexedDB) ============
@@ -788,6 +949,7 @@ async function saveAll() {
       gamemode: GAMEMODE, selected,
       inv: inventory ? inventory.serialize() : null,
       health: player.health, time: Math.floor(timeOfDay),
+      hunger: player.hunger, saturation: player.saturation, exhaustion: player.exhaustion,
       furnaces: furnaceMgr ? furnaceMgr.serialize() : null,
       doors: doorMgr ? doorMgr.serialize() : null,
       torches: (() => { try { const o = {}; for (const [k, f] of torchMap) o[k] = f; return o; } catch { return null; } })(),
@@ -1238,7 +1400,9 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyW' && !e.repeat && locked && !player.dead && !player.flying && !anyOverlay() && !player.sneaking) {
     const now = performance.now();
     if (now - lastWTime < DOUBLE_TAP_MS) {
-      player.sprinting = true;
+      // MC: sprint için en az 7 açlık gerekir (hayatta kalma)
+      if (GAMEMODE === 'survival' && player.hunger <= 6) toast(t('hunger.hungry'));
+      else player.sprinting = true;
     }
     lastWTime = now;
   }
@@ -1254,9 +1418,11 @@ document.addEventListener('keydown', (e) => {
   if (e.code.startsWith('Digit')) {
     const n = e.code === 'Digit0' ? 10 : +e.code.slice(5);
     if (n >= 1 && n <= 10) {
+      cancelEating();
       selected = n - 1;
       if (inventory) { inventory.sel = selected; inventory.renderHot(); }
       renderHotbar();
+      showSelectedName();
     }
   }
   if (e.code === 'KeyE') {
@@ -1330,10 +1496,12 @@ document.addEventListener('wheel', (e) => {
   if (inventory.isOpen && inventory.mode !== 'survival' && e.target && e.target.closest && e.target.closest('#invPanel')) return;
   if (!locked && !(inventory.isOpen || craftTable?.isOpen || furnaceUI?.isOpen || chestUI?.isOpen)) return;
   e.preventDefault();
+  cancelEating();
   const len = inventory.hotbar.length;
   selected = (selected + (e.deltaY > 0 ? 1 : -1) + len) % len;
   inventory.sel = selected; inventory.renderHot();
   renderHotbar();
+  showSelectedName();
 }, { passive: false });
 // Pencere odağı kaybolursa / sekme gizlenirse tüm basılı tuş ve kırık durumu temizlenir
 // (yoksa "W basılı kaldı, oyunum kendi kendine yürüyor" bug'ı olur).
@@ -1657,6 +1825,10 @@ function breakInstant(hit) {
   if (GAMEMODE === 'survival' && realId !== 16 && BLOCKS[realId] && !BLOCKS[realId].secilemez) {
     const tool = heldToolId();
     if (breakInfo(realId, tool).drops) dropBlockLoot(realId, hit.x, hit.y, hit.z, tool);
+    // Meşe yaprakları kırma -> %2.5 elma düşer (MC eğrisine yakın; yeme içkisi)
+    if (realId === 6 && Math.random() < 0.025) {
+      try { effects?.spawnDrop(200, hit.x, hit.y, hit.z, null, 'item'); } catch {}
+    }
     // Alet yıpranması (çakmak ve çelik madencilikle yıpranmaz; MC: ateş yakınca eksilir)
     const itm = tool ? ITEMS[tool] : null;
     if (tool && itm && !itm.neverWornByMining) {
@@ -1851,6 +2023,7 @@ function pickBlockFromCross() {
     inventory.hotbar[sel] = { kind: 'block', id, count: 64 };
     try { inventory.renderHot(); inventory.onChange(); } catch {}
     renderHotbar();
+    showSelectedName();
     return;
   }
   // Hayatta kalma: önce hotbar'da, yoksa çantada ara; bulursan swap ile seçili slota al
@@ -1863,6 +2036,7 @@ function pickBlockFromCross() {
     }
     try { inventory.renderHot(); inventory.onChange(); } catch {}
     renderHotbar();
+    showSelectedName();
     return;
   }
   const mainIdx = inventory.main.findIndex(sameKindBlock);
@@ -1872,6 +2046,7 @@ function pickBlockFromCross() {
     inventory.main[mainIdx] = tmp;
     try { inventory.renderHot(); inventory.onChange(); } catch {}
     renderHotbar();
+    showSelectedName();
     return;
   }
   toast(t('msg.pickNotInInventory'));
@@ -1900,13 +2075,16 @@ document.addEventListener('mousedown', (e) => {
     }
     else { mouseL = true; breakTarget = null; breakProg = 0; }
   } else if (e.button === 2) {
+    // MC: eldeki yemek -> ye (1.6s animasyon); blok koymaz
+    if (startEating()) { mouseR = false; return; }
     // MC: sağ basılı tutunca sürekli koy — ilk bloğu hemen koy, gerisi döngüde
     const r = tryPlaceFromCross();
-    if (r === 'table' || r === 'furnace' || r === 'door' || r === 'chest') { mouseR = false; return; }
+    if (r === 'table' || r === 'furnace' || r === 'door' || r === 'chest' || r === 'bucket' || r === 'fire') { mouseR = false; return; }
     mouseR = true; placeCd = PLACE_INTERVAL;
   } else if (e.button === 1) {
     // Orta tık (tekerlek): baktığın bloğu elindeki slota al (MC "pick block")
     e.preventDefault();
+    cancelEating();
     pickBlockFromCross();
   }
 });
@@ -1930,8 +2108,9 @@ function showSubtitle(key) {
 }
 function toast(msg) {
   selNameEl.textContent = msg;
-  clearTimeout(renderHotbar._t);
-  renderHotbar._t = setTimeout(() => selNameEl.textContent = '', 1500);
+  selNameEl.classList.remove('hidden');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { selNameEl.textContent = ''; selNameEl.classList.add('hidden'); }, 1500);
 }
 
 // ============ DÖNGÜ ============
@@ -2178,6 +2357,8 @@ function animate() {
   if (chunkManager) {
     if (!paused) { try { updateFire(simDt); } catch {} }
     try { updateFireDamage(simDt); } catch {}
+    try { updateEating(simDt); } catch {}
+    try { updateHungerTick(simDt); } catch {}
   }
   // Patlama flaş ışıkları: hızlı sönüm
   if (flashLights.length) {
@@ -2598,10 +2779,14 @@ async function enterWorld(id) {
         else { inventory.hotbar = new Array(10).fill(null); inventory.main = new Array(27).fill(null); }
         if (saved.selected != null) { selected = saved.selected; inventory.sel = selected; }
         player.health = typeof saved.health === 'number' ? Math.max(0, Math.min(20, saved.health)) : 20;
+        player.hunger = typeof saved.hunger === 'number' ? Math.max(0, Math.min(20, saved.hunger)) : 20;
+        player.saturation = typeof saved.saturation === 'number' ? Math.max(0, Math.min(20, saved.saturation)) : 20;
+        player.exhaustion = typeof saved.exhaustion === 'number' ? Math.max(0, Math.min(40, saved.exhaustion)) : 0;
         if (typeof saved.time === 'number') timeOfDay = ((saved.time % 24000) + 24000) % 24000;
       } else {
         player.pos.copy(spawnPos());
         player.health = 20;
+        player.hunger = 20; player.saturation = 20; player.exhaustion = 0;
         inventory.hotbar = new Array(10).fill(null);
         inventory.main = new Array(27).fill(null);
         inventory.sel = 0; selected = 0;
@@ -2617,7 +2802,7 @@ async function enterWorld(id) {
     }
     player.vel.set(0, 0, 0);
     player.fallStart = player.pos.y;
-    updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar();
+    updateHearts(); updateModeBadge(); updateBubbles(); updateXpBar(); showSelectedName(); updateHunger();
 
     // spawn çevresini önden yükle: önce 3x3 hızlı, gerisi stream
     say(t('loading.spawning'));

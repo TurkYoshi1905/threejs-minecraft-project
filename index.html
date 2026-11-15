@@ -270,9 +270,17 @@
   <div id="armorBar" class="hidden" title="Zırh"></div>
   <div id="hearts" title="Can"></div>
   <div id="bubbles" title="Oksijen" class="hidden"></div>
+  <div id="hungerBar" class="hidden" title="Açlık"></div>
   <div id="modeBadge"></div>
   <div id="selected-name"></div>
   <div id="breakBar" class="hidden"><div id="breakFill"></div></div>
+  <div id="eatOverlay" class="hidden">
+    <div id="eatRing">
+      <svg viewBox="0 0 36 36"><circle class="eat-bg" cx="18" cy="18" r="15" /><circle class="eat-fill" cx="18" cy="18" r="15" /></svg>
+      <img id="eatIcon" alt="">
+    </div>
+    <div id="eatHint" data-i18n="msg.eating">Yiyorsun...</div>
+  </div>
 
   <!-- Envanter (E) -->
   <div id="invPanel" class="hidden">
@@ -285,6 +293,7 @@
         <button data-tab="degerli" data-i18n="inv.tabValuable">💎 Değerli</button>
         <button data-tab="alet" data-i18n="inv.tabTools">⛏️ Aletler</button>
         <button data-tab="armor" data-i18n="inv.tabArmor">🛡️ Zırh</button>
+        <button data-tab="yemek" data-i18n="inv.tabFood">🍖 Yemekler</button>
         <input id="invSearch" data-i18n-placeholder="inv.searchPlaceholder" placeholder="🔍 Ara... (örn: taş)" />
       </div>
       <div id="invCursorInfo" data-i18n="inv.cursorHint">Sol: al/bırak • Sağ: yarısını al / 1 tane koy • Çift-tık: topla • Shift+tık: hızlı taşı</div>

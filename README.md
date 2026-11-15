@@ -34,8 +34,19 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
   - **Zırh**: Demir/Altın/Elmas × miğfer/gömlek/bacak/bot (MC 1.21.1 puanları:
     2/6/5/2, 2/5/3/1, 3/8/6/3 — toplam üstü 80% azalma, eşyanın başı %4/puan);
     envanterde zırh takma slotları, HUD'da zırh barı (Faithful),
-    düşme hasarı dahil tüm hasarda geçer
-  - **HUD sprite seti**: kalp / oksijen / zırh / XP (Faithful 1.21.1)
+    düşme hasarı dahil tüm hasarda geçer, lav düşüşü hasarsız (suya düşüş gibi)
+  - **Lava'ya girilebilir**: 1 blok yüksek lav boşluğunda lavdalı yüzmeye benzer davranış;
+    tavanlı alanlarda kafa katı bloklara kliplenmez (su fiziğinin lavla aynı MSC dalı)
+  - **HUD sprite seti**: kalp / oksijen / zırh / **açlık** / XP (Faithful 1.21.1) — tüm HUD ikonlarına MC 1.21.1 tarzı ince siyah outline
+  - **Açlık sistemi (MC 1.21.1)**: 20 açlık puanı (10 ikon, yarım-tam desteği), doygunluk, yorulma sistemi;
+    sprint için açlık > 6 gerekir; açlık ≥ 18 iken 1 HP / 4sn can yenilenir; açlık 0'da can en fazla 1 kalır
+    (Normal kural: açlıktan ölünmez); hayatta kalmada açlık sadece envanterle kaydedilir
+  - **Yemekler (14 eşya)**: Elma, Ekmek, Pişmiş Dana/Domuz/Tavuk, Havuç, Patates, Fırın Patates,
+    Kavun Dilimi, Kurabiye, Altın Elma, Çiğ Dana/Domuz/Tavuk — her biri MC'ye uygun açlık/doygunluk değeri;
+    fırında çiğ → pişmiş (çiğ dana/domuz/tavuk/patates), yaratıcı menüsünde "🍖 Yemekler" sekmesi;
+    elma meşe yapraklarından %2.5 düşer (hayatta kalma gıda kaynağı)
+  - **Yeme animasyonu**: sağ tıkla elde yemek → 1.6sn MC yeme animasyonu (survival ve creative'ta da çalışır),
+    seçim/slot değişimi ve ölüm ile iptal edilir
   - **TNT**: çakmak ve çelikle ateşlenir, yanıp söner, 5 saniye sonra patlar;
     tüm bloklarda MC 1.21.1 patlama dayanıklılığı tablosu geçerlidir
   - Çakıl kırınca %10 çakmak; çakmak + demir → çakmak ve çelik

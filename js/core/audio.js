@@ -75,3 +75,21 @@ export function playClick() {
   o.connect(g).connect(a.destination);
   o.start(t0); o.stop(t0 + 0.06);
 }
+// Yeme sesi (MC): 3 lokmalık hafif gürültü + bas
+export function playEat() {
+  const a = audioCtx(); if (!a) return;
+  const t0 = a.currentTime;
+  const vol = masterGain(window.gameSettings?.volume);
+  for (let i = 0; i < 3; i++) {
+    const t = t0 + i * 0.17;
+    const o = a.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(360 - i * 70, t);
+    o.frequency.exponentialRampToValueAtTime(150, t + 0.07);
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.14 * vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g).connect(a.destination);
+    o.start(t); o.stop(t + 0.1);
+  }
+}
