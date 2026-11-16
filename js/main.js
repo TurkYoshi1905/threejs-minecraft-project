@@ -12,7 +12,7 @@ import { InventoryUI } from './ui/inventory.js';
 import { ChatUI, resolveBlock } from './ui/chat.js';
 import { t, applyI18n, getLang } from './core/i18n.js';
 import { blockName, itemName } from './core/names.js';
-import { heartIcons } from './ui/hearts.js';
+import { heartIcons, foodIcons } from './ui/hearts.js';
 import { CraftUI } from './ui/craft.js';
 import { FurnaceManager, FurnaceUI } from './ui/furnace.js';
 import { DoorManager } from './world/doors.js';
@@ -536,13 +536,7 @@ function updateBubbles() {
 }
 
 // ============ AÇLIK (MC 1.21.1) ============
-// Faithful 1.21.1 açlık spriteları (textures/hud/food_*.png)
-const FOOD_FULL = 'textures/hud/food_full.png';
-const FOOD_HALF = 'textures/hud/food_half.png';
-const FOOD_EMPTY = 'textures/hud/food_empty.png';
-const FOOD_FULL_HUNGER = 'textures/hud/food_full_hunger.png';
-const FOOD_HALF_HUNGER = 'textures/hud/food_half_hunger.png';
-const FOOD_EMPTY_HUNGER = 'textures/hud/food_empty_hunger.png';
+// Faithful 1.21.1 açlık spriteları textures/hud/food_*.png (bkz. ui/hearts.js)
 
 function updateHunger() {
   const el = document.getElementById('hungerBar');
@@ -550,15 +544,17 @@ function updateHunger() {
   if (GAMEMODE !== 'survival') { el.classList.add('hidden'); el.innerHTML = ''; return; }
   el.classList.remove('hidden');
   el.classList.toggle('starving', player.hunger <= 6);
+  // MC 1.21.1 (defraw_haunch): koyu food_empty arkada + food_full/half üstte
+  const F = foodIcons();
   const blink = player.hunger <= 6;
-  const full = blink ? FOOD_FULL_HUNGER : FOOD_FULL;
-  const half = blink ? FOOD_HALF_HUNGER : FOOD_HALF;
-  const empty = blink ? FOOD_EMPTY_HUNGER : FOOD_EMPTY;
+  const base = blink ? F.emptyHungry : F.empty;
+  const full = blink ? F.fullHungry : F.full;
+  const half = blink ? F.halfHungry : F.half;
   let html = '';
   for (let i = 0; i < 10; i++) {
     const hp = player.hunger - i * 2;
-    const src = hp >= 2 ? full : hp >= 1 ? half : empty;
-    html += `<img class="hb" src="${src}" alt="">`;
+    const top = hp >= 2 ? full : hp >= 1 ? half : null;
+    html += hudSlot(base, top);
   }
   el.innerHTML = html;
 }
@@ -688,15 +684,20 @@ function updateHearts() {
   if (!el) return;
   updateArmorBar();
   if (GAMEMODE !== 'survival') { el.innerHTML = ''; return; }
-  // Faithful 1.21.1 kalp sprite'ları (10 slot, yarım kalp desteği)
+  // MC 1.21.1: her yuva = koyu container (arka) + full/half (üst) — CSS outline yok
   const H = heartIcons();
   let html = '';
   for (let i = 0; i < 10; i++) {
     const hp = player.health - i * 2;
-    const src = hp >= 2 ? H.full : hp >= 1 ? H.half : H.empty;
-    html += `<img class="hh" src="${src}" alt="">`;
+    const top = hp >= 2 ? H.full : hp >= 1 ? H.half : null;
+    html += hudSlot(H.empty, top);
   }
   el.innerHTML = html;
+}
+// MC HUD yuvası: koyu arka katman (container) + üstteki ikon
+function hudSlot(baseSrc, topSrc) {
+  const top = topSrc ? `<img class="hud-top" src="${topSrc}" alt="">` : '';
+  return `<span class="hud-slot"><img class="hud-base" src="${baseSrc}" alt="">${top}</span>`;
 }
 function hurtFlash() {
   const el = document.getElementById('hearts');

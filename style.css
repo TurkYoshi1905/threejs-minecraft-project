@@ -745,7 +745,7 @@ body.at-border::after {
   line-height: 1;
 }
 
-/* ---- Zırh Barı (MC: kalplerin hemen üstü) ---- */
+/* ---- Zırh Barı (MC: kalplerin hemen üstü; sprite kendi outline'ını taşır) ---- */
 #armorBar {
   position: fixed;
   bottom: 117px;
@@ -755,17 +755,17 @@ body.at-border::after {
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 0;
 }
 #armorBar.hidden { display: none !important; }
 #armorBar img.ar {
-  width: 19px; height: 19px;
+  width: var(--hud-icon, 18px); height: var(--hud-icon, 18px);
   image-rendering: pixelated;
   margin-right: 1px;
   vertical-align: bottom;
 }
 
-/* ---- Can (Faithful piksel kalpler) ---- */
+/* ---- Can (Faithful piksel kalpler, MC 1.21.1: 9x9 sprite x GUI scale 2 = 18px) ---- */
 #hearts {
   position: fixed;
   bottom: 96px; /* XP barı ve hotbar üstü */
@@ -775,34 +775,28 @@ body.at-border::after {
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 0;
 }
-#hearts img.hh {
-  width: 19px; height: 19px;
-  image-rendering: pixelated;
-  margin-right: 1px;
-  vertical-align: bottom;
-}
-#hearts.hurt img.hh { filter: brightness(2.4) saturate(0.4); }
+#hearts.hurt .hud-slot .hud-top { filter: brightness(2.4) saturate(0.4); }
 
 /* ---- Oksijen Balonları (MC Su Altı) ---- */
 #bubbles {
   position: fixed;
-  bottom: 96px; /* XP barı ve hotbar üstü */
+  bottom: 117px; /* aciklik barinin ustunde (MC sirası) */
   left: 50%;
   transform: translateX(85px);
   z-index: 10;
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 0;
   display: flex;
   gap: 1px;
 }
 #bubbles.hidden { display: none !important; }
 #bubbles img.bb {
-  width: 19px;
-  height: 19px;
+  width: var(--hud-icon, 18px);
+  height: var(--hud-icon, 18px);
   image-rendering: pixelated;
   vertical-align: bottom;
 }
@@ -1770,17 +1764,34 @@ body.at-border::after {
 .armor-slot:hover { background: #454545 !important; }
 .armor-placeholder { font-size: 26px; opacity: 0.55; line-height: 1; pointer-events: none; }
 
-/* ================= MC 1.21.1 HUD OUTLINE (ince siyah hat) ================= */
-:root { --hotbar-w: 570px; }
-#hearts img.hh, #bubbles img.bb, #armorBar img.ar, #hungerBar img.hb {
-  filter:
-    drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000)
-    drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)
-    drop-shadow(1px 1px 0 #000) drop-shadow(1px -1px 0 #000)
-    drop-shadow(-1px 1px 0 #000) drop-shadow(-1px -1px 0 #000);
-}
+/* ================= MC 1.21.1 HUD IKLONLERI (9x9 sprite, GUI scale 2 = 18px) =================
+   MC'de siyah outline sprite'in icinde degil, ARKADAKI koyu katmanla gelir:
+   kalp -> container.png (arka) + full/half.png (ust)
+   aclik -> food_empty.png (arka) + food_full/half.png (ust)
+   Zirh/oksijen sprite'lari kendi outline'ini tasir -> ek islem YOK.
+   Bu yuzden CSS drop-shadow/filter KULLANILMAZ (MC'de de yoktur). */
+:root { --hotbar-w: 570px; --hud-icon: 18px; }
 
-/* ================= HUNGER BAR (MC: sag altta, kalplerle hizali) ================= */
+/* Ikon yuvasi: koyu arka + ust katman */
+.hud-slot {
+  position: relative;
+  display: inline-block;
+  width: var(--hud-icon);
+  height: var(--hud-icon);
+  margin-right: 1px;
+  vertical-align: bottom;
+  line-height: 0;
+}
+.hud-slot img {
+  width: var(--hud-icon);
+  height: var(--hud-icon);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.hud-slot .hud-base { position: absolute; left: 0; top: 0; }
+.hud-slot .hud-top { position: relative; display: block; }
+
+/* Aclik barı: MC'de sağ altta, kalplerle hizalı */
 #hungerBar {
   position: fixed;
   bottom: 96px;
@@ -1790,26 +1801,11 @@ body.at-border::after {
   pointer-events: none;
   user-select: none;
   white-space: nowrap;
-  line-height: 1;
+  line-height: 0;
 }
 #hungerBar.hidden { display: none !important; }
-#hungerBar img.hb {
-  width: 19px; height: 19px;
-  image-rendering: pixelated;
-  margin-right: 1px;
-  vertical-align: bottom;
-}
-#hungerBar.starving img.hb {
-  animation: hbBlink 0.5s steps(2) infinite;
-  /* outline'u koruyarak parlaklık değişir */
-  filter:
-    brightness(0.6)
-    drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000)
-    drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)
-    drop-shadow(1px 1px 0 #000) drop-shadow(1px -1px 0 #000)
-    drop-shadow(-1px 1px 0 #000) drop-shadow(-1px -1px 0 #000) !important;
-}
-@keyframes hbBlink { 0%,100% { filter: brightness(1); } 50% { filter: brightness(0.35); } }
+#hungerBar.starving .hud-slot { animation: hbBlink 0.5s steps(2) infinite; }
+@keyframes hbBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* XP bar: hotbar ile birebir genislik */
 #xpContainer { width: var(--hotbar-w) !important; bottom: 84px !important; }

@@ -37,7 +37,11 @@ Tarayıcı tabanlı 3D voksel oyunu — Minecraft tarzı, Three.js ile yazıldı
     düşme hasarı dahil tüm hasarda geçer, lav düşüşü hasarsız (suya düşüş gibi)
   - **Lava'ya girilebilir**: 1 blok yüksek lav boşluğunda lavdalı yüzmeye benzer davranış;
     tavanlı alanlarda kafa katı bloklara kliplenmez (su fiziğinin lavla aynı MSC dalı)
-  - **HUD sprite seti**: kalp / oksijen / zırh / **açlık** / XP (Faithful 1.21.1) — tüm HUD ikonlarına MC 1.21.1 tarzı ince siyah outline
+  - **HUD sprite seti**: kalp / oksijen / zırh / **açlık** / XP (Faithful 1.21.1) —
+    **MC 1.21.1 HUD çizimi birebir**: 9×9 sprite'lar GUI ölçeği 2 ile 18px,
+    kalp/açlık ikonlarında koyu "container" katmanı arkada + dolu/yarım ikon üstte
+    (MC'deki `defraw_heart` mantığı; CSS gölge/filtre **yok** — MC'de de yok),
+    zırh ve oksijen sprite'ları kendi outline'ını taşır
   - **Açlık sistemi (MC 1.21.1)**: 20 açlık puanı (10 ikon, yarım-tam desteği), doygunluk, yorulma sistemi;
     sprint için açlık > 6 gerekir; açlık ≥ 18 iken 1 HP / 4sn can yenilenir; açlık 0'da can en fazla 1 kalır
     (Normal kural: açlıktan ölünmez); hayatta kalmada açlık sadece envanterle kaydedilir
